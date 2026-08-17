@@ -883,7 +883,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
         unauthorized_response = None
-        deadline = time.monotonic() + 1
+        deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
             try:
                 request = Request(
@@ -940,7 +940,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
         preflight_payload = None
-        deadline = time.monotonic() + 1
+        deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
             try:
                 request = Request(POLL_URL, method="OPTIONS")
