@@ -186,7 +186,7 @@ def make_handler(state, auth_token=None):
             if not self._is_authorized():
                 self._send_json(401, {"error": "Unauthorized"})
                 return
-            self._send_json(200, {"command": state["command"]})
+            self._send_json(200, {"actionRequest": state["action_request"]})
 
         def do_POST(self):
             if self.path != "/result":
@@ -201,7 +201,7 @@ def make_handler(state, auth_token=None):
             except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
                 self._send_json(400, {"error": "Invalid JSON"})
                 return
-            if payload.get("requestId") != state["command"]["requestId"]:
+            if payload.get("requestId") != state["action_request"]["requestId"]:
                 self._send_json(409, {"error": "Unknown requestId"})
                 return
             state["result"] = payload.get("result")
@@ -270,9 +270,9 @@ def check_options(raw_options):
     return {"timeout_ms": timeout_ms}
 
 
-def ping_addin(auth_token, timeout_ms):
+def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
     state = {
-        "command": {
+        "action_request": {
             "action": "ping",
             "params": {},
             "requestId": "req-{0}".format(secrets.token_urlsafe(18)),
@@ -293,11 +293,36 @@ def ping_addin(auth_token, timeout_ms):
     finally:
         server.server_close()
     result = state["result"]
-    return (
+    if result is None:
+        return "restart_required" if restart_pending else "addin_unavailable"
+    ready = (
         isinstance(result, dict)
         and result.get("success") is True
         and result.get("message") == "pong"
+        and result.get("installDigest") == expected_digest
     )
+    return "ready" if ready else "restart_required"
+
+
+def readiness_context(action=None, operation=None):
+    try:
+        install_result = addon_installer.install()
+    except addon_installer.AddinInstallError as error:
+        raise RunnerError(
+            error.code,
+            error.message,
+            error.retryable,
+            action=action,
+            operation=operation,
+        )
+    platform_name = install_result["platform"]
+    return {
+        "install": install_result,
+        "wps_running": addon_installer.wps_is_running(platform_name),
+        "auth_token": addon_installer.auth_token(platform_name),
+        "source_digest": addon_installer.source_digest(),
+        "restart_pending": addon_installer.restart_is_pending(platform_name),
+    }
 
 
 def invoke(request):
@@ -316,12 +341,8 @@ def invoke(request):
         raise RunnerError(
             "INVALID_PARAMS", params_problem, False, action_name
         )
-    try:
-        install_result = addon_installer.install()
-    except addon_installer.AddinInstallError as error:
-        raise RunnerError(
-            error.code, error.message, error.retryable, action_name
-        )
+    readiness = readiness_context(action=action_name)
+    install_result = readiness["install"]
     if install_result["restart_required"]:
         raise RunnerError(
             "WPS_RESTART_REQUIRED",
@@ -329,17 +350,24 @@ def invoke(request):
             True,
             action_name,
         )
-    if not addon_installer.wps_is_running(install_result["platform"]):
+    if not readiness["wps_running"]:
         raise RunnerError(
             "WPS_NOT_RUNNING",
             "WPS Office is not running",
             True,
             action_name,
         )
-    auth_token = addon_installer.auth_token(install_result["platform"])
+    if readiness["restart_pending"]:
+        raise RunnerError(
+            "WPS_RESTART_REQUIRED",
+            "WPS Add-in was installed or updated; restart WPS Office before retrying",
+            True,
+            action_name,
+        )
+    auth_token = readiness["auth_token"]
     timeout_ms = request.get("timeout_ms", 30000)
     state = {
-        "command": {
+        "action_request": {
             "action": action_name,
             "params": params,
             "requestId": "req-{0}".format(secrets.token_urlsafe(18)),
@@ -399,7 +427,11 @@ def invoke(request):
     if "data" in result:
         data = result["data"]
     else:
-        data = {key: value for key, value in result.items() if key != "success"}
+        data = {
+            key: value
+            for key, value in result.items()
+            if key not in ("success", "installDigest")
+        }
     result_problem = validate_contract(data, action["result"], "result")
     if result_problem:
         raise RunnerError(
@@ -428,15 +460,8 @@ def main(argv):
         return 0
     if 2 <= len(argv) <= 3 and argv[1] == "check":
         options = check_options(argv[2] if len(argv) == 3 else None)
-        try:
-            install_result = addon_installer.install()
-        except addon_installer.AddinInstallError as error:
-            raise RunnerError(
-                error.code,
-                error.message,
-                error.retryable,
-                operation="check",
-            )
+        readiness = readiness_context(operation="check")
+        install_result = readiness["install"]
         if install_result["restart_required"]:
             check_result = {
                 "status": "restart_required",
@@ -445,7 +470,7 @@ def main(argv):
                 "platform": install_result["platform"],
                 "architecture": install_result["architecture"],
             }
-        elif not addon_installer.wps_is_running(install_result["platform"]):
+        elif not readiness["wps_running"]:
             check_result = {
                 "status": "wps_not_running",
                 "ready": False,
@@ -454,14 +479,23 @@ def main(argv):
                 "architecture": install_result["architecture"],
             }
         else:
-            ready = ping_addin(
-                addon_installer.auth_token(install_result["platform"]),
+            platform_name = install_result["platform"]
+            expected_digest = readiness["source_digest"]
+            status = ping_addin(
+                readiness["auth_token"],
                 options["timeout_ms"],
+                expected_digest,
+                readiness["restart_pending"],
             )
+            ready = status == "ready"
+            if ready:
+                addon_installer.acknowledge_loaded_digest(
+                    platform_name, expected_digest
+                )
             check_result = {
-                "status": "ready" if ready else "addin_unavailable",
+                "status": status,
                 "ready": ready,
-                "restart_required": False,
+                "restart_required": status == "restart_required",
                 "platform": install_result["platform"],
                 "architecture": install_result["architecture"],
             }

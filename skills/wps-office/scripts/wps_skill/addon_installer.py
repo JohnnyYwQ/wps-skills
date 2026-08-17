@@ -139,6 +139,42 @@ def auth_token(platform_name):
     return _credential(platform_name)
 
 
+def source_digest():
+    """Return the digest the loaded Add-in must acknowledge."""
+    return _source_digest()
+
+
+def restart_is_pending(platform_name):
+    config_path = _config_path(platform_name)
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError):
+        return True
+    return config.get("loaded_digest") != _source_digest()
+
+
+def acknowledge_loaded_digest(platform_name, loaded_digest):
+    expected_digest = _source_digest()
+    if loaded_digest != expected_digest:
+        return False
+    config_path = _config_path(platform_name)
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError) as error:
+        raise AddinInstallError(
+            "INVALID_AUTH_CONFIG",
+            "The WPS Skill authentication config is invalid: {0}".format(error),
+        )
+    if config.get("loaded_digest") == loaded_digest:
+        return True
+    config["loaded_digest"] = loaded_digest
+    _write_private_text(
+        config_path,
+        json.dumps(config, ensure_ascii=False, separators=(",", ":")) + "\n",
+    )
+    return True
+
+
 def wps_is_running(platform_name):
     test_value = os.environ.get("WPS_SKILL_TEST_WPS_RUNNING")
     if test_value is not None:
@@ -207,8 +243,11 @@ def _source_digest():
     return _tree_digest(ADDIN_SOURCE)
 
 
-def _runtime_config_content(auth_token):
-    return "var WPS_SKILL_AUTH_TOKEN = {0};\n".format(json.dumps(auth_token))
+def _runtime_config_content(auth_token, source_digest):
+    return (
+        "var WPS_SKILL_AUTH_TOKEN = {0};\n"
+        "var WPS_SKILL_INSTALL_DIGEST = {1};\n"
+    ).format(json.dumps(auth_token), json.dumps(source_digest))
 
 
 def _installed_metadata(addon_path):
@@ -275,8 +314,12 @@ def _remove_path(path):
 
 def _recover_interrupted_install(addons_directory, addon_path, registry_path):
     marker = addons_directory / TRANSACTION_MARKER
+    addon_backup = addons_directory / ADDIN_BACKUP
+    registry_backup = addons_directory / REGISTRY_BACKUP
     if not marker.exists():
-        return
+        _remove_path(addon_backup)
+        _remove_path(registry_backup)
+        return False
     try:
         transaction = json.loads(marker.read_text(encoding="utf-8"))
     except (OSError, TypeError, ValueError) as error:
@@ -284,8 +327,11 @@ def _recover_interrupted_install(addons_directory, addon_path, registry_path):
             "INCOMPLETE_ADDIN_INSTALL",
             "The prior WPS Add-in update could not be recovered: {0}".format(error),
         )
-    addon_backup = addons_directory / ADDIN_BACKUP
-    registry_backup = addons_directory / REGISTRY_BACKUP
+    if transaction.get("phase") == "committed":
+        _remove_path(addon_backup)
+        _remove_path(registry_backup)
+        marker.unlink()
+        return True
     if transaction.get("replace_addon"):
         if transaction.get("had_addon") and addon_backup.exists():
             _remove_path(addon_path)
@@ -298,6 +344,7 @@ def _recover_interrupted_install(addons_directory, addon_path, registry_path):
         elif not transaction.get("had_registry"):
             _remove_path(registry_path)
     marker.unlink()
+    return False
 
 
 def _load_registry(registry_path):
@@ -361,6 +408,22 @@ def _stage_registry(tree, registry_path):
         raise
 
 
+def _atomic_copy_file(source, destination, validate_xml=False):
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=".{0}.".format(destination.name), dir=str(destination.parent)
+    )
+    os.close(descriptor)
+    temporary_path = Path(temporary_name)
+    try:
+        shutil.copy2(str(source), str(temporary_path))
+        if validate_xml:
+            ElementTree.parse(str(temporary_path))
+        os.replace(str(temporary_path), str(destination))
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+
 def _commit_install(
     addons_directory,
     addon_path,
@@ -373,6 +436,10 @@ def _commit_install(
     registry_backup = addons_directory / REGISTRY_BACKUP
     had_addon = addon_path.exists()
     had_registry = registry_path.exists()
+    _remove_path(addon_backup)
+    _remove_path(registry_backup)
+    if staged_registry is not None and had_registry:
+        _atomic_copy_file(registry_path, registry_backup, validate_xml=True)
     _write_private_text(
         marker,
         json.dumps(
@@ -381,6 +448,7 @@ def _commit_install(
                 "had_registry": had_registry,
                 "replace_addon": staged_addon is not None,
                 "replace_registry": staged_registry is not None,
+                "phase": "prepared",
             },
             separators=(",", ":"),
         )
@@ -392,17 +460,36 @@ def _commit_install(
                 os.replace(str(addon_path), str(addon_backup))
             os.replace(str(staged_addon), str(addon_path))
         if staged_registry is not None:
-            if had_registry:
-                shutil.copy2(str(registry_path), str(registry_backup))
             os.replace(str(staged_registry), str(registry_path))
             if had_registry:
-                shutil.copy2(str(registry_backup), str(registry_path) + ".bak")
+                _atomic_copy_file(
+                    registry_backup,
+                    Path(str(registry_path) + ".bak"),
+                    validate_xml=True,
+                )
+        _write_private_text(
+            marker,
+            json.dumps(
+                {
+                    "had_addon": had_addon,
+                    "had_registry": had_registry,
+                    "replace_addon": staged_addon is not None,
+                    "replace_registry": staged_registry is not None,
+                    "phase": "committed",
+                },
+                separators=(",", ":"),
+            )
+            + "\n",
+        )
         _remove_path(addon_backup)
         _remove_path(registry_backup)
         marker.unlink()
     except BaseException:
-        _recover_interrupted_install(addons_directory, addon_path, registry_path)
-        raise
+        committed = _recover_interrupted_install(
+            addons_directory, addon_path, registry_path
+        )
+        if not committed:
+            raise
 
 
 def _install():
@@ -417,7 +504,7 @@ def _install():
     _load_registry(registry_path)
     auth_token = _credential(platform_name)
     source_digest = _source_digest()
-    runtime_config = _runtime_config_content(auth_token)
+    runtime_config = _runtime_config_content(auth_token, source_digest)
     existed = addon_path.exists()
     addon_changed = not _addon_is_current(
         addon_path, source_digest, runtime_config

@@ -8,6 +8,6 @@
 - `scripts/wps_skill/addon_installer.py`：在 Linux/Windows 用户配置目录幂等安装 WPS Add-in、安全合并 `publish.xml` 并管理本机认证配置。
 - `assets/wps-addin/`：Linux x86_64、Linux ARM64、Windows x86_64 和 Windows ARM64 共用的 WPS Add-in 资源。
 
-`check` 会在首次使用或资源变化时原子安装 Add-in，并返回 `ready`、`restart_required`、`wps_not_running` 或 `addin_unavailable`。认证凭证只写入用户配置与已安装 Add-in，不通过标准输出返回。
+`check` 会在首次使用或资源变化时原子安装 Add-in，并返回 `ready`、`restart_required`、`wps_not_running` 或 `addin_unavailable`。安装摘要会保持 `restart_required`，直到 WPS 中已加载的 Add-in 通过认证 ping 回报相同摘要。认证凭证只写入用户配置与已安装 Add-in，不通过标准输出返回。
 
 修改目录结构、Runner 进程契约或 WPS Action 调用流程时同步更新此文件。

@@ -42,7 +42,7 @@ class FakeAddin:
     def __init__(self, result, auth_token=None):
         self.result = result
         self.auth_token = auth_token or AUTH_TOKEN
-        self.command = None
+        self.action_request = None
         self.error = None
         self.finished = threading.Event()
         self.stopped = threading.Event()
@@ -72,14 +72,14 @@ class FakeAddin:
                     time.sleep(0.02)
                     continue
 
-                if "command" not in payload:
+                if "actionRequest" not in payload:
                     time.sleep(0.02)
                     continue
 
-                self.command = payload["command"]
+                self.action_request = payload["actionRequest"]
                 body = json.dumps(
                     {
-                        "requestId": self.command["requestId"],
+                        "requestId": self.action_request["requestId"],
                         "result": self.result,
                     }
                 ).encode("utf-8")
@@ -97,7 +97,7 @@ class FakeAddin:
                 return
             if not self.stopped.is_set():
                 raise AssertionError(
-                    "Runner did not publish a command before the deadline"
+                    "Runner did not publish a WPS Action before the deadline"
                 )
         except BaseException as error:  # surfaced in the test process below
             self.error = error
@@ -140,6 +140,36 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             )
         )
         AUTH_TOKEN = config["auth_token"]
+        digest = json.loads(
+            (
+                profile
+                / ".local/share/Kingsoft/wps/jsaddons/wps-office-skill_/.wps-skill-install.json"
+            ).read_text(encoding="utf-8")
+        )["source_digest"]
+        readiness_addin = FakeAddin(
+            {
+                "success": True,
+                "message": "pong",
+                "timestamp": 1723852800000,
+                "installDigest": digest,
+            }
+        )
+        readiness_addin.start()
+        checked = subprocess.run(
+            [sys.executable, str(RUNNER), "check"],
+            cwd=REPOSITORY_ROOT,
+            env=RUNNER_ENV,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        if not readiness_addin.finished.wait(1):
+            raise AssertionError("Fake Add-in did not finish readiness setup")
+        if readiness_addin.error:
+            raise readiness_addin.error
+        if checked.returncode != 0 or json.loads(checked.stdout)["data"]["status"] != "ready":
+            raise AssertionError(checked.stdout + checked.stderr)
 
     @classmethod
     def tearDownClass(cls):
@@ -299,8 +329,8 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             },
         )
         self.assertEqual(completed.stderr, "")
-        self.assertEqual(addin.command["action"], "ping")
-        self.assertEqual(addin.command["params"], {})
+        self.assertEqual(addin.action_request["action"], "ping")
+        self.assertEqual(addin.action_request["params"], {})
 
         with socket.socket() as released_port:
             released_port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -376,7 +406,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(
             json.loads(completed.stdout)["error"]["code"], "ADDIN_NOT_READY"
         )
-        self.assertIsNone(addin.command)
+        self.assertIsNone(addin.action_request)
 
     def test_unknown_action_is_rejected_before_contacting_the_addin(self):
         with socket.socket() as occupied_port:

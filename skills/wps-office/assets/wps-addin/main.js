@@ -13,6 +13,7 @@
 var CONFIG = {
     SERVER_URL: 'http://127.0.0.1:58891',
     AUTH_TOKEN: typeof WPS_SKILL_AUTH_TOKEN === 'string' ? WPS_SKILL_AUTH_TOKEN : '',
+    INSTALL_DIGEST: typeof WPS_SKILL_INSTALL_DIGEST === 'string' ? WPS_SKILL_INSTALL_DIGEST : '',
     POLL_INTERVAL: 500  // 轮询间隔ms
 };
 
@@ -66,8 +67,8 @@ function poll() {
             if (xhr.status === 200) {
                 try {
                     var response = JSON.parse(xhr.responseText);
-                    if (response.command) {
-                        handleCommand(response.command);
+                    if (response.actionRequest) {
+                        handleAction(response.actionRequest);
                     }
                 } catch (e) {
                     console.error('解析响应失败:', e);
@@ -148,15 +149,15 @@ function getAppType() {
 
 // ==================== WPS Action 处理 ====================
 
-function handleCommand(cmd) {
-    console.log('收到 WPS Action:', cmd.action);
+function handleAction(actionRequest) {
+    console.log('收到 WPS Action:', actionRequest.action);
     var result;
 
     try {
-        switch (cmd.action) {
+        switch (actionRequest.action) {
             // 通用
             case 'ping':
-                result = { success: true, message: 'pong', timestamp: Date.now() };
+                result = { success: true, message: 'pong', timestamp: Date.now(), installDigest: CONFIG.INSTALL_DIGEST };
                 break;
             case 'wireCheck':
                 result = { success: true, message: 'WPS Platform Bridge 已连接' };
@@ -168,7 +169,7 @@ function handleCommand(cmd) {
                 result = handleGetSelectedText();
                 break;
             case 'setSelectedText':
-                result = handleSetSelectedText(cmd.params);
+                result = handleSetSelectedText(actionRequest.params);
                 break;
 
             // Excel
@@ -176,19 +177,19 @@ function handleCommand(cmd) {
                 result = handleGetActiveWorkbook();
                 break;
             case 'getCellValue':
-                result = handleGetCellValue(cmd.params);
+                result = handleGetCellValue(actionRequest.params);
                 break;
             case 'setCellValue':
-                result = handleSetCellValue(cmd.params);
+                result = handleSetCellValue(actionRequest.params);
                 break;
             case 'getRangeData':
-                result = handleGetRangeData(cmd.params);
+                result = handleGetRangeData(actionRequest.params);
                 break;
             case 'setRangeData':
-                result = handleSetRangeData(cmd.params);
+                result = handleSetRangeData(actionRequest.params);
                 break;
             case 'setFormula':
-                result = handleSetFormula(cmd.params);
+                result = handleSetFormula(actionRequest.params);
                 break;
 
             // Word
@@ -196,19 +197,19 @@ function handleCommand(cmd) {
                 result = handleGetActiveDocument();
                 break;
             case 'getOpenDocuments':
-                result = handleGetOpenDocuments(cmd.params);
+                result = handleGetOpenDocuments(actionRequest.params);
                 break;
             case 'switchDocument':
-                result = handleSwitchDocument(cmd.params);
+                result = handleSwitchDocument(actionRequest.params);
                 break;
             case 'openDocument':
-                result = handleOpenDocument(cmd.params);
+                result = handleOpenDocument(actionRequest.params);
                 break;
             case 'getDocumentText':
                 result = handleGetDocumentText();
                 break;
             case 'insertText':
-                result = handleInsertText(cmd.params);
+                result = handleInsertText(actionRequest.params);
                 break;
 
             // PPT
@@ -216,719 +217,719 @@ function handleCommand(cmd) {
                 result = handleGetActivePresentation();
                 break;
             case 'addSlide':
-                result = handleAddSlide(cmd.params);
+                result = handleAddSlide(actionRequest.params);
                 break;
             case 'unifyFont':
-                result = handleUnifyFont(cmd.params);
+                result = handleUnifyFont(actionRequest.params);
                 break;
             case 'beautifySlide':
-                result = handleBeautifySlide(cmd.params);
+                result = handleBeautifySlide(actionRequest.params);
                 break;
 
             // PPT 演示文稿操作
             case 'createPresentation':
-                result = handleCreatePresentation(cmd.params);
+                result = handleCreatePresentation(actionRequest.params);
                 break;
             case 'openPresentation':
-                result = handleOpenPresentation(cmd.params);
+                result = handleOpenPresentation(actionRequest.params);
                 break;
             case 'closePresentation':
-                result = handleClosePresentation(cmd.params);
+                result = handleClosePresentation(actionRequest.params);
                 break;
             case 'getOpenPresentations':
-                result = handleGetOpenPresentations(cmd.params);
+                result = handleGetOpenPresentations(actionRequest.params);
                 break;
             case 'switchPresentation':
-                result = handleSwitchPresentation(cmd.params);
+                result = handleSwitchPresentation(actionRequest.params);
                 break;
 
             // PPT 幻灯片操作
             case 'deleteSlide':
-                result = handleDeleteSlide(cmd.params);
+                result = handleDeleteSlide(actionRequest.params);
                 break;
             case 'duplicateSlide':
-                result = handleDuplicateSlide(cmd.params);
+                result = handleDuplicateSlide(actionRequest.params);
                 break;
             case 'moveSlide':
-                result = handleMoveSlide(cmd.params);
+                result = handleMoveSlide(actionRequest.params);
                 break;
             case 'getSlideCount':
-                result = handleGetSlideCount(cmd.params);
+                result = handleGetSlideCount(actionRequest.params);
                 break;
             case 'getSlideInfo':
-                result = handleGetSlideInfo(cmd.params);
+                result = handleGetSlideInfo(actionRequest.params);
                 break;
             case 'switchSlide':
-                result = handleSwitchSlide(cmd.params);
+                result = handleSwitchSlide(actionRequest.params);
                 break;
             case 'setSlideLayout':
-                result = handleSetSlideLayout(cmd.params);
+                result = handleSetSlideLayout(actionRequest.params);
                 break;
             case 'getSlideNotes':
-                result = handleGetSlideNotes(cmd.params);
+                result = handleGetSlideNotes(actionRequest.params);
                 break;
             case 'setSlideNotes':
-                result = handleSetSlideNotes(cmd.params);
+                result = handleSetSlideNotes(actionRequest.params);
                 break;
 
             // PPT 文本框操作
             case 'addTextBox':
-                result = handleAddTextBox(cmd.params);
+                result = handleAddTextBox(actionRequest.params);
                 break;
             case 'deleteTextBox':
-                result = handleDeleteTextBox(cmd.params);
+                result = handleDeleteTextBox(actionRequest.params);
                 break;
             case 'getTextBoxes':
-                result = handleGetTextBoxes(cmd.params);
+                result = handleGetTextBoxes(actionRequest.params);
                 break;
             case 'setTextBoxText':
-                result = handleSetTextBoxText(cmd.params);
+                result = handleSetTextBoxText(actionRequest.params);
                 break;
             case 'setTextBoxStyle':
-                result = handleSetTextBoxStyle(cmd.params);
+                result = handleSetTextBoxStyle(actionRequest.params);
                 break;
 
             // PPT 标题操作
             case 'setSlideTitle':
-                result = handleSetSlideTitle(cmd.params);
+                result = handleSetSlideTitle(actionRequest.params);
                 break;
             case 'getSlideTitle':
-                result = handleGetSlideTitle(cmd.params);
+                result = handleGetSlideTitle(actionRequest.params);
                 break;
             case 'setSlideSubtitle':
-                result = handleSetSlideSubtitle(cmd.params);
+                result = handleSetSlideSubtitle(actionRequest.params);
                 break;
             case 'setSlideContent':
-                result = handleSetSlideContent(cmd.params);
+                result = handleSetSlideContent(actionRequest.params);
                 break;
 
             // PPT 形状操作
             case 'addShape':
-                result = handleAddShape(cmd.params);
+                result = handleAddShape(actionRequest.params);
                 break;
             case 'deleteShape':
-                result = handleDeleteShape(cmd.params);
+                result = handleDeleteShape(actionRequest.params);
                 break;
             case 'getShapes':
-                result = handleGetShapes(cmd.params);
+                result = handleGetShapes(actionRequest.params);
                 break;
             case 'setShapeStyle':
-                result = handleSetShapeStyle(cmd.params);
+                result = handleSetShapeStyle(actionRequest.params);
                 break;
             case 'setShapeText':
-                result = handleSetShapeText(cmd.params);
+                result = handleSetShapeText(actionRequest.params);
                 break;
             case 'setShapePosition':
-                result = handleSetShapePosition(cmd.params);
+                result = handleSetShapePosition(actionRequest.params);
                 break;
 
             // PPT 图片操作
             case 'insertPptImage':
-                result = handleInsertPptImage(cmd.params);
+                result = handleInsertPptImage(actionRequest.params);
                 break;
             case 'deletePptImage':
-                result = handleDeletePptImage(cmd.params);
+                result = handleDeletePptImage(actionRequest.params);
                 break;
             case 'setImageStyle':
-                result = handleSetImageStyle(cmd.params);
+                result = handleSetImageStyle(actionRequest.params);
                 break;
             case 'exportSlideAsImage':
-                result = handleExportSlideAsImage(cmd.params);
+                result = handleExportSlideAsImage(actionRequest.params);
                 break;
 
             // PPT 表格操作
             case 'insertPptTable':
-                result = handleInsertPptTable(cmd.params);
+                result = handleInsertPptTable(actionRequest.params);
                 break;
             case 'setPptTableCell':
-                result = handleSetPptTableCell(cmd.params);
+                result = handleSetPptTableCell(actionRequest.params);
                 break;
             case 'getPptTableCell':
-                result = handleGetPptTableCell(cmd.params);
+                result = handleGetPptTableCell(actionRequest.params);
                 break;
             case 'setPptTableStyle':
-                result = handleSetPptTableStyle(cmd.params);
+                result = handleSetPptTableStyle(actionRequest.params);
                 break;
             case 'setPptTableCellStyle':
-                result = handleSetPptTableCellStyle(cmd.params);
+                result = handleSetPptTableCellStyle(actionRequest.params);
                 break;
             case 'setPptTableRowStyle':
-                result = handleSetPptTableRowStyle(cmd.params);
+                result = handleSetPptTableRowStyle(actionRequest.params);
                 break;
             case 'setShapeShadow':
-                result = handleSetShapeShadow(cmd.params);
+                result = handleSetShapeShadow(actionRequest.params);
                 break;
             case 'setBackgroundGradient':
-                result = handleSetBackgroundGradient(cmd.params);
+                result = handleSetBackgroundGradient(actionRequest.params);
                 break;
             case 'setShapeGradient':
-                result = handleSetShapeGradient(cmd.params);
+                result = handleSetShapeGradient(actionRequest.params);
                 break;
             case 'setShapeBorder':
-                result = handleSetShapeBorder(cmd.params);
+                result = handleSetShapeBorder(actionRequest.params);
                 break;
             case 'setShapeTransparency':
-                result = handleSetShapeTransparency(cmd.params);
+                result = handleSetShapeTransparency(actionRequest.params);
                 break;
             case 'setShapeRoundness':
-                result = handleSetShapeRoundness(cmd.params);
+                result = handleSetShapeRoundness(actionRequest.params);
                 break;
             case 'setShapeFullStyle':
-                result = handleSetShapeFullStyle(cmd.params);
+                result = handleSetShapeFullStyle(actionRequest.params);
                 break;
             case 'alignShapes':
-                result = handleAlignShapes(cmd.params);
+                result = handleAlignShapes(actionRequest.params);
                 break;
             case 'distributeShapes':
-                result = handleDistributeShapes(cmd.params);
+                result = handleDistributeShapes(actionRequest.params);
                 break;
             case 'groupShapes':
-                result = handleGroupShapes(cmd.params);
+                result = handleGroupShapes(actionRequest.params);
                 break;
             case 'duplicateShape':
-                result = handleDuplicateShape(cmd.params);
+                result = handleDuplicateShape(actionRequest.params);
                 break;
             case 'setShapeZOrder':
-                result = handleSetShapeZOrder(cmd.params);
+                result = handleSetShapeZOrder(actionRequest.params);
                 break;
             case 'addConnector':
-                result = handleAddConnector(cmd.params);
+                result = handleAddConnector(actionRequest.params);
                 break;
             case 'addArrow':
-                result = handleAddArrow(cmd.params);
+                result = handleAddArrow(actionRequest.params);
                 break;
 
             // PPT 专业美化 Action
             case 'applyColorScheme':
-                result = handleApplyColorScheme(cmd.params);
+                result = handleApplyColorScheme(actionRequest.params);
                 break;
             case 'autoBeautifySlide':
-                result = handleAutoBeautifySlide(cmd.params);
+                result = handleAutoBeautifySlide(actionRequest.params);
                 break;
             case 'createKpiCards':
-                result = handleCreateKpiCards(cmd.params);
+                result = handleCreateKpiCards(actionRequest.params);
                 break;
             case 'createStyledTable':
-                result = handleCreateStyledTable(cmd.params);
+                result = handleCreateStyledTable(actionRequest.params);
                 break;
             case 'addTitleDecoration':
-                result = handleAddTitleDecoration(cmd.params);
+                result = handleAddTitleDecoration(actionRequest.params);
                 break;
             case 'addPageIndicator':
-                result = handleAddPageIndicator(cmd.params);
+                result = handleAddPageIndicator(actionRequest.params);
                 break;
             case 'beautifyAllSlides':
-                result = handleBeautifyAllSlides(cmd.params);
+                result = handleBeautifyAllSlides(actionRequest.params);
                 break;
 
             // PPT 高端能力 - 数据可视化组件
             case 'createProgressBar':
-                result = handleCreateProgressBar(cmd.params);
+                result = handleCreateProgressBar(actionRequest.params);
                 break;
             case 'createGauge':
-                result = handleCreateGauge(cmd.params);
+                result = handleCreateGauge(actionRequest.params);
                 break;
             case 'createMiniCharts':
-                result = handleCreateMiniCharts(cmd.params);
+                result = handleCreateMiniCharts(actionRequest.params);
                 break;
             case 'createDonutChart':
-                result = handleCreateDonutChart(cmd.params);
+                result = handleCreateDonutChart(actionRequest.params);
                 break;
 
             // PPT 高端能力 - 智能布局 Action
             case 'autoLayout':
-                result = handleAutoLayout(cmd.params);
+                result = handleAutoLayout(actionRequest.params);
                 break;
             case 'smartDistribute':
-                result = handleSmartDistribute(cmd.params);
+                result = handleSmartDistribute(actionRequest.params);
                 break;
             case 'createGrid':
-                result = handleCreateGrid(cmd.params);
+                result = handleCreateGrid(actionRequest.params);
                 break;
 
             // PPT 高端能力 - 高级动画组合
             case 'addAnimationPreset':
-                result = handleAddAnimationPreset(cmd.params);
+                result = handleAddAnimationPreset(actionRequest.params);
                 break;
             case 'addEmphasisAnimation':
-                result = handleAddEmphasisAnimation(cmd.params);
+                result = handleAddEmphasisAnimation(actionRequest.params);
                 break;
 
             // PPT 高端能力 - 流程图/组织架构图
             case 'createFlowChart':
-                result = handleCreateFlowChart(cmd.params);
+                result = handleCreateFlowChart(actionRequest.params);
                 break;
             case 'createOrgChart':
-                result = handleCreateOrgChart(cmd.params);
+                result = handleCreateOrgChart(actionRequest.params);
                 break;
             case 'createTimeline':
-                result = handleCreateTimeline(cmd.params);
+                result = handleCreateTimeline(actionRequest.params);
                 break;
 
             // PPT 高端能力 - 母版操作
             case 'getSlideMaster':
-                result = handleGetSlideMaster(cmd.params);
+                result = handleGetSlideMaster(actionRequest.params);
                 break;
             case 'setMasterBackground':
-                result = handleSetMasterBackground(cmd.params);
+                result = handleSetMasterBackground(actionRequest.params);
                 break;
             case 'addMasterElement':
-                result = handleAddMasterElement(cmd.params);
+                result = handleAddMasterElement(actionRequest.params);
                 break;
 
             // PPT 高端能力 - 3D效果
             case 'set3DRotation':
-                result = handleSet3DRotation(cmd.params);
+                result = handleSet3DRotation(actionRequest.params);
                 break;
             case 'set3DDepth':
-                result = handleSet3DDepth(cmd.params);
+                result = handleSet3DDepth(actionRequest.params);
                 break;
             case 'set3DMaterial':
-                result = handleSet3DMaterial(cmd.params);
+                result = handleSet3DMaterial(actionRequest.params);
                 break;
             case 'create3DText':
-                result = handleCreate3DText(cmd.params);
+                result = handleCreate3DText(actionRequest.params);
                 break;
 
             // PPT 图表操作
             case 'insertPptChart':
-                result = handleInsertPptChart(cmd.params);
+                result = handleInsertPptChart(actionRequest.params);
                 break;
             case 'setPptChartData':
-                result = handleSetPptChartData(cmd.params);
+                result = handleSetPptChartData(actionRequest.params);
                 break;
             case 'setPptChartStyle':
-                result = handleSetPptChartStyle(cmd.params);
+                result = handleSetPptChartStyle(actionRequest.params);
                 break;
 
             // PPT 动画效果
             case 'addAnimation':
-                result = handleAddAnimation(cmd.params);
+                result = handleAddAnimation(actionRequest.params);
                 break;
             case 'removeAnimation':
-                result = handleRemoveAnimation(cmd.params);
+                result = handleRemoveAnimation(actionRequest.params);
                 break;
             case 'getAnimations':
-                result = handleGetAnimations(cmd.params);
+                result = handleGetAnimations(actionRequest.params);
                 break;
             case 'setAnimationOrder':
-                result = handleSetAnimationOrder(cmd.params);
+                result = handleSetAnimationOrder(actionRequest.params);
                 break;
 
             // PPT 切换效果
             case 'setSlideTransition':
-                result = handleSetSlideTransition(cmd.params);
+                result = handleSetSlideTransition(actionRequest.params);
                 break;
             case 'removeSlideTransition':
-                result = handleRemoveSlideTransition(cmd.params);
+                result = handleRemoveSlideTransition(actionRequest.params);
                 break;
             case 'applyTransitionToAll':
-                result = handleApplyTransitionToAll(cmd.params);
+                result = handleApplyTransitionToAll(actionRequest.params);
                 break;
 
             // PPT 主题/背景
             case 'setSlideBackground':
-                result = handleSetSlideBackground(cmd.params);
+                result = handleSetSlideBackground(actionRequest.params);
                 break;
             case 'setBackgroundColor':
-                result = handleSetBackgroundColor(cmd.params);
+                result = handleSetBackgroundColor(actionRequest.params);
                 break;
             case 'setBackgroundImage':
-                result = handleSetBackgroundImage(cmd.params);
+                result = handleSetBackgroundImage(actionRequest.params);
                 break;
 
             // PPT 超链接
             case 'addPptHyperlink':
-                result = handleAddPptHyperlink(cmd.params);
+                result = handleAddPptHyperlink(actionRequest.params);
                 break;
             case 'removePptHyperlink':
-                result = handleRemovePptHyperlink(cmd.params);
+                result = handleRemovePptHyperlink(actionRequest.params);
                 break;
 
             // PPT 页眉页脚
             case 'setSlideNumber':
-                result = handleSetSlideNumber(cmd.params);
+                result = handleSetSlideNumber(actionRequest.params);
                 break;
             case 'setPptFooter':
-                result = handleSetPptFooter(cmd.params);
+                result = handleSetPptFooter(actionRequest.params);
                 break;
             case 'setPptDateTime':
-                result = handleSetPptDateTime(cmd.params);
+                result = handleSetPptDateTime(actionRequest.params);
                 break;
 
             // PPT 查找替换
             case 'findPptText':
-                result = handleFindPptText(cmd.params);
+                result = handleFindPptText(actionRequest.params);
                 break;
             case 'replacePptText':
-                result = handleReplacePptText(cmd.params);
+                result = handleReplacePptText(actionRequest.params);
                 break;
 
             // PPT 放映
             case 'startSlideShow':
-                result = handleStartSlideShow(cmd.params);
+                result = handleStartSlideShow(actionRequest.params);
                 break;
             case 'endSlideShow':
-                result = handleEndSlideShow(cmd.params);
+                result = handleEndSlideShow(actionRequest.params);
                 break;
 
             // Word 高级功能
             case 'findReplace':
-                result = handleFindReplace(cmd.params);
+                result = handleFindReplace(actionRequest.params);
                 break;
             case 'setFont':
-                result = handleSetFont(cmd.params);
+                result = handleSetFont(actionRequest.params);
                 break;
             case 'applyStyle':
-                result = handleApplyStyle(cmd.params);
+                result = handleApplyStyle(actionRequest.params);
                 break;
             case 'insertTable':
-                result = handleInsertTable(cmd.params);
+                result = handleInsertTable(actionRequest.params);
                 break;
             case 'generateTOC':
-                result = handleGenerateTOC(cmd.params);
+                result = handleGenerateTOC(actionRequest.params);
                 break;
             case 'setParagraph':
-                result = handleSetParagraph(cmd.params);
+                result = handleSetParagraph(actionRequest.params);
                 break;
             case 'insertPageBreak':
-                result = handleInsertPageBreak(cmd.params);
+                result = handleInsertPageBreak(actionRequest.params);
                 break;
             case 'setPageSetup':
-                result = handleSetPageSetup(cmd.params);
+                result = handleSetPageSetup(actionRequest.params);
                 break;
             case 'insertHeader':
-                result = handleInsertHeader(cmd.params);
+                result = handleInsertHeader(actionRequest.params);
                 break;
             case 'insertFooter':
-                result = handleInsertFooter(cmd.params);
+                result = handleInsertFooter(actionRequest.params);
                 break;
             case 'insertHyperlink':
-                result = handleInsertHyperlink(cmd.params);
+                result = handleInsertHyperlink(actionRequest.params);
                 break;
             case 'insertBookmark':
-                result = handleInsertBookmark(cmd.params);
+                result = handleInsertBookmark(actionRequest.params);
                 break;
             case 'getBookmarks':
-                result = handleGetBookmarks(cmd.params);
+                result = handleGetBookmarks(actionRequest.params);
                 break;
             case 'addComment':
-                result = handleAddComment(cmd.params);
+                result = handleAddComment(actionRequest.params);
                 break;
             case 'getComments':
-                result = handleGetComments(cmd.params);
+                result = handleGetComments(actionRequest.params);
                 break;
             case 'getDocumentStats':
-                result = handleGetDocumentStats(cmd.params);
+                result = handleGetDocumentStats(actionRequest.params);
                 break;
             case 'insertImage':
-                result = handleInsertImage(cmd.params);
+                result = handleInsertImage(actionRequest.params);
                 break;
 
             // Excel 高级功能
             case 'sortRange':
-                result = handleSortRange(cmd.params);
+                result = handleSortRange(actionRequest.params);
                 break;
             case 'autoFilter':
-                result = handleAutoFilter(cmd.params);
+                result = handleAutoFilter(actionRequest.params);
                 break;
             case 'createChart':
-                result = handleCreateChart(cmd.params);
+                result = handleCreateChart(actionRequest.params);
                 break;
             case 'updateChart':
-                result = handleUpdateChart(cmd.params);
+                result = handleUpdateChart(actionRequest.params);
                 break;
             case 'exportChartAsImage':
-                result = handleExportChartAsImage(cmd.params);
+                result = handleExportChartAsImage(actionRequest.params);
                 break;
             case 'exportRangeAsImage':
-                result = handleExportRangeAsImage(cmd.params);
+                result = handleExportRangeAsImage(actionRequest.params);
                 break;
             case 'createPivotTable':
-                result = handleCreatePivotTable(cmd.params);
+                result = handleCreatePivotTable(actionRequest.params);
                 break;
             case 'updatePivotTable':
-                result = handleUpdatePivotTable(cmd.params);
+                result = handleUpdatePivotTable(actionRequest.params);
                 break;
             case 'removeDuplicates':
-                result = handleRemoveDuplicates(cmd.params);
+                result = handleRemoveDuplicates(actionRequest.params);
                 break;
             case 'cleanData':
-                result = handleCleanData(cmd.params);
+                result = handleCleanData(actionRequest.params);
                 break;
             case 'getContext':
-                result = handleGetContext(cmd.params);
+                result = handleGetContext(actionRequest.params);
                 break;
             case 'diagnoseFormula':
-                result = handleDiagnoseFormula(cmd.params);
+                result = handleDiagnoseFormula(actionRequest.params);
                 break;
 
             // Excel 工作表操作
             case 'createSheet':
-                result = handleCreateSheet(cmd.params);
+                result = handleCreateSheet(actionRequest.params);
                 break;
             case 'deleteSheet':
-                result = handleDeleteSheet(cmd.params);
+                result = handleDeleteSheet(actionRequest.params);
                 break;
             case 'renameSheet':
-                result = handleRenameSheet(cmd.params);
+                result = handleRenameSheet(actionRequest.params);
                 break;
             case 'copySheet':
-                result = handleCopySheet(cmd.params);
+                result = handleCopySheet(actionRequest.params);
                 break;
             case 'getSheetList':
-                result = handleGetSheetList(cmd.params);
+                result = handleGetSheetList(actionRequest.params);
                 break;
             case 'switchSheet':
-                result = handleSwitchSheet(cmd.params);
+                result = handleSwitchSheet(actionRequest.params);
                 break;
             case 'moveSheet':
-                result = handleMoveSheet(cmd.params);
+                result = handleMoveSheet(actionRequest.params);
                 break;
 
             // Excel 单元格格式
             case 'setCellFormat':
-                result = handleSetCellFormat(cmd.params);
+                result = handleSetCellFormat(actionRequest.params);
                 break;
             case 'setCellStyle':
-                result = handleSetCellStyle(cmd.params);
+                result = handleSetCellStyle(actionRequest.params);
                 break;
             case 'mergeCells':
-                result = handleMergeCells(cmd.params);
+                result = handleMergeCells(actionRequest.params);
                 break;
             case 'unmergeCells':
-                result = handleUnmergeCells(cmd.params);
+                result = handleUnmergeCells(actionRequest.params);
                 break;
             case 'setColumnWidth':
-                result = handleSetColumnWidth(cmd.params);
+                result = handleSetColumnWidth(actionRequest.params);
                 break;
             case 'setRowHeight':
-                result = handleSetRowHeight(cmd.params);
+                result = handleSetRowHeight(actionRequest.params);
                 break;
             case 'autoFitColumn':
-                result = handleAutoFitColumn(cmd.params);
+                result = handleAutoFitColumn(actionRequest.params);
                 break;
             case 'autoFitRow':
-                result = handleAutoFitRow(cmd.params);
+                result = handleAutoFitRow(actionRequest.params);
                 break;
             case 'freezePanes':
-                result = handleFreezePanes(cmd.params);
+                result = handleFreezePanes(actionRequest.params);
                 break;
             case 'unfreezePanes':
-                result = handleUnfreezePanes(cmd.params);
+                result = handleUnfreezePanes(actionRequest.params);
                 break;
 
             // Excel 美化增强
             case 'autoFitAll':
-                result = handleAutoFitAll(cmd.params);
+                result = handleAutoFitAll(actionRequest.params);
                 break;
             case 'copyFormat':
-                result = handleCopyFormat(cmd.params);
+                result = handleCopyFormat(actionRequest.params);
                 break;
             case 'clearFormats':
-                result = handleClearFormats(cmd.params);
+                result = handleClearFormats(actionRequest.params);
                 break;
             case 'setBorder':
-                result = handleSetBorder(cmd.params);
+                result = handleSetBorder(actionRequest.params);
                 break;
             case 'setNumberFormat':
-                result = handleSetNumberFormat(cmd.params);
+                result = handleSetNumberFormat(actionRequest.params);
                 break;
 
             // Excel 行列操作
             case 'insertRows':
-                result = handleInsertRows(cmd.params);
+                result = handleInsertRows(actionRequest.params);
                 break;
             case 'insertColumns':
-                result = handleInsertColumns(cmd.params);
+                result = handleInsertColumns(actionRequest.params);
                 break;
             case 'deleteRows':
-                result = handleDeleteRows(cmd.params);
+                result = handleDeleteRows(actionRequest.params);
                 break;
             case 'deleteColumns':
-                result = handleDeleteColumns(cmd.params);
+                result = handleDeleteColumns(actionRequest.params);
                 break;
             case 'hideRows':
-                result = handleHideRows(cmd.params);
+                result = handleHideRows(actionRequest.params);
                 break;
             case 'hideColumns':
-                result = handleHideColumns(cmd.params);
+                result = handleHideColumns(actionRequest.params);
                 break;
             case 'showRows':
-                result = handleShowRows(cmd.params);
+                result = handleShowRows(actionRequest.params);
                 break;
             case 'showColumns':
-                result = handleShowColumns(cmd.params);
+                result = handleShowColumns(actionRequest.params);
                 break;
 
             // Excel 条件格式
             case 'addConditionalFormat':
-                result = handleAddConditionalFormat(cmd.params);
+                result = handleAddConditionalFormat(actionRequest.params);
                 break;
             case 'removeConditionalFormat':
-                result = handleRemoveConditionalFormat(cmd.params);
+                result = handleRemoveConditionalFormat(actionRequest.params);
                 break;
             case 'getConditionalFormats':
-                result = handleGetConditionalFormats(cmd.params);
+                result = handleGetConditionalFormats(actionRequest.params);
                 break;
 
             // Excel 数据验证
             case 'addDataValidation':
-                result = handleAddDataValidation(cmd.params);
+                result = handleAddDataValidation(actionRequest.params);
                 break;
             case 'removeDataValidation':
-                result = handleRemoveDataValidation(cmd.params);
+                result = handleRemoveDataValidation(actionRequest.params);
                 break;
             case 'getDataValidations':
-                result = handleGetDataValidations(cmd.params);
+                result = handleGetDataValidations(actionRequest.params);
                 break;
 
             // Excel 查找替换
             case 'findInSheet':
-                result = handleFindInSheet(cmd.params);
+                result = handleFindInSheet(actionRequest.params);
                 break;
             case 'replaceInSheet':
-                result = handleReplaceInSheet(cmd.params);
+                result = handleReplaceInSheet(actionRequest.params);
                 break;
 
             // Excel 高级数据处理
             case 'copyRange':
-                result = handleCopyRange(cmd.params);
+                result = handleCopyRange(actionRequest.params);
                 break;
             case 'pasteRange':
-                result = handlePasteRange(cmd.params);
+                result = handlePasteRange(actionRequest.params);
                 break;
             case 'fillSeries':
-                result = handleFillSeries(cmd.params);
+                result = handleFillSeries(actionRequest.params);
                 break;
             case 'transpose':
-                result = handleTranspose(cmd.params);
+                result = handleTranspose(actionRequest.params);
                 break;
             case 'textToColumns':
-                result = handleTextToColumns(cmd.params);
+                result = handleTextToColumns(actionRequest.params);
                 break;
             case 'subtotal':
-                result = handleSubtotal(cmd.params);
+                result = handleSubtotal(actionRequest.params);
                 break;
 
             // Excel 命名区域
             case 'createNamedRange':
-                result = handleCreateNamedRange(cmd.params);
+                result = handleCreateNamedRange(actionRequest.params);
                 break;
             case 'deleteNamedRange':
-                result = handleDeleteNamedRange(cmd.params);
+                result = handleDeleteNamedRange(actionRequest.params);
                 break;
             case 'getNamedRanges':
-                result = handleGetNamedRanges(cmd.params);
+                result = handleGetNamedRanges(actionRequest.params);
                 break;
 
             // Excel 批注功能
             case 'addCellComment':
-                result = handleAddCellComment(cmd.params);
+                result = handleAddCellComment(actionRequest.params);
                 break;
             case 'deleteCellComment':
-                result = handleDeleteCellComment(cmd.params);
+                result = handleDeleteCellComment(actionRequest.params);
                 break;
             case 'getCellComments':
-                result = handleGetCellComments(cmd.params);
+                result = handleGetCellComments(actionRequest.params);
                 break;
 
             // Excel 保护功能
             case 'protectSheet':
-                result = handleProtectSheet(cmd.params);
+                result = handleProtectSheet(actionRequest.params);
                 break;
             case 'unprotectSheet':
-                result = handleUnprotectSheet(cmd.params);
+                result = handleUnprotectSheet(actionRequest.params);
                 break;
             case 'protectWorkbook':
-                result = handleProtectWorkbook(cmd.params);
+                result = handleProtectWorkbook(actionRequest.params);
                 break;
 
             // P0 - 财务/金融核心功能
             case 'openWorkbook':
-                result = handleOpenWorkbook(cmd.params);
+                result = handleOpenWorkbook(actionRequest.params);
                 break;
             case 'getOpenWorkbooks':
-                result = handleGetOpenWorkbooks(cmd.params);
+                result = handleGetOpenWorkbooks(actionRequest.params);
                 break;
             case 'switchWorkbook':
-                result = handleSwitchWorkbook(cmd.params);
+                result = handleSwitchWorkbook(actionRequest.params);
                 break;
             case 'closeWorkbook':
-                result = handleCloseWorkbook(cmd.params);
+                result = handleCloseWorkbook(actionRequest.params);
                 break;
             case 'createWorkbook':
-                result = handleCreateWorkbook(cmd.params);
+                result = handleCreateWorkbook(actionRequest.params);
                 break;
             case 'getFormula':
-                result = handleGetFormula(cmd.params);
+                result = handleGetFormula(actionRequest.params);
                 break;
             case 'getCellInfo':
-                result = handleGetCellInfo(cmd.params);
+                result = handleGetCellInfo(actionRequest.params);
                 break;
             case 'clearRange':
-                result = handleClearRange(cmd.params);
+                result = handleClearRange(actionRequest.params);
                 break;
 
             // P1 - 财务/金融重要补充
             case 'refreshLinks':
-                result = handleRefreshLinks(cmd.params);
+                result = handleRefreshLinks(actionRequest.params);
                 break;
             case 'consolidate':
-                result = handleConsolidate(cmd.params);
+                result = handleConsolidate(actionRequest.params);
                 break;
             case 'setArrayFormula':
-                result = handleSetArrayFormula(cmd.params);
+                result = handleSetArrayFormula(actionRequest.params);
                 break;
             case 'calculateSheet':
-                result = handleCalculateSheet(cmd.params);
+                result = handleCalculateSheet(actionRequest.params);
                 break;
             case 'insertExcelImage':
-                result = handleInsertExcelImage(cmd.params);
+                result = handleInsertExcelImage(actionRequest.params);
                 break;
             case 'setHyperlink':
-                result = handleSetHyperlink(cmd.params);
+                result = handleSetHyperlink(actionRequest.params);
                 break;
             case 'wrapText':
-                result = handleWrapText(cmd.params);
+                result = handleWrapText(actionRequest.params);
                 break;
 
             // P2 - 扩展功能
             case 'setPrintArea':
-                result = handleSetPrintArea(cmd.params);
+                result = handleSetPrintArea(actionRequest.params);
                 break;
             case 'getSelection':
-                result = handleGetSelection(cmd.params);
+                result = handleGetSelection(actionRequest.params);
                 break;
             case 'groupRows':
-                result = handleGroupRows(cmd.params);
+                result = handleGroupRows(actionRequest.params);
                 break;
             case 'groupColumns':
-                result = handleGroupColumns(cmd.params);
+                result = handleGroupColumns(actionRequest.params);
                 break;
             case 'lockCells':
-                result = handleLockCells(cmd.params);
+                result = handleLockCells(actionRequest.params);
                 break;
 
             // 通用高级功能
             case 'convertToPDF':
-                result = handleConvertToPDF(cmd.params);
+                result = handleConvertToPDF(actionRequest.params);
                 break;
             case 'save':
-                result = handleSave(cmd.params);
+                result = handleSave(actionRequest.params);
                 break;
             case 'saveAs':
-                result = handleSaveAs(cmd.params);
+                result = handleSaveAs(actionRequest.params);
                 break;
 
             default:
-                result = { success: false, error: '未知 WPS Action: ' + cmd.action };
+                result = { success: false, error: '未知 WPS Action: ' + actionRequest.action };
         }
     } catch (e) {
         result = { success: false, error: 'WPS Action 执行异常: ' + (e.message || String(e)) };
     }
 
-    sendResult(cmd.requestId, result);
+    sendResult(actionRequest.requestId, result);
 }
 
 // ==================== 通用 Handlers ====================

@@ -4,6 +4,6 @@
 
 - `manifest.xml`、`ribbon.xml`：WPS Add-in 注册和功能区入口。
 - `main.js`：轮询 Python Runner、分发 WPS Action 并包含现有行为实现。
-- `wps-skill-config.js`：安装时生成，不进入源目录；保存当前用户的共享本机认证凭证。
+- `wps-skill-config.js`：安装时生成，不进入源目录；保存当前用户的共享本机认证凭证与安装摘要。
 
 修改资源、加载顺序或认证请求头时，应同步更新此文件和 `skills/wps-office/README.md`。旧运行时中的拆分 handler 未被清单加载，因此不进入该分发目录。

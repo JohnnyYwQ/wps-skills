@@ -43,11 +43,11 @@ def run_runner(
         environment["WPS_SKILL_TEST_WPS_RUNNING"] = (
             "1" if wps_running else "0"
         )
-    command = [sys.executable, str(RUNNER), operation]
+    runner_argv = [sys.executable, str(RUNNER), operation]
     if options is not None:
-        command.append(json.dumps(options))
+        runner_argv.append(json.dumps(options))
     return subprocess.run(
-        command,
+        runner_argv,
         cwd=REPOSITORY_ROOT,
         env=environment,
         text=True,
@@ -60,9 +60,10 @@ def run_runner(
 class FakeReadinessAddin:
     """Poll the public readiness protocol as an installed WPS Add-in."""
 
-    def __init__(self, auth_token):
+    def __init__(self, auth_token, install_digest):
         self.auth_token = auth_token
-        self.command = None
+        self.install_digest = install_digest
+        self.action_request = None
         self.error = None
         self.finished = threading.Event()
         self.stopped = threading.Event()
@@ -96,17 +97,18 @@ class FakeReadinessAddin:
                 except (OSError, URLError):
                     time.sleep(0.02)
                     continue
-                if "command" not in payload:
+                if "actionRequest" not in payload:
                     time.sleep(0.02)
                     continue
-                self.command = payload["command"]
+                self.action_request = payload["actionRequest"]
                 result = json.dumps(
                     {
-                        "requestId": self.command["requestId"],
+                        "requestId": self.action_request["requestId"],
                         "result": {
                             "success": True,
                             "message": "pong",
                             "timestamp": 1723852800000,
+                            "installDigest": self.install_digest,
                         },
                     }
                 ).encode("utf-8")
@@ -434,7 +436,7 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             self.assertFalse(data["ready"])
             self.assertFalse(data["restart_required"])
 
-    def test_readiness_distinguishes_a_running_wps_without_the_addin(self):
+    def test_restart_required_persists_until_the_loaded_addin_matches(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             profile = Path(temporary_directory)
             installed = run_runner("install", profile)
@@ -447,6 +449,48 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             )
 
             self.assertEqual(installed.returncode, 0, installed.stderr)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            data = json.loads(completed.stdout)["data"]
+            self.assertEqual(data["status"], "restart_required")
+            self.assertFalse(data["ready"])
+            self.assertTrue(data["restart_required"])
+
+    def test_readiness_distinguishes_a_running_wps_without_the_addin(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            profile = Path(temporary_directory)
+            installed = run_runner("install", profile)
+
+            config = json.loads(
+                (profile / ".config/wps-office-skill/config.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            digest = json.loads(
+                (
+                    profile
+                    / ".local/share/Kingsoft/wps/jsaddons/wps-office-skill_/.wps-skill-install.json"
+                ).read_text(encoding="utf-8")
+            )["source_digest"]
+            addin = FakeReadinessAddin(config["auth_token"], digest)
+            addin.start()
+            acknowledged = run_runner(
+                "check", profile, options={"timeout_ms": 2000}, wps_running=True
+            )
+
+            completed = run_runner(
+                "check",
+                profile,
+                options={"timeout_ms": 50},
+                wps_running=True,
+            )
+
+            self.assertEqual(installed.returncode, 0, installed.stderr)
+            self.assertTrue(addin.finished.wait(1), "Fake Add-in did not finish")
+            if addin.error:
+                raise addin.error
+            self.assertEqual(
+                json.loads(acknowledged.stdout)["data"]["status"], "ready"
+            )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             data = json.loads(completed.stdout)["data"]
             self.assertEqual(data["status"], "addin_unavailable")
@@ -462,7 +506,13 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
-            addin = FakeReadinessAddin(config["auth_token"])
+            digest = json.loads(
+                (
+                    profile
+                    / ".local/share/Kingsoft/wps/jsaddons/wps-office-skill_/.wps-skill-install.json"
+                ).read_text(encoding="utf-8")
+            )["source_digest"]
+            addin = FakeReadinessAddin(config["auth_token"], digest)
             addin.start()
 
             completed = run_runner(
@@ -481,14 +531,41 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             self.assertEqual(data["status"], "ready")
             self.assertTrue(data["ready"])
             self.assertFalse(data["restart_required"])
-            self.assertEqual(addin.command["action"], "ping")
-            self.assertEqual(addin.command["params"], {})
+            self.assertEqual(addin.action_request["action"], "ping")
+            self.assertEqual(addin.action_request["params"], {})
 
     def test_ping_with_a_different_credential_cannot_report_ready(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             profile = Path(temporary_directory)
             installed = run_runner("install", profile)
-            addin = FakeReadinessAddin("wrong-credential-that-is-long-enough")
+            config = json.loads(
+                (profile / ".config/wps-office-skill/config.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            digest = json.loads(
+                (
+                    profile
+                    / ".local/share/Kingsoft/wps/jsaddons/wps-office-skill_/.wps-skill-install.json"
+                ).read_text(encoding="utf-8")
+            )["source_digest"]
+            trusted_addin = FakeReadinessAddin(config["auth_token"], digest)
+            trusted_addin.start()
+            acknowledged = run_runner(
+                "check", profile, options={"timeout_ms": 2000}, wps_running=True
+            )
+            self.assertTrue(
+                trusted_addin.finished.wait(1), "Trusted Fake Add-in did not finish"
+            )
+            if trusted_addin.error:
+                raise trusted_addin.error
+            self.assertEqual(
+                json.loads(acknowledged.stdout)["data"]["status"], "ready"
+            )
+
+            addin = FakeReadinessAddin(
+                "wrong-credential-that-is-long-enough", digest
+            )
             addin.start()
 
             completed = run_runner(
@@ -507,7 +584,7 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             data = json.loads(completed.stdout)["data"]
             self.assertEqual(data["status"], "addin_unavailable")
             self.assertFalse(data["ready"])
-            self.assertIsNone(addin.command)
+            self.assertIsNone(addin.action_request)
 
     def test_invoke_performs_first_use_install_before_delivering_an_action(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
