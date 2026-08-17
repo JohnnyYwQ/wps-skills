@@ -10,6 +10,16 @@ Issue #4 已在 `skills/wps-office/` 交付首个可加载的 WPS Skill Package 
 
 当前里程碑开放清单中的只读和普通写入 WPS Action；破坏性操作需要明确确认并由 Runner 强制校验 `confirmed: true`。完整能力迁移由后续迁移 Issue 继续交付。下方 Node.js、MCP 和旧平台桥说明仍记录尚未删除的旧运行时，在替代路径通过完整验收前继续保留。
 
+## 本地 ARM64 验证环境
+
+Issue #20 的本地 Linux ARM64 与 Windows ARM64 环境通过交互式向导搭建。向导复用已有 VMware Fusion 虚拟机，只在缺少环境时引导人工完成下载、安装、管理员授权、GUI 启动和快照；自动执行架构、Python、WPS Add-in 与 loopback readiness 预检。
+
+```bash
+./scripts/setup-wps-validation-environments.sh
+```
+
+连接信息仅写入 Git 忽略的 `.env.validation.local`，原始产物写入 `.scratch/wps-validation-environments/`。密码、产品密钥和 WPS Add-in 本机凭证不会由向导保存或写入报告。当前向导不完成 Linux x86_64 与 Windows x86_64 验收，两者会在报告中明确标记为延期。
+
 ## Linux 使用说明
 
 Linux 不使用 Windows 的 PowerShell COM 桥。当前 WPS Skill Package 会通过 `skills/wps-office/scripts/wps.py check` 在当前用户的 WPS 配置目录安装统一的 WPS JavaScript Add-in；Add-in 通过本机 `127.0.0.1:58891` 轮询 Runner 来执行 WPS Action。Linux x86_64 与 ARM64 均由该路径识别，首次安装或更新后需要完全重启 WPS Office。

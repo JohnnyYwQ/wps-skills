@@ -15,6 +15,8 @@ docs/*
 WPS接口API/
 /scripts/*
 !/scripts/validate_action_manifest.py
+!/scripts/setup-wps-validation-environments.sh
+/.scratch/
 /logs/
 planplan.md
 **/tests/
