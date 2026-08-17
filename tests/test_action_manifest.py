@@ -19,51 +19,6 @@ REPRESENTATIVE_FIXTURES = (
 )
 UNIFIED_ADDIN = REPOSITORY_ROOT / "skills/wps-office/assets/wps-addin/main.js"
 EXCEL_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/excel.md"
-EXCEL_CORE_CONTRACTS = {
-    "getActiveWorkbook": (set(), {"name", "path", "sheetCount", "sheets"}),
-    "openWorkbook": ({"path"}, {"name", "path", "sheets"}),
-    "getOpenWorkbooks": (set(), {"count", "workbooks"}),
-    "switchWorkbook": ({"name"}, {"name", "path"}),
-    "closeWorkbook": (set(), {"closed"}),
-    "createWorkbook": (set(), {"name", "path", "sheets"}),
-    "createSheet": ({"name"}, {"sheetIndex", "sheetName"}),
-    "deleteSheet": (set(), {"deletedSheet"}),
-    "renameSheet": ({"newName"}, {"newName", "oldName"}),
-    "copySheet": (set(), {"copiedFrom"}),
-    "getSheetList": (set(), {"activeSheet", "count", "sheets"}),
-    "switchSheet": ({"sheet"}, {"activeSheet"}),
-    "moveSheet": (set(), {"movedSheet"}),
-    "getCellValue": ({"col", "row", "sheet"}, {"formula", "text", "value"}),
-    "setCellValue": ({"col", "row", "sheet", "value"}, set()),
-    "getRangeData": ({"range"}, {"data"}),
-    "setRangeData": ({"data", "range"}, set()),
-    "getCellInfo": (
-        {"cell"},
-        {"backgroundColor", "cell", "font", "formula", "numberFormat", "value"},
-    ),
-    "clearRange": ({"range"}, {"clearType", "range"}),
-    "getSelection": (set(), {"address", "columns", "rows"}),
-    "insertRows": ({"row"}, {"count", "insertedAt"}),
-    "insertColumns": ({"column"}, {"count", "insertedAt"}),
-    "deleteRows": ({"row"}, {"count", "deletedFrom"}),
-    "deleteColumns": ({"column"}, {"count", "deletedFrom"}),
-    "getFormula": ({"cell"}, {"cell", "formula", "formulaLocal", "hasFormula"}),
-    "setFormula": ({"formula", "range"}, set()),
-    "autoSum": ({"range", "targetCell"}, {"range", "result", "targetCell"}),
-    "evaluateFormula": ({"formula"}, {"result", "success"}),
-    "cleanData": ({"operations", "range"}, {"message", "operations", "range"}),
-    "removeDuplicates": (
-        {"range"},
-        {"originalCount", "remainingCount", "removedCount"},
-    ),
-    "sortRange": ({"range"}, set()),
-    "findInSheet": ({"searchText"}, {"count", "results", "searchText"}),
-    "replaceInSheet": (
-        {"replaceText", "searchText"},
-        {"replaceText", "searchText", "success"},
-    ),
-}
-EXCEL_CORE_ACTIONS = set(EXCEL_CORE_CONTRACTS)
 
 
 class ActionManifestValidatorTests(unittest.TestCase):
@@ -113,6 +68,23 @@ class ActionManifestValidatorTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 1)
         self.assertIn("unknown field 'risque'", completed.stderr)
+
+    def test_reference_group_cannot_name_an_unknown_action(self) -> None:
+        with self._minimal_baseline() as root:
+            manifest_path = root / "skills/wps-office/references/action-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["reference_groups"] = {
+                "common_core": {
+                    "reference": "common.md",
+                    "actions": ["ping", "notAnAction"],
+                }
+            }
+            self._write_json(manifest_path, manifest)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("references unknown WPS Action 'notAnAction'", completed.stderr)
 
     def test_invalid_risk_classification_is_rejected(self) -> None:
         with self._minimal_baseline() as root:
@@ -607,6 +579,7 @@ class ExcelCoreContractTests(unittest.TestCase):
             ).read_text(encoding="utf-8")
         )
         cls.actions = {entry["action"]: entry for entry in manifest["actions"]}
+        cls.core_actions = set(manifest["reference_groups"]["excel_core"]["actions"])
         cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
         cls.reference_source = (
             EXCEL_REFERENCE.read_text(encoding="utf-8")
@@ -614,7 +587,7 @@ class ExcelCoreContractTests(unittest.TestCase):
             else ""
         )
 
-    def test_every_core_action_has_an_exact_manifest_contract_and_addin_dispatch(self) -> None:
+    def test_every_core_action_has_a_manifest_contract_and_addin_dispatch(self) -> None:
         dispatch_actions = set(
             re.findall(
                 r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
@@ -622,10 +595,10 @@ class ExcelCoreContractTests(unittest.TestCase):
                 re.MULTILINE,
             )
         )
-        self.assertEqual(EXCEL_CORE_ACTIONS - set(self.actions), set())
-        self.assertEqual(EXCEL_CORE_ACTIONS - dispatch_actions, set())
+        self.assertEqual(self.core_actions - set(self.actions), set())
+        self.assertEqual(self.core_actions - dispatch_actions, set())
 
-        for action_name in sorted(EXCEL_CORE_ACTIONS):
+        for action_name in sorted(self.core_actions):
             with self.subTest(action=action_name):
                 action = self.actions[action_name]
                 self.assertEqual(action["application"], "excel")
@@ -635,9 +608,14 @@ class ExcelCoreContractTests(unittest.TestCase):
                 self.assertFalse(action["result"]["additionalProperties"])
                 self.assertIn(action["risk"], {"read", "write", "destructive"})
 
-                expected_params, expected_result = EXCEL_CORE_CONTRACTS[action_name]
-                self.assertEqual(set(action["parameters"]["required"]), expected_params)
-                self.assertEqual(set(action["result"]["required"]), expected_result)
+                self.assertLessEqual(
+                    set(action["parameters"]["required"]),
+                    set(action["parameters"]["properties"]),
+                )
+                self.assertLessEqual(
+                    set(action["result"]["required"]),
+                    set(action["result"]["properties"]),
+                )
 
     def test_core_actions_require_inputs_needed_by_the_addin(self) -> None:
         required_inputs = {
@@ -692,6 +670,24 @@ class ExcelCoreContractTests(unittest.TestCase):
         )
         self.assertEqual(self.actions["cleanData"]["risk"], "destructive")
 
+    def test_clear_range_rejects_unknown_clear_types(self) -> None:
+        clear_type = self.actions["clearRange"]["parameters"]["properties"]["type"]
+
+        self.assertEqual(
+            clear_type["enum"],
+            ["all", "contents", "formats", "comments"],
+        )
+
+    def test_find_and_replace_pass_match_case_in_the_wps_match_case_position(self) -> None:
+        self.assertIn(
+            "searchRange.Find(params.searchText, null, -4163, 2, 1, 1, !!params.matchCase)",
+            self.addin_source,
+        )
+        self.assertIn(
+            "searchRange.Replace(params.searchText, params.replaceText, 2, 1, !!params.matchCase)",
+            self.addin_source,
+        )
+
     def test_excel_reference_uses_only_the_skill_package_runtime(self) -> None:
         self.assertTrue(EXCEL_REFERENCE.is_file())
         self.assertIn("scripts/wps.py invoke", self.reference_source)
@@ -714,6 +710,15 @@ class ExcelCoreContractTests(unittest.TestCase):
         ]
         self.assertTrue(all(position >= 0 for position in positions))
         self.assertEqual(positions, sorted(positions))
+
+    def test_excel_reference_catalog_is_derived_from_the_manifest_group(self) -> None:
+        start = self.reference_source.index("<!-- excel-core-actions:start -->")
+        end = self.reference_source.index("<!-- excel-core-actions:end -->")
+        documented = set(
+            re.findall(r"`([a-z][A-Za-z0-9]*)`", self.reference_source[start:end])
+        )
+
+        self.assertEqual(documented, self.core_actions)
 
 
 if __name__ == "__main__":

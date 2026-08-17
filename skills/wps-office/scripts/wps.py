@@ -243,6 +243,12 @@ def validate_contract(value, schema, path):
             expected = "one of {0}".format(", ".join(expected_types))
         return "{0} must be {1}".format(path, expected_type_phrase(expected))
 
+    allowed_values = schema.get("enum")
+    if isinstance(allowed_values, list) and value not in allowed_values:
+        return "{0} must be one of {1}".format(
+            path, ", ".join(str(item) for item in allowed_values)
+        )
+
     pattern = schema.get("pattern")
     if isinstance(value, str) and isinstance(pattern, str):
         try:

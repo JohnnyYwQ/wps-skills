@@ -883,6 +883,48 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         if addin.error:
             raise addin.error
 
+    def test_clean_data_rejects_unknown_operations_before_the_addin(self):
+        addin = FakeAddin({"success": True, "data": {}})
+        addin.start()
+
+        completed = invoke_runner(
+            {
+                "action": "cleanData",
+                "params": {"range": "A1:B10", "operations": ["guess_dates"]},
+                "confirmed": True,
+                "timeout_ms": 1000,
+            }
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(json.loads(completed.stdout)["error"]["code"], "INVALID_PARAMS")
+        self.assertFalse(addin.action_received.wait(0.1))
+        addin.stop()
+        self.assertTrue(addin.finished.wait(1))
+        if addin.error:
+            raise addin.error
+
+    def test_clear_range_rejects_unknown_types_before_the_addin(self):
+        addin = FakeAddin({"success": True, "data": {}})
+        addin.start()
+
+        completed = invoke_runner(
+            {
+                "action": "clearRange",
+                "params": {"range": "A1:B10", "type": "content"},
+                "confirmed": True,
+                "timeout_ms": 1000,
+            }
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(json.loads(completed.stdout)["error"]["code"], "INVALID_PARAMS")
+        self.assertFalse(addin.action_received.wait(0.1))
+        addin.stop()
+        self.assertTrue(addin.finished.wait(1))
+        if addin.error:
+            raise addin.error
+
     def test_cell_info_result_matches_the_manifest_contract(self):
         data = {
             "cell": "A1",

@@ -1,5 +1,45 @@
 {
   "schema_version": 1,
+  "reference_groups": {
+    "excel_core": {
+      "reference": "excel.md",
+      "actions": [
+        "getActiveWorkbook",
+        "openWorkbook",
+        "getOpenWorkbooks",
+        "switchWorkbook",
+        "closeWorkbook",
+        "createWorkbook",
+        "createSheet",
+        "deleteSheet",
+        "renameSheet",
+        "copySheet",
+        "getSheetList",
+        "switchSheet",
+        "moveSheet",
+        "getCellValue",
+        "setCellValue",
+        "getRangeData",
+        "setRangeData",
+        "getCellInfo",
+        "clearRange",
+        "getSelection",
+        "insertRows",
+        "insertColumns",
+        "deleteRows",
+        "deleteColumns",
+        "getFormula",
+        "setFormula",
+        "autoSum",
+        "evaluateFormula",
+        "cleanData",
+        "removeDuplicates",
+        "sortRange",
+        "findInSheet",
+        "replaceInSheet"
+      ]
+    }
+  },
   "actions": [
     {
       "action": "convertFormat",
@@ -965,7 +1005,13 @@
           },
           "type": {
             "description": "Value passed as the 'type' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "all",
+              "contents",
+              "formats",
+              "comments"
+            ]
           }
         },
         "required": [

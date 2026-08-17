@@ -31,6 +31,7 @@ ACTION_FIELDS = {
     "risk",
     "examples",
 }
+REFERENCE_GROUP_FIELDS = {"actions", "reference"}
 REQUIRED_ACTION_FIELDS = ACTION_FIELDS - {"examples"}
 MAPPING_FIELDS = {"tool", "actions", "status", "reason"}
 MAPPING_STATUSES = {"mapped", "workflow", "retired", "conflict"}
@@ -371,6 +372,35 @@ def validate(root: Path) -> int:
                 example.get("result"),
                 action["result"],
                 f"example '{example_name}' result",
+            )
+    reference_groups = manifest.get("reference_groups", {})
+    if not isinstance(reference_groups, dict):
+        raise ValueError("action-manifest.json field 'reference_groups' must be an object")
+    for group_name, group in reference_groups.items():
+        if not isinstance(group_name, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", group_name):
+            raise ValueError("reference group names must be lower_snake_case identifiers")
+        if not isinstance(group, dict) or set(group) != REFERENCE_GROUP_FIELDS:
+            raise ValueError(
+                f"reference_groups.{group_name} must contain actions and reference"
+            )
+        reference = group["reference"]
+        if not isinstance(reference, str) or not reference.endswith(".md"):
+            raise ValueError(f"reference_groups.{group_name}.reference must be a Markdown file")
+        group_actions = group["actions"]
+        if (
+            not isinstance(group_actions, list)
+            or not group_actions
+            or not all(isinstance(item, str) and item for item in group_actions)
+            or len(group_actions) != len(set(group_actions))
+        ):
+            raise ValueError(
+                f"reference_groups.{group_name}.actions must be a non-empty unique Action array"
+            )
+        unknown_group_actions = set(group_actions) - action_names
+        if unknown_group_actions:
+            action_name = sorted(unknown_group_actions)[0]
+            raise ValueError(
+                f"reference group '{group_name}' references unknown WPS Action '{action_name}'"
             )
     javascript_source = (root / JAVASCRIPT_DISPATCH_PATH).read_text(encoding="utf-8")
     javascript_actions = set(

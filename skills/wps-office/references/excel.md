@@ -23,7 +23,15 @@ Each step is a separate `scripts/wps.py invoke` process. Stop the workflow on th
 
 ## Choose a Core Action
 
-Use the manifest's `application: "excel"` entries as the Action catalog instead of maintaining another list here. Choose workbook or worksheet lifecycle Actions for navigation, cell or range Actions for values, formula Actions for calculations, and basic data Actions for cleanup, search, replacement, deduplication, or sorting.
+The catalog below is derived from the manifest's `excel_core` reference group. The manifest remains the source of truth for each Action's semantics and contract.
+
+<!-- excel-core-actions:start -->
+- Workbook: `getActiveWorkbook`, `openWorkbook`, `getOpenWorkbooks`, `switchWorkbook`, `closeWorkbook`, `createWorkbook`
+- Worksheet: `createSheet`, `deleteSheet`, `renameSheet`, `copySheet`, `getSheetList`, `switchSheet`, `moveSheet`
+- Cell and range: `getCellValue`, `setCellValue`, `getRangeData`, `setRangeData`, `getCellInfo`, `clearRange`, `getSelection`, `insertRows`, `insertColumns`, `deleteRows`, `deleteColumns`
+- Formula: `getFormula`, `setFormula`, `autoSum`, `evaluateFormula`
+- Basic data: `cleanData`, `removeDuplicates`, `sortRange`, `findInSheet`, `replaceInSheet`
+<!-- excel-core-actions:end -->
 
 For formula-only calculations, `evaluateFormula` returns the calculated value and can optionally write the formula to a target cell. For a simple total written into the workbook, `autoSum` accepts the source range and target cell. Both formula strings are governed by the manifest contract.
 

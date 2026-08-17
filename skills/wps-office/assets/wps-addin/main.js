@@ -5040,7 +5040,7 @@ function handleFindInSheet(params) {
         var sheet = Application.ActiveSheet;
         var searchRange = params.range ? sheet.Range(params.range) : sheet.UsedRange;
         var results = [];
-        var found = searchRange.Find(params.searchText, null, -4163, params.matchCase ? 1 : 2);
+        var found = searchRange.Find(params.searchText, null, -4163, 2, 1, 1, !!params.matchCase);
 
         if (found) {
             var firstAddr = typeof found.Address === 'function' ? found.Address() : found.Address;
@@ -5068,7 +5068,7 @@ function handleReplaceInSheet(params) {
     try {
         var sheet = Application.ActiveSheet;
         var searchRange = params.range ? sheet.Range(params.range) : sheet.UsedRange;
-        var replaced = searchRange.Replace(params.searchText, params.replaceText, params.matchCase ? 1 : 2);
+        var replaced = searchRange.Replace(params.searchText, params.replaceText, 2, 1, !!params.matchCase);
         return { success: true, data: { searchText: params.searchText, replaceText: params.replaceText, success: replaced } };
     } catch (e) {
         return { success: false, error: e.message };
