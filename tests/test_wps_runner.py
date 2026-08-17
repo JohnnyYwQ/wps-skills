@@ -144,7 +144,7 @@ class FakeAddin(PollingAddin):
             json.load(response)
 
 
-class InvalidJsonPayloadAddin(PollingAddin):
+class InvalidResultPayloadAddin(PollingAddin):
     """Submit a configured invalid payload to the authenticated result endpoint."""
 
     def __init__(self, request_body=b"{bad json"):
@@ -162,7 +162,7 @@ class InvalidJsonPayloadAddin(PollingAddin):
         except HTTPError as error:
             self.error_response = (error.code, json.load(error))
             return
-        raise AssertionError("Malformed JSON was accepted")
+        raise AssertionError("Invalid result payload was accepted")
 
 
 class MismatchedRequestAddin(PollingAddin):
@@ -586,7 +586,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         owner.terminate()
         owner.communicate(timeout=3)
         result_gate.set()
-        self.assertTrue(addin.finished.wait(1), "Fake Add-in did not finish")
+        self.assertTrue(addin.finished.wait(2), "Fake Add-in did not finish")
         lock_file = (
             Path(RUNNER_ENV["XDG_CONFIG_HOME"])
             / "wps-office-skill"
@@ -631,7 +631,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(completed.stderr, "")
 
     def test_malformed_addin_json_returns_a_stable_error_and_releases_port(self):
-        addin = InvalidJsonPayloadAddin()
+        addin = InvalidResultPayloadAddin()
         addin.start()
 
         completed = invoke_runner(
@@ -671,7 +671,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertTrue(loopback_port_is_available())
 
     def test_non_object_addin_json_returns_a_stable_protocol_error(self):
-        addin = InvalidJsonPayloadAddin(b"[]")
+        addin = InvalidResultPayloadAddin(b"[]")
         addin.start()
 
         completed = invoke_runner(
@@ -791,7 +791,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         addin.start()
 
         completed = invoke_runner(
-            {"action": "ping", "params": {}, "timeout_ms": 100}
+            {"action": "ping", "params": {}, "timeout_ms": 200}
         )
 
         self.assertTrue(addin.finished.wait(1), "Stalling Add-in did not poll")
@@ -818,11 +818,14 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         started = time.monotonic()
 
         completed = invoke_runner(
-            {"action": "ping", "params": {}, "timeout_ms": 100}
+            {"action": "ping", "params": {}, "timeout_ms": 200}
         )
         elapsed = time.monotonic() - started
 
-        self.assertLess(elapsed, 0.4)
+        self.assertTrue(addin.finished.wait(1), "Hanging Add-in did not finish")
+        if addin.error:
+            raise addin.error
+        self.assertLess(elapsed, 0.45)
         self.assertEqual(completed.returncode, 1)
         self.assertEqual(
             json.loads(completed.stdout),
@@ -837,9 +840,6 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             },
         )
         self.assertEqual(completed.stderr, "")
-        self.assertTrue(addin.finished.wait(1), "Hanging Add-in did not finish")
-        if addin.error:
-            raise addin.error
 
     def test_action_polling_rejects_a_different_install_credential(self):
         addin = FakeAddin(

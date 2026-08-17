@@ -490,7 +490,10 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             )
 
             self.assertEqual(installed.returncode, 0, installed.stderr)
-            self.assertTrue(addin.finished.wait(1), "Fake Add-in did not finish")
+            self.assertTrue(
+                addin.finished.wait(1),
+                "Fake Add-in did not finish: " + completed.stdout + completed.stderr,
+            )
             if addin.error:
                 raise addin.error
             self.assertEqual(

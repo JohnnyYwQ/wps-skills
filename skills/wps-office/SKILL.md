@@ -63,6 +63,7 @@ Use transport error codes to explain recovery precisely:
 - `ADDIN_NOT_READY`: no authenticated WPS Add-in polled before the deadline; check readiness again.
 - `ACTION_TIMEOUT`: WPS accepted the Action but did not finish before the deadline; retry only when the returned metadata permits it.
 - `PORT_IN_USE`: another process owns the loopback port; stop that conflicting process before retrying.
-- `ADDIN_DISCONNECTED`, `INVALID_ADDIN_JSON`, or `REQUEST_ID_MISMATCH`: the authenticated WPS Add-in failed the result protocol; do not retry automatically.
+- `PORT_UNAVAILABLE`: the Runner could not open its loopback port; correct the local socket or permission problem before retrying.
+- `ADDIN_DISCONNECTED`, `INVALID_ADDIN_JSON`, `INVALID_ADDIN_RESPONSE`, or `REQUEST_ID_MISMATCH`: the authenticated WPS Add-in failed the result protocol; do not retry automatically.
 
 The Runner releases its loopback port and Action lock on every success or failure path. Do not print, copy, or log the installed authentication credential or Action parameters while diagnosing transport failures.

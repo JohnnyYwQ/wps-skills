@@ -23,6 +23,34 @@ from wps_skill import addon_installer
 HOST = "127.0.0.1"
 PORT = 58891
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "references" / "action-manifest.json"
+TRANSPORT_ERROR_DETAILS = {
+    "PORT_IN_USE": (
+        "Loopback port {0} is already in use".format(PORT),
+        True,
+    ),
+    "PORT_UNAVAILABLE": ("The loopback port could not be opened", True),
+    "ADDIN_NOT_READY": (
+        "WPS Add-in did not return a result before the timeout",
+        True,
+    ),
+    "ACTION_TIMEOUT": (
+        "WPS Action did not return a result before the timeout",
+        True,
+    ),
+    "ADDIN_DISCONNECTED": (
+        "WPS Add-in disconnected while sending its result",
+        False,
+    ),
+    "INVALID_ADDIN_JSON": ("WPS Add-in result must be valid JSON", False),
+    "INVALID_ADDIN_RESPONSE": (
+        "WPS Add-in result payload must be a JSON object",
+        False,
+    ),
+    "REQUEST_ID_MISMATCH": (
+        "WPS Add-in result does not match the pending WPS Action",
+        False,
+    ),
+}
 
 
 class RunnerError(Exception):
@@ -48,6 +76,27 @@ class RunnerError(Exception):
         else:
             result["action"] = self.action
         return result
+
+
+class LoopbackBindError(Exception):
+    def __init__(self, error_number):
+        super().__init__(error_number)
+        self.error_number = error_number
+
+
+def transport_error_details(code):
+    message, retryable = TRANSPORT_ERROR_DETAILS[code]
+    return {"code": code, "message": message, "retryable": retryable}
+
+
+def transport_runner_error(code, action):
+    details = transport_error_details(code)
+    return RunnerError(
+        details["code"],
+        details["message"],
+        details["retryable"],
+        action,
+    )
 
 
 @contextmanager
@@ -284,6 +333,19 @@ def make_handler(exchange_state, auth_token):
                 },
             )
 
+        def _reject_protocol_error(self, status, code):
+            error = transport_runner_error(
+                code, exchange_state["action_request"]["action"]
+            )
+            exchange_state["protocol_error"] = error
+            self._send_json(
+                status,
+                {
+                    "ok": False,
+                    "error": {"code": error.code, "message": error.message},
+                },
+            )
+
         def do_GET(self):
             if not self._is_authorized():
                 self._reject_unauthorized()
@@ -307,10 +369,8 @@ def make_handler(exchange_state, auth_token):
                 content_length = int(self.headers.get("Content-Length", "0"))
                 request_body = self.rfile.read(content_length)
             except socket.timeout:
-                exchange_state["protocol_error"] = RunnerError(
+                exchange_state["protocol_error"] = transport_runner_error(
                     "ACTION_TIMEOUT",
-                    "WPS Action did not return a result before the timeout",
-                    True,
                     exchange_state["action_request"]["action"],
                 )
                 return
@@ -318,75 +378,23 @@ def make_handler(exchange_state, auth_token):
                 request_body = b""
                 content_length = 0
             if len(request_body) != content_length:
-                exchange_state["protocol_error"] = RunnerError(
+                exchange_state["protocol_error"] = transport_runner_error(
                     "ADDIN_DISCONNECTED",
-                    "WPS Add-in disconnected while sending its result",
-                    False,
                     exchange_state["action_request"]["action"],
                 )
                 return
             try:
                 payload = json.loads(request_body.decode("utf-8"))
             except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
-                message = "WPS Add-in result must be valid JSON"
-                exchange_state["protocol_error"] = RunnerError(
-                    "INVALID_ADDIN_JSON",
-                    message,
-                    False,
-                    exchange_state["action_request"]["action"],
-                )
-                self._send_json(
-                    400,
-                    {
-                        "ok": False,
-                        "error": {
-                            "code": "INVALID_ADDIN_JSON",
-                            "message": message,
-                        },
-                    },
-                )
+                self._reject_protocol_error(400, "INVALID_ADDIN_JSON")
                 return
             if not isinstance(payload, dict):
-                message = "WPS Add-in result payload must be a JSON object"
-                exchange_state["protocol_error"] = RunnerError(
-                    "INVALID_ADDIN_RESPONSE",
-                    message,
-                    False,
-                    exchange_state["action_request"]["action"],
-                )
-                self._send_json(
-                    400,
-                    {
-                        "ok": False,
-                        "error": {
-                            "code": "INVALID_ADDIN_RESPONSE",
-                            "message": message,
-                        },
-                    },
-                )
+                self._reject_protocol_error(400, "INVALID_ADDIN_RESPONSE")
                 return
             if payload.get("requestId") != exchange_state["action_request"][
                 "requestId"
             ]:
-                message = (
-                    "WPS Add-in result does not match the pending WPS Action"
-                )
-                exchange_state["protocol_error"] = RunnerError(
-                    "REQUEST_ID_MISMATCH",
-                    message,
-                    False,
-                    exchange_state["action_request"]["action"],
-                )
-                self._send_json(
-                    409,
-                    {
-                        "ok": False,
-                        "error": {
-                            "code": "REQUEST_ID_MISMATCH",
-                            "message": message,
-                        },
-                    },
-                )
+                self._reject_protocol_error(409, "REQUEST_ID_MISMATCH")
                 return
             exchange_state["result"] = payload.get("result")
             exchange_state["result_received"] = True
@@ -428,7 +436,10 @@ def exchange_with_addin(action_request, auth_token, timeout_ms):
         "protocol_error": None,
         "action_delivered": False,
     }
-    server = HTTPServer((HOST, PORT), make_handler(exchange_state, auth_token))
+    try:
+        server = HTTPServer((HOST, PORT), make_handler(exchange_state, auth_token))
+    except OSError as error:
+        raise LoopbackBindError(error.errno)
     try:
         deadline = time.monotonic() + (timeout_ms / 1000.0)
         exchange_state["deadline"] = deadline
@@ -499,35 +510,19 @@ def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
             auth_token,
             timeout_ms,
         )
-    except OSError as error:
-        if error.errno == errno.EADDRINUSE:
-            return failure_status, {
-                "code": "PORT_IN_USE",
-                "message": "Loopback port {0} is already in use".format(PORT),
-                "retryable": True,
-            }
-        return failure_status, {
-            "code": "PORT_UNAVAILABLE",
-            "message": "The loopback port could not be opened",
-            "retryable": True,
-        }
+    except LoopbackBindError as error:
+        if error.error_number == errno.EADDRINUSE:
+            return failure_status, transport_error_details("PORT_IN_USE")
+        return failure_status, transport_error_details("PORT_UNAVAILABLE")
     result = exchange_state["result"]
     if exchange_state["protocol_error"] is not None:
         protocol_error = exchange_state["protocol_error"].as_result()["error"]
         return failure_status, protocol_error
     if not exchange_state["result_received"]:
         if exchange_state["action_delivered"]:
-            error = {
-                "code": "ACTION_TIMEOUT",
-                "message": "WPS Action did not return a result before the timeout",
-                "retryable": True,
-            }
+            error = transport_error_details("ACTION_TIMEOUT")
         else:
-            error = {
-                "code": "ADDIN_NOT_READY",
-                "message": "WPS Add-in did not poll before the timeout",
-                "retryable": True,
-            }
+            error = transport_error_details("ADDIN_NOT_READY")
         return failure_status, error
     if (
         isinstance(result, dict)
@@ -623,37 +618,17 @@ def invoke_locked(action, action_name, params, request):
             auth_token,
             timeout_ms,
         )
-    except OSError as error:
-        if error.errno == errno.EADDRINUSE:
-            raise RunnerError(
-                "PORT_IN_USE",
-                "Loopback port {0} is already in use".format(PORT),
-                True,
-                action_name,
-            )
-        raise RunnerError(
-            "PORT_UNAVAILABLE",
-            "The loopback port could not be opened",
-            True,
-            action_name,
-        )
+    except LoopbackBindError as error:
+        if error.error_number == errno.EADDRINUSE:
+            raise transport_runner_error("PORT_IN_USE", action_name)
+        raise transport_runner_error("PORT_UNAVAILABLE", action_name)
 
     if exchange_state["protocol_error"] is not None:
         raise exchange_state["protocol_error"]
     if not exchange_state["result_received"]:
         if exchange_state["action_delivered"]:
-            raise RunnerError(
-                "ACTION_TIMEOUT",
-                "WPS Action did not return a result before the timeout",
-                True,
-                action_name,
-            )
-        raise RunnerError(
-            "ADDIN_NOT_READY",
-            "WPS Add-in did not return a result before the timeout",
-            True,
-            action_name,
-        )
+            raise transport_runner_error("ACTION_TIMEOUT", action_name)
+        raise transport_runner_error("ADDIN_NOT_READY", action_name)
 
     result = exchange_state["result"]
     if not isinstance(result, dict):
