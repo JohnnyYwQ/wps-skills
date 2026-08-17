@@ -9,6 +9,7 @@ Position: public process boundary used by the WPS Skill Package.
 import errno
 import json
 import os
+import re
 import secrets
 import socket
 import sys
@@ -241,6 +242,15 @@ def validate_contract(value, schema, path):
         else:
             expected = "one of {0}".format(", ".join(expected_types))
         return "{0} must be {1}".format(path, expected_type_phrase(expected))
+
+    pattern = schema.get("pattern")
+    if isinstance(value, str) and isinstance(pattern, str):
+        try:
+            matches_pattern = re.search(pattern, value) is not None
+        except re.error:
+            matches_pattern = False
+        if not matches_pattern:
+            return "{0} must match pattern '{1}'".format(path, pattern)
 
     if isinstance(value, dict):
         required = schema.get("required", [])

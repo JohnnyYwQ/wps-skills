@@ -843,7 +843,13 @@
             "description": "Value passed as the 'operations' Action parameter.",
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "trim",
+                "remove_duplicates",
+                "unify_date",
+                "remove_empty_rows"
+              ]
             }
           },
           "range": {
@@ -909,7 +915,7 @@
         "wps_running",
         "active_workbook"
       ],
-      "risk": "write"
+      "risk": "destructive"
     },
     {
       "action": "clearFormats",
@@ -1194,7 +1200,7 @@
           },
           "before": {
             "description": "Value passed as the 'before' Action parameter.",
-            "type": "boolean"
+            "type": "string"
           },
           "sheet": {
             "description": "Value passed as the 'sheet' Action parameter.",
@@ -1875,6 +1881,7 @@
         "properties": {
           "formula": {
             "type": "string",
+            "pattern": "^=",
             "description": "Formula to evaluate."
           },
           "cell": {
@@ -2355,7 +2362,7 @@
         "type": "object",
         "properties": {
           "backgroundColor": {
-            "type": "string",
+            "type": "number",
             "description": "Value returned as the 'backgroundColor' result field."
           },
           "cell": {
@@ -2363,7 +2370,24 @@
             "description": "Value returned as the 'cell' result field."
           },
           "font": {
-            "type": "string",
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "size": {
+                "type": "number"
+              },
+              "bold": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "size",
+              "bold"
+            ],
+            "additionalProperties": false,
             "description": "Value returned as the 'font' result field."
           },
           "formula": {
@@ -2375,7 +2399,12 @@
             "description": "Value returned as the 'numberFormat' result field."
           },
           "value": {
-            "type": "string",
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ],
             "description": "Value returned as the 'value' result field."
           }
         },
@@ -3510,7 +3539,7 @@
           },
           "before": {
             "description": "Value passed as the 'before' Action parameter.",
-            "type": "boolean"
+            "type": "string"
           },
           "sheet": {
             "description": "Value passed as the 'sheet' Action parameter.",
@@ -4347,7 +4376,8 @@
           },
           "formula": {
             "description": "Value passed as the 'formula' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "pattern": "^="
           },
           "range": {
             "description": "Value passed as the 'range' Action parameter.",

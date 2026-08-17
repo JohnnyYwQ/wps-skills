@@ -799,6 +799,37 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         if addin.error:
             raise addin.error
 
+    def test_invalid_formula_never_reaches_the_addin(self):
+        addin = FakeAddin({"success": True, "data": {}})
+        addin.start()
+
+        completed = invoke_runner(
+            {
+                "action": "setFormula",
+                "params": {"range": "A1", "formula": "SUM(B1:B3)"},
+                "timeout_ms": 1000,
+            }
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "setFormula",
+                "error": {
+                    "code": "INVALID_PARAMS",
+                    "message": "params.formula must match pattern '^='",
+                    "retryable": False,
+                },
+            },
+        )
+        self.assertFalse(addin.action_received.wait(0.1))
+        addin.stop()
+        self.assertTrue(addin.finished.wait(1))
+        if addin.error:
+            raise addin.error
+
     def test_excel_wps_failure_returns_a_structured_error(self):
         completed, _addin = self._invoke_with_fake_addin(
             {
@@ -821,6 +852,59 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
                     "retryable": False,
                 },
             },
+        )
+
+    def test_destructive_clean_data_requires_confirmation_before_the_addin(self):
+        addin = FakeAddin(
+            {
+                "success": True,
+                "data": {
+                    "range": "A1:B10",
+                    "operations": [],
+                    "message": "cleanData completed",
+                },
+            }
+        )
+        addin.start()
+
+        completed = invoke_runner(
+            {
+                "action": "cleanData",
+                "params": {"range": "A1:B10", "operations": ["trim"]},
+                "timeout_ms": 1000,
+            }
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(json.loads(completed.stdout)["error"]["code"], "CONFIRMATION_REQUIRED")
+        self.assertFalse(addin.action_received.wait(0.1))
+        addin.stop()
+        self.assertTrue(addin.finished.wait(1))
+        if addin.error:
+            raise addin.error
+
+    def test_cell_info_result_matches_the_manifest_contract(self):
+        data = {
+            "cell": "A1",
+            "value": 42,
+            "formula": "",
+            "numberFormat": "0",
+            "font": {"name": "Arial", "size": 11, "bold": False},
+            "backgroundColor": 16777215,
+        }
+        completed, _addin = self._invoke_with_fake_addin(
+            {
+                "action": "getCellInfo",
+                "params": {"cell": "A1"},
+                "timeout_ms": 1000,
+            },
+            {"success": True, "data": data},
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stdout)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {"ok": True, "action": "getCellInfo", "data": data},
         )
 
     def test_process_exit_releases_the_lock_even_when_the_lock_file_remains(self):

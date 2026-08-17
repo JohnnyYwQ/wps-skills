@@ -41,6 +41,7 @@ SCHEMA_FIELDS = {
     "description",
     "enum",
     "items",
+    "pattern",
     "properties",
     "required",
     "type",
@@ -126,6 +127,13 @@ def validate_schema_node(schema: Any, context: str) -> None:
             for value in enum
         ):
             raise ValueError(f"{context}.enum contains a value outside its declared type")
+    if "pattern" in schema:
+        if schema.get("type") != "string" or not isinstance(schema["pattern"], str):
+            raise ValueError(f"{context}.pattern requires a string schema")
+        try:
+            re.compile(schema["pattern"])
+        except re.error as error:
+            raise ValueError(f"{context}.pattern must be a valid regular expression") from error
     if "properties" in schema:
         properties = schema["properties"]
         if not isinstance(properties, dict):
@@ -242,6 +250,12 @@ def validate_example_value(value: Any, schema: Dict[str, Any], context: str) -> 
         raise ValueError(f"{context}: value does not match declared type")
     if "enum" in schema and value not in schema["enum"]:
         raise ValueError(f"{context}: value is not one of the declared enum values")
+    if (
+        isinstance(value, str)
+        and "pattern" in schema
+        and re.search(schema["pattern"], value) is None
+    ):
+        raise ValueError(f"{context}: value does not match declared pattern")
     if isinstance(value, dict):
         properties = schema.get("properties", {})
         for required_property in schema.get("required", []):

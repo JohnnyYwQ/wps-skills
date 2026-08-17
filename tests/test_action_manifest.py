@@ -19,52 +19,51 @@ REPRESENTATIVE_FIXTURES = (
 )
 UNIFIED_ADDIN = REPOSITORY_ROOT / "skills/wps-office/assets/wps-addin/main.js"
 EXCEL_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/excel.md"
-EXCEL_CORE_ACTION_GROUPS = {
-    "workbooks": {
-        "getActiveWorkbook",
-        "openWorkbook",
-        "getOpenWorkbooks",
-        "switchWorkbook",
-        "closeWorkbook",
-        "createWorkbook",
-    },
-    "worksheets": {
-        "createSheet",
-        "deleteSheet",
-        "renameSheet",
-        "copySheet",
-        "getSheetList",
-        "switchSheet",
-        "moveSheet",
-    },
-    "cells_and_ranges": {
-        "getCellValue",
-        "setCellValue",
-        "getRangeData",
-        "setRangeData",
-        "getCellInfo",
-        "clearRange",
-        "getSelection",
-        "insertRows",
-        "insertColumns",
-        "deleteRows",
-        "deleteColumns",
-    },
-    "formulas": {
-        "getFormula",
-        "setFormula",
-        "autoSum",
-        "evaluateFormula",
-    },
-    "basic_data": {
-        "cleanData",
-        "removeDuplicates",
-        "sortRange",
-        "findInSheet",
-        "replaceInSheet",
-    },
+EXCEL_CORE_CONTRACTS = {
+    "getActiveWorkbook": (set(), {"name", "path", "sheetCount", "sheets"}),
+    "openWorkbook": ({"path"}, {"name", "path", "sheets"}),
+    "getOpenWorkbooks": (set(), {"count", "workbooks"}),
+    "switchWorkbook": ({"name"}, {"name", "path"}),
+    "closeWorkbook": (set(), {"closed"}),
+    "createWorkbook": (set(), {"name", "path", "sheets"}),
+    "createSheet": ({"name"}, {"sheetIndex", "sheetName"}),
+    "deleteSheet": (set(), {"deletedSheet"}),
+    "renameSheet": ({"newName"}, {"newName", "oldName"}),
+    "copySheet": (set(), {"copiedFrom"}),
+    "getSheetList": (set(), {"activeSheet", "count", "sheets"}),
+    "switchSheet": ({"sheet"}, {"activeSheet"}),
+    "moveSheet": (set(), {"movedSheet"}),
+    "getCellValue": ({"col", "row", "sheet"}, {"formula", "text", "value"}),
+    "setCellValue": ({"col", "row", "sheet", "value"}, set()),
+    "getRangeData": ({"range"}, {"data"}),
+    "setRangeData": ({"data", "range"}, set()),
+    "getCellInfo": (
+        {"cell"},
+        {"backgroundColor", "cell", "font", "formula", "numberFormat", "value"},
+    ),
+    "clearRange": ({"range"}, {"clearType", "range"}),
+    "getSelection": (set(), {"address", "columns", "rows"}),
+    "insertRows": ({"row"}, {"count", "insertedAt"}),
+    "insertColumns": ({"column"}, {"count", "insertedAt"}),
+    "deleteRows": ({"row"}, {"count", "deletedFrom"}),
+    "deleteColumns": ({"column"}, {"count", "deletedFrom"}),
+    "getFormula": ({"cell"}, {"cell", "formula", "formulaLocal", "hasFormula"}),
+    "setFormula": ({"formula", "range"}, set()),
+    "autoSum": ({"range", "targetCell"}, {"range", "result", "targetCell"}),
+    "evaluateFormula": ({"formula"}, {"result", "success"}),
+    "cleanData": ({"operations", "range"}, {"message", "operations", "range"}),
+    "removeDuplicates": (
+        {"range"},
+        {"originalCount", "remainingCount", "removedCount"},
+    ),
+    "sortRange": ({"range"}, set()),
+    "findInSheet": ({"searchText"}, {"count", "results", "searchText"}),
+    "replaceInSheet": (
+        {"replaceText", "searchText"},
+        {"replaceText", "searchText", "success"},
+    ),
 }
-EXCEL_CORE_ACTIONS = set().union(*EXCEL_CORE_ACTION_GROUPS.values())
+EXCEL_CORE_ACTIONS = set(EXCEL_CORE_CONTRACTS)
 
 
 class ActionManifestValidatorTests(unittest.TestCase):
@@ -209,6 +208,24 @@ class ActionManifestValidatorTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 1)
         self.assertIn("requires a valid JSON type", completed.stderr)
+
+    def test_string_pattern_is_a_valid_contract_constraint(self) -> None:
+        with self._minimal_baseline() as root:
+            manifest_path = root / "skills/wps-office/references/action-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["actions"][0]["parameters"] = {
+                "type": "object",
+                "properties": {
+                    "formula": {"type": "string", "pattern": "^="},
+                },
+                "required": ["formula"],
+                "additionalProperties": False,
+            }
+            self._write_json(manifest_path, manifest)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_result_array_requires_an_items_contract(self) -> None:
         with self._minimal_baseline() as root:
@@ -597,7 +614,7 @@ class ExcelCoreContractTests(unittest.TestCase):
             else ""
         )
 
-    def test_every_core_action_has_a_manifest_contract_addin_dispatch_and_reference(self) -> None:
+    def test_every_core_action_has_an_exact_manifest_contract_and_addin_dispatch(self) -> None:
         dispatch_actions = set(
             re.findall(
                 r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
@@ -605,13 +622,8 @@ class ExcelCoreContractTests(unittest.TestCase):
                 re.MULTILINE,
             )
         )
-        reference_actions = set(
-            re.findall(r"`([a-z][A-Za-z0-9]+)`", self.reference_source)
-        )
-
         self.assertEqual(EXCEL_CORE_ACTIONS - set(self.actions), set())
         self.assertEqual(EXCEL_CORE_ACTIONS - dispatch_actions, set())
-        self.assertEqual(EXCEL_CORE_ACTIONS - reference_actions, set())
 
         for action_name in sorted(EXCEL_CORE_ACTIONS):
             with self.subTest(action=action_name):
@@ -622,6 +634,10 @@ class ExcelCoreContractTests(unittest.TestCase):
                 self.assertFalse(action["parameters"]["additionalProperties"])
                 self.assertFalse(action["result"]["additionalProperties"])
                 self.assertIn(action["risk"], {"read", "write", "destructive"})
+
+                expected_params, expected_result = EXCEL_CORE_CONTRACTS[action_name]
+                self.assertEqual(set(action["parameters"]["required"]), expected_params)
+                self.assertEqual(set(action["result"]["required"]), expected_result)
 
     def test_core_actions_require_inputs_needed_by_the_addin(self) -> None:
         required_inputs = {
@@ -646,6 +662,35 @@ class ExcelCoreContractTests(unittest.TestCase):
             with self.subTest(action=action_name):
                 field_schema = self.actions[action_name]["result"]["properties"][field]
                 self.assertEqual(field_schema["type"], "number")
+
+    def test_cell_info_and_sheet_positions_match_addin_values(self) -> None:
+        cell_info = self.actions["getCellInfo"]["result"]["properties"]
+
+        self.assertEqual(cell_info["backgroundColor"]["type"], "number")
+        self.assertEqual(cell_info["font"]["type"], "object")
+        self.assertEqual(
+            cell_info["value"]["type"],
+            ["string", "number", "boolean", "null"],
+        )
+        self.assertEqual(
+            self.actions["copySheet"]["parameters"]["properties"]["before"]["type"],
+            "string",
+        )
+        self.assertEqual(
+            self.actions["moveSheet"]["parameters"]["properties"]["before"]["type"],
+            "string",
+        )
+
+    def test_clean_data_rejects_unknown_operations_before_the_addin(self) -> None:
+        operation_items = self.actions["cleanData"]["parameters"]["properties"][
+            "operations"
+        ]["items"]
+
+        self.assertEqual(
+            operation_items["enum"],
+            ["trim", "remove_duplicates", "unify_date", "remove_empty_rows"],
+        )
+        self.assertEqual(self.actions["cleanData"]["risk"], "destructive")
 
     def test_excel_reference_uses_only_the_skill_package_runtime(self) -> None:
         self.assertTrue(EXCEL_REFERENCE.is_file())

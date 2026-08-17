@@ -1143,9 +1143,6 @@ function handleSetRangeData(params) {
 
 function handleSetFormula(params) {
     try {
-        if (params.formula.charAt(0) !== '=') {
-            return { success: false, error: '公式必须以=开头' };
-        }
         var sheet = params.sheet || Application.ActiveSheet;
         if (typeof sheet === 'string') {
             sheet = Application.ActiveWorkbook.Sheets.Item(sheet);
@@ -1182,9 +1179,6 @@ function handleAutoSum(params) {
 
 function handleEvaluateFormula(params) {
     try {
-        if (params.formula.charAt(0) !== '=') {
-            return { success: false, error: '公式必须以=开头' };
-        }
         var result;
         if (params.cell) {
             var cell = Application.ActiveSheet.Range(params.cell);
@@ -4191,7 +4185,10 @@ function handleCleanData(params) {
                 }
                 opResults.push({ operation: op, success: true, message: '处理了' + count + '个单元格' });
             } catch (opErr) {
-                opResults.push({ operation: op, success: false, message: opErr.message });
+                return {
+                    success: false,
+                    error: '数据清理操作 ' + op + ' 失败: ' + opErr.message
+                };
             }
         }
         return {

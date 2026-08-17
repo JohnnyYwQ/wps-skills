@@ -21,67 +21,11 @@ For a typical workbook update, invoke these Actions sequentially and pass return
 
 Each step is a separate `scripts/wps.py invoke` process. Stop the workflow on the first failure; do not assume that later Actions ran.
 
-## Core Action Catalog
+## Choose a Core Action
 
-The manifest is authoritative when a table summary and its schema differ.
+Use the manifest's `application: "excel"` entries as the Action catalog instead of maintaining another list here. Choose workbook or worksheet lifecycle Actions for navigation, cell or range Actions for values, formula Actions for calculations, and basic data Actions for cleanup, search, replacement, deduplication, or sorting.
 
-### Workbooks
-
-| WPS Action | Purpose | Risk |
-|---|---|---|
-| `getActiveWorkbook` | Inspect the active workbook and its worksheets. | read |
-| `openWorkbook` | Open a workbook path. | write |
-| `getOpenWorkbooks` | List open workbooks. | read |
-| `switchWorkbook` | Activate a named workbook. | write |
-| `closeWorkbook` | Close a workbook. | destructive |
-| `createWorkbook` | Create a workbook. | write |
-
-### Worksheets
-
-| WPS Action | Purpose | Risk |
-|---|---|---|
-| `createSheet` | Create a worksheet. | write |
-| `deleteSheet` | Delete a worksheet. | destructive |
-| `renameSheet` | Rename a worksheet. | write |
-| `copySheet` | Copy a worksheet. | write |
-| `getSheetList` | List worksheets and the active sheet. | read |
-| `switchSheet` | Activate a worksheet. | write |
-| `moveSheet` | Reorder a worksheet. | write |
-
-### Cells, Ranges, Rows, and Columns
-
-| WPS Action | Purpose | Risk |
-|---|---|---|
-| `getCellValue` | Read a cell value, display text, and formula. | read |
-| `setCellValue` | Write a cell value. | write |
-| `getRangeData` | Read a range as a two-dimensional array. | read |
-| `setRangeData` | Write a two-dimensional array from a starting range. | write |
-| `getCellInfo` | Read cell value, formula, number format, and basic style. | read |
-| `clearRange` | Clear range content or formatting. | destructive |
-| `getSelection` | Read the selected range address and dimensions. | read |
-| `insertRows` | Insert worksheet rows. | write |
-| `insertColumns` | Insert worksheet columns. | write |
-| `deleteRows` | Delete worksheet rows. | destructive |
-| `deleteColumns` | Delete worksheet columns. | destructive |
-
-### Formulas
-
-| WPS Action | Purpose | Risk |
-|---|---|---|
-| `getFormula` | Read a cell formula and local formula. | read |
-| `setFormula` | Write a formula to a cell or range. | write |
-| `autoSum` | Write a SUM formula to a target cell and return its numeric result. | write |
-| `evaluateFormula` | Evaluate a formula, optionally by writing it to a target cell. | write |
-
-### Basic Data Processing
-
-| WPS Action | Purpose | Risk |
-|---|---|---|
-| `cleanData` | Apply declared cleanup operations to a range. | write |
-| `removeDuplicates` | Remove duplicate rows. | destructive |
-| `sortRange` | Sort a range. | write |
-| `findInSheet` | Find matching cells. | read |
-| `replaceInSheet` | Replace matching cell content. | destructive |
+For formula-only calculations, `evaluateFormula` returns the calculated value and can optionally write the formula to a target cell. For a simple total written into the workbook, `autoSum` accepts the source range and target cell. Both formula strings are governed by the manifest contract.
 
 ## Validation and Results
 
