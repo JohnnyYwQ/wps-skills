@@ -99,6 +99,18 @@ def transport_runner_error(code, action):
     )
 
 
+def bind_error_code(bind_error):
+    if bind_error.error_number == errno.EADDRINUSE:
+        return "PORT_IN_USE"
+    return "PORT_UNAVAILABLE"
+
+
+def incomplete_exchange_error_code(exchange_state):
+    if exchange_state["action_delivered"]:
+        return "ACTION_TIMEOUT"
+    return "ADDIN_NOT_READY"
+
+
 @contextmanager
 def action_lock(action=None, operation=None):
     """Hold the current user's non-blocking cross-process WPS Action lock."""
@@ -511,18 +523,15 @@ def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
             timeout_ms,
         )
     except LoopbackBindError as error:
-        if error.error_number == errno.EADDRINUSE:
-            return failure_status, transport_error_details("PORT_IN_USE")
-        return failure_status, transport_error_details("PORT_UNAVAILABLE")
+        return failure_status, transport_error_details(bind_error_code(error))
     result = exchange_state["result"]
     if exchange_state["protocol_error"] is not None:
         protocol_error = exchange_state["protocol_error"].as_result()["error"]
         return failure_status, protocol_error
     if not exchange_state["result_received"]:
-        if exchange_state["action_delivered"]:
-            error = transport_error_details("ACTION_TIMEOUT")
-        else:
-            error = transport_error_details("ADDIN_NOT_READY")
+        error = transport_error_details(
+            incomplete_exchange_error_code(exchange_state)
+        )
         return failure_status, error
     if (
         isinstance(result, dict)
@@ -619,16 +628,13 @@ def invoke_locked(action, action_name, params, request):
             timeout_ms,
         )
     except LoopbackBindError as error:
-        if error.error_number == errno.EADDRINUSE:
-            raise transport_runner_error("PORT_IN_USE", action_name)
-        raise transport_runner_error("PORT_UNAVAILABLE", action_name)
+        raise transport_runner_error(bind_error_code(error), action_name)
 
     if exchange_state["protocol_error"] is not None:
         raise exchange_state["protocol_error"]
     if not exchange_state["result_received"]:
-        if exchange_state["action_delivered"]:
-            raise transport_runner_error("ACTION_TIMEOUT", action_name)
-        raise transport_runner_error("ADDIN_NOT_READY", action_name)
+        error_code = incomplete_exchange_error_code(exchange_state)
+        raise transport_runner_error(error_code, action_name)
 
     result = exchange_state["result"]
     if not isinstance(result, dict):
