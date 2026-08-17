@@ -3,7 +3,7 @@
  * Output: WPS 应用侧执行结果
  * Pos: 跨平台统一 WPS Add-in 主入口。一旦我被修改，请更新我的头部注释，以及所属文件夹的md。
  * WPS Skill Platform Bridge（轮询模式）
- * 加载项作为 HTTP 客户端，轮询 Python Runner 获取命令
+ * 加载项作为 HTTP 客户端，轮询 Python Runner 获取 WPS Action
  *
  * 架构：Python Runner (HTTP 服务端:58891) ← 轮询 ← WPS Add-in (HTTP 客户端)
  *
@@ -40,7 +40,7 @@ function OnStatusClick() {
 function startPolling() {
     if (_pollTimer) return;
     _isPolling = true;
-    console.log('开始轮询 MCP Server: ' + CONFIG.SERVER_URL);
+    console.log('开始轮询 Python Runner: ' + CONFIG.SERVER_URL);
     poll();
 }
 
@@ -112,7 +112,7 @@ function sendResult(requestId, result) {
     }
 }
 
-// ==================== 工具函数 ====================
+// ==================== 公共函数 ====================
 
 function getAppType() {
     try {
@@ -146,10 +146,10 @@ function getAppType() {
     return 'unknown';
 }
 
-// ==================== 命令处理 ====================
+// ==================== WPS Action 处理 ====================
 
 function handleCommand(cmd) {
-    console.log('收到命令:', cmd.action);
+    console.log('收到 WPS Action:', cmd.action);
     var result;
 
     try {
@@ -159,7 +159,7 @@ function handleCommand(cmd) {
                 result = { success: true, message: 'pong', timestamp: Date.now() };
                 break;
             case 'wireCheck':
-                result = { success: true, message: 'WPS MCP Bridge 已连接' };
+                result = { success: true, message: 'WPS Platform Bridge 已连接' };
                 break;
             case 'getAppInfo':
                 result = handleGetAppInfo();
@@ -398,7 +398,7 @@ function handleCommand(cmd) {
                 result = handleAddArrow(cmd.params);
                 break;
 
-            // PPT 专业美化工具
+            // PPT 专业美化 Action
             case 'applyColorScheme':
                 result = handleApplyColorScheme(cmd.params);
                 break;
@@ -435,7 +435,7 @@ function handleCommand(cmd) {
                 result = handleCreateDonutChart(cmd.params);
                 break;
 
-            // PPT 高端能力 - 智能布局工具
+            // PPT 高端能力 - 智能布局 Action
             case 'autoLayout':
                 result = handleAutoLayout(cmd.params);
                 break;
@@ -922,10 +922,10 @@ function handleCommand(cmd) {
                 break;
 
             default:
-                result = { success: false, error: '未知命令: ' + cmd.action };
+                result = { success: false, error: '未知 WPS Action: ' + cmd.action };
         }
     } catch (e) {
-        result = { success: false, error: '命令执行异常: ' + (e.message || String(e)) };
+        result = { success: false, error: 'WPS Action 执行异常: ' + (e.message || String(e)) };
     }
 
     sendResult(cmd.requestId, result);
@@ -5895,7 +5895,7 @@ function handleCreateDonutChart(params) {
     }
 }
 
-// ========== 2. 智能布局工具 ==========
+// ========== 2. 智能布局 Action ==========
 
 // 自动排版（将形状整齐排列）
 function handleAutoLayout(params) {

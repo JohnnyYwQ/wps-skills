@@ -170,7 +170,7 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             self.assertEqual(result["data"]["addon_path"], str(addon))
             self.assertTrue((addon / "main.js").is_file())
 
-    def test_linux_arm64_and_windows_x86_64_are_supported(self):
+    def test_installer_recognizes_linux_arm64_and_windows_x86_64(self):
         cases = (
             ("linux", "aarch64", "arm64"),
             ("windows", "AMD64", "x86_64"),
@@ -328,6 +328,21 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             self.assertEqual(
                 list(addon.parent.glob(".wps-office-skill-backup-*")), []
             )
+
+    def test_install_repairs_a_damaged_addin_even_when_metadata_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            profile = Path(temporary_directory)
+            first = run_runner("install", profile)
+            addon = profile / ".local/share/Kingsoft/wps/jsaddons/wps-office-skill_"
+            main_script = addon / "main.js"
+            main_script.write_text("damaged", encoding="utf-8")
+
+            repaired = run_runner("install", profile)
+
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(repaired.returncode, 0, repaired.stderr)
+            self.assertEqual(json.loads(repaired.stdout)["data"]["status"], "updated")
+            self.assertNotEqual(main_script.read_text(encoding="utf-8"), "damaged")
 
     def test_malformed_registry_stops_without_replacing_user_data(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -493,6 +508,52 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             self.assertEqual(data["status"], "addin_unavailable")
             self.assertFalse(data["ready"])
             self.assertIsNone(addin.command)
+
+    def test_invoke_performs_first_use_install_before_delivering_an_action(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            profile = Path(temporary_directory)
+
+            completed = run_runner(
+                "invoke",
+                profile,
+                options={"action": "ping", "params": {}, "timeout_ms": 50},
+                wps_running=True,
+            )
+
+            self.assertEqual(completed.returncode, 1)
+            self.assertEqual(
+                json.loads(completed.stdout),
+                {
+                    "ok": False,
+                    "action": "ping",
+                    "error": {
+                        "code": "WPS_RESTART_REQUIRED",
+                        "message": (
+                            "WPS Add-in was installed or updated; restart WPS "
+                            "Office before retrying"
+                        ),
+                        "retryable": True,
+                    },
+                },
+            )
+
+    def test_invoke_reports_when_wps_is_not_running(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            profile = Path(temporary_directory)
+            installed = run_runner("install", profile)
+
+            completed = run_runner(
+                "invoke",
+                profile,
+                options={"action": "ping", "params": {}, "timeout_ms": 50},
+                wps_running=False,
+            )
+
+            self.assertEqual(installed.returncode, 0, installed.stderr)
+            self.assertEqual(completed.returncode, 1)
+            result = json.loads(completed.stdout)
+            self.assertEqual(result["error"]["code"], "WPS_NOT_RUNNING")
+            self.assertTrue(result["error"]["retryable"])
 
 
 if __name__ == "__main__":

@@ -316,6 +316,27 @@ def invoke(request):
         raise RunnerError(
             "INVALID_PARAMS", params_problem, False, action_name
         )
+    try:
+        install_result = addon_installer.install()
+    except addon_installer.AddinInstallError as error:
+        raise RunnerError(
+            error.code, error.message, error.retryable, action_name
+        )
+    if install_result["restart_required"]:
+        raise RunnerError(
+            "WPS_RESTART_REQUIRED",
+            "WPS Add-in was installed or updated; restart WPS Office before retrying",
+            True,
+            action_name,
+        )
+    if not addon_installer.wps_is_running(install_result["platform"]):
+        raise RunnerError(
+            "WPS_NOT_RUNNING",
+            "WPS Office is not running",
+            True,
+            action_name,
+        )
+    auth_token = addon_installer.auth_token(install_result["platform"])
     timeout_ms = request.get("timeout_ms", 30000)
     state = {
         "command": {
@@ -327,7 +348,7 @@ def invoke(request):
     }
 
     try:
-        server = HTTPServer((HOST, PORT), make_handler(state))
+        server = HTTPServer((HOST, PORT), make_handler(state, auth_token))
     except OSError as error:
         if error.errno != errno.EADDRINUSE:
             raise

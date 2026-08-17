@@ -20,7 +20,6 @@
     <!-- 权限声明 -->
     <permissions>
         <permission name="document.read"/>
-        <permission name="document.write"/>
     </permissions>
 
     <!-- 功能区配置 -->

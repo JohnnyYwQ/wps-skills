@@ -1,9 +1,11 @@
 """Black-box tests for the WPS Skill Package Python Runner."""
 
 import json
+import os
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -17,6 +19,8 @@ RUNNER = REPOSITORY_ROOT / "skills" / "wps-office" / "scripts" / "wps.py"
 SKILL = REPOSITORY_ROOT / "skills" / "wps-office" / "SKILL.md"
 POLL_URL = "http://127.0.0.1:58891/poll"
 RESULT_URL = "http://127.0.0.1:58891/result"
+RUNNER_ENV = None
+AUTH_TOKEN = None
 
 
 def invoke_runner(request):
@@ -24,6 +28,7 @@ def invoke_runner(request):
     return subprocess.run(
         [sys.executable, str(RUNNER), "invoke", request_json],
         cwd=REPOSITORY_ROOT,
+        env=RUNNER_ENV,
         text=True,
         capture_output=True,
         timeout=5,
@@ -34,23 +39,34 @@ def invoke_runner(request):
 class FakeAddin:
     """Use the public loopback protocol exactly as a WPS Add-in does."""
 
-    def __init__(self, result):
+    def __init__(self, result, auth_token=None):
         self.result = result
+        self.auth_token = auth_token or AUTH_TOKEN
         self.command = None
         self.error = None
         self.finished = threading.Event()
+        self.stopped = threading.Event()
 
     def start(self):
         thread = threading.Thread(target=self._run, daemon=True)
         thread.start()
         return thread
 
+    def stop(self):
+        self.stopped.set()
+
     def _run(self):
         try:
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
+            while time.monotonic() < deadline and not self.stopped.is_set():
                 try:
-                    with urlopen(POLL_URL, timeout=0.25) as response:
+                    poll_request = Request(
+                        POLL_URL,
+                        headers={
+                            "Authorization": "Bearer {0}".format(self.auth_token)
+                        },
+                    )
+                    with urlopen(poll_request, timeout=0.25) as response:
                         payload = json.load(response)
                 except (OSError, URLError):
                     time.sleep(0.02)
@@ -73,10 +89,16 @@ class FakeAddin:
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
+                request.add_header(
+                    "Authorization", "Bearer {0}".format(self.auth_token)
+                )
                 with urlopen(request, timeout=1) as response:
                     json.load(response)
                 return
-            raise AssertionError("Runner did not publish a command before the deadline")
+            if not self.stopped.is_set():
+                raise AssertionError(
+                    "Runner did not publish a command before the deadline"
+                )
         except BaseException as error:  # surfaced in the test process below
             self.error = error
         finally:
@@ -84,6 +106,48 @@ class FakeAddin:
 
 
 class WpsRunnerBlackBoxTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        global AUTH_TOKEN, RUNNER_ENV
+        cls.profile_directory = tempfile.TemporaryDirectory()
+        profile = Path(cls.profile_directory.name)
+        RUNNER_ENV = os.environ.copy()
+        RUNNER_ENV.update(
+            {
+                "HOME": str(profile),
+                "XDG_CONFIG_HOME": str(profile / ".config"),
+                "XDG_DATA_HOME": str(profile / ".local" / "share"),
+                "APPDATA": str(profile / "AppData" / "Roaming"),
+                "WPS_SKILL_TEST_PLATFORM": "linux",
+                "WPS_SKILL_TEST_ARCHITECTURE": "x86_64",
+                "WPS_SKILL_TEST_WPS_RUNNING": "1",
+            }
+        )
+        installed = subprocess.run(
+            [sys.executable, str(RUNNER), "install"],
+            cwd=REPOSITORY_ROOT,
+            env=RUNNER_ENV,
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        if installed.returncode != 0:
+            raise AssertionError(installed.stdout + installed.stderr)
+        config = json.loads(
+            (profile / ".config/wps-office-skill/config.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        AUTH_TOKEN = config["auth_token"]
+
+    @classmethod
+    def tearDownClass(cls):
+        global AUTH_TOKEN, RUNNER_ENV
+        AUTH_TOKEN = None
+        RUNNER_ENV = None
+        cls.profile_directory.cleanup()
+
     def test_skill_documents_the_python_runner_process_contract(self):
         instructions = SKILL.read_text(encoding="utf-8")
 
@@ -292,6 +356,27 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         with socket.socket() as released_port:
             released_port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             released_port.bind(("127.0.0.1", 58891))
+
+    def test_action_polling_rejects_a_different_install_credential(self):
+        addin = FakeAddin(
+            {"success": True, "message": "pong", "timestamp": 1723852800000},
+            auth_token="wrong-credential-that-is-long-enough",
+        )
+        addin.start()
+
+        completed = invoke_runner(
+            {"action": "ping", "params": {}, "timeout_ms": 100}
+        )
+        addin.stop()
+
+        self.assertTrue(addin.finished.wait(1), "Fake Add-in did not stop")
+        if addin.error:
+            raise addin.error
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout)["error"]["code"], "ADDIN_NOT_READY"
+        )
+        self.assertIsNone(addin.command)
 
     def test_unknown_action_is_rejected_before_contacting_the_addin(self):
         with socket.socket() as occupied_port:

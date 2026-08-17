@@ -22,7 +22,7 @@ The first check installs or updates the bundled WPS Add-in in the current user's
 - `wps_not_running`: ask the user to start WPS Office, then check again.
 - `addin_unavailable`: ask the user to fully restart WPS Office and check again; if it persists, report that the installed Add-in is not responding.
 
-Do not run the Action unless `data.ready` is `true`. The supported targets are Linux x86_64, Linux ARM64, Windows x86_64, and Windows ARM64. Setup failures return a stable structured error on stdout and a nonzero exit status.
+Do not run the Action unless `data.ready` is `true`. The installer recognizes Linux x86_64, Linux ARM64, Windows x86_64, and Windows ARM64; do not claim platform support until the matching real-WPS acceptance suite passes. Setup failures return a stable structured error on stdout and a nonzero exit status.
 
 ## Choose an Action
 

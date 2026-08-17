@@ -19,6 +19,9 @@ SKILL_ROOT = Path(__file__).resolve().parents[2]
 ADDIN_SOURCE = SKILL_ROOT / "assets" / "wps-addin"
 INSTALL_METADATA = ".wps-skill-install.json"
 RUNTIME_CONFIG = "wps-skill-config.js"
+TRANSACTION_MARKER = ".wps-office-skill-transaction.json"
+ADDIN_BACKUP = ".wps-office-skill-backup"
+REGISTRY_BACKUP = ".wps-office-skill-publish-backup.xml"
 
 
 class AddinInstallError(Exception):
@@ -140,7 +143,16 @@ def wps_is_running(platform_name):
     test_value = os.environ.get("WPS_SKILL_TEST_WPS_RUNNING")
     if test_value is not None:
         return test_value == "1"
-    process_names = {"wps", "wps.exe", "et", "et.exe", "wpp", "wpp.exe", "wpsoffice", "wpsoffice.exe"}
+    process_names = {
+        "wps",
+        "wps.exe",
+        "et",
+        "et.exe",
+        "wpp",
+        "wpp.exe",
+        "wpsoffice",
+        "wpsoffice.exe",
+    }
     if platform_name == "linux":
         proc = Path("/proc")
         if not proc.is_dir():
@@ -174,10 +186,15 @@ def wps_is_running(platform_name):
     return bool(first_fields & process_names)
 
 
-def _source_digest():
+def _tree_digest(root, excluded_names=()):
     digest = hashlib.sha256()
-    for source_path in sorted(path for path in ADDIN_SOURCE.rglob("*") if path.is_file()):
-        relative_path = source_path.relative_to(ADDIN_SOURCE).as_posix()
+    source_paths = sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file() and path.name not in excluded_names
+    )
+    for source_path in source_paths:
+        relative_path = source_path.relative_to(root).as_posix()
         digest.update(relative_path.encode("utf-8"))
         digest.update(b"\0")
         with source_path.open("rb") as source_file:
@@ -186,39 +203,52 @@ def _source_digest():
     return digest.hexdigest()
 
 
+def _source_digest():
+    return _tree_digest(ADDIN_SOURCE)
+
+
 def _runtime_config_content(auth_token):
     return "var WPS_SKILL_AUTH_TOKEN = {0};\n".format(json.dumps(auth_token))
 
 
-def _installed_digest(addon_path):
+def _installed_metadata(addon_path):
     try:
         with (addon_path / INSTALL_METADATA).open(encoding="utf-8") as metadata_file:
             metadata = json.load(metadata_file)
-        return metadata.get("source_digest")
+        return metadata
     except (OSError, TypeError, ValueError):
-        return None
+        return {}
 
 
 def _addon_is_current(addon_path, source_digest, runtime_config):
-    if not addon_path.is_dir() or _installed_digest(addon_path) != source_digest:
+    if not addon_path.is_dir():
+        return False
+    metadata = _installed_metadata(addon_path)
+    if (
+        metadata.get("version") != 1
+        or metadata.get("source_digest") != source_digest
+    ):
         return False
     try:
-        return (addon_path / RUNTIME_CONFIG).read_text(
-            encoding="utf-8"
-        ) == runtime_config
+        installed_digest = _tree_digest(
+            addon_path, excluded_names=(INSTALL_METADATA, RUNTIME_CONFIG)
+        )
+        return (
+            installed_digest == source_digest
+            and (addon_path / RUNTIME_CONFIG).read_text(encoding="utf-8")
+            == runtime_config
+        )
     except OSError:
         return False
 
 
-def _replace_addon(addons_directory, addon_path, source_digest, runtime_config):
+def _stage_addon(addons_directory, source_digest, runtime_config):
     staging_root = Path(
-        tempfile.mkdtemp(prefix=".wps-office-skill-stage-", dir=str(addons_directory))
+        tempfile.mkdtemp(
+            prefix=".wps-office-skill-stage-", dir=str(addons_directory)
+        )
     )
     staged_addon = staging_root / ADDIN_DIRECTORY_NAME
-    backup = addons_directory / ".wps-office-skill-backup-{0}".format(
-        secrets.token_hex(8)
-    )
-    moved_existing = False
     try:
         shutil.copytree(str(ADDIN_SOURCE), str(staged_addon))
         _write_private_text(staged_addon / RUNTIME_CONFIG, runtime_config)
@@ -230,19 +260,44 @@ def _replace_addon(addons_directory, addon_path, source_digest, runtime_config):
             )
             + "\n",
         )
-        if addon_path.exists():
-            os.replace(str(addon_path), str(backup))
-            moved_existing = True
-        try:
-            os.replace(str(staged_addon), str(addon_path))
-        except BaseException:
-            if moved_existing:
-                os.replace(str(backup), str(addon_path))
-            raise
-        if moved_existing:
-            shutil.rmtree(str(backup))
-    finally:
+        return staging_root, staged_addon
+    except BaseException:
         shutil.rmtree(str(staging_root), ignore_errors=True)
+        raise
+
+
+def _remove_path(path):
+    if path.is_dir():
+        shutil.rmtree(str(path))
+    elif path.exists():
+        path.unlink()
+
+
+def _recover_interrupted_install(addons_directory, addon_path, registry_path):
+    marker = addons_directory / TRANSACTION_MARKER
+    if not marker.exists():
+        return
+    try:
+        transaction = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError) as error:
+        raise AddinInstallError(
+            "INCOMPLETE_ADDIN_INSTALL",
+            "The prior WPS Add-in update could not be recovered: {0}".format(error),
+        )
+    addon_backup = addons_directory / ADDIN_BACKUP
+    registry_backup = addons_directory / REGISTRY_BACKUP
+    if transaction.get("replace_addon"):
+        if transaction.get("had_addon") and addon_backup.exists():
+            _remove_path(addon_path)
+            os.replace(str(addon_backup), str(addon_path))
+        elif not transaction.get("had_addon"):
+            _remove_path(addon_path)
+    if transaction.get("replace_registry"):
+        if transaction.get("had_registry") and registry_backup.exists():
+            os.replace(str(registry_backup), str(registry_path))
+        elif not transaction.get("had_registry"):
+            _remove_path(registry_path)
+    marker.unlink()
 
 
 def _load_registry(registry_path):
@@ -257,7 +312,7 @@ def _load_registry(registry_path):
         )
 
 
-def _merge_registration(registry_path):
+def _merged_registration(registry_path):
     tree = _load_registry(registry_path)
     root = tree.getroot()
     if root.tag.split("}")[-1] != "jsplugins":
@@ -280,7 +335,7 @@ def _merge_registration(registry_path):
     if len(registrations) == 1 and all(
         registrations[0].get(key) == value for key, value in expected.items()
     ):
-        return False
+        return tree, False
 
     if registrations:
         registration = registrations[0]
@@ -290,22 +345,67 @@ def _merge_registration(registry_path):
     else:
         ElementTree.SubElement(root, "jsplugin", expected)
 
-    if registry_path.exists():
-        shutil.copy2(str(registry_path), str(registry_path) + ".bak")
+    return tree, True
+
+
+def _stage_registry(tree, registry_path):
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=".publish.", suffix=".xml", dir=str(registry_path.parent)
     )
     os.close(descriptor)
     try:
         tree.write(temporary_name, encoding="utf-8", xml_declaration=True)
-        os.replace(temporary_name, str(registry_path))
-    finally:
-        if os.path.exists(temporary_name):
-            os.unlink(temporary_name)
-    return True
+        return Path(temporary_name)
+    except BaseException:
+        os.unlink(temporary_name)
+        raise
 
 
-def install():
+def _commit_install(
+    addons_directory,
+    addon_path,
+    staged_addon,
+    registry_path,
+    staged_registry,
+):
+    marker = addons_directory / TRANSACTION_MARKER
+    addon_backup = addons_directory / ADDIN_BACKUP
+    registry_backup = addons_directory / REGISTRY_BACKUP
+    had_addon = addon_path.exists()
+    had_registry = registry_path.exists()
+    _write_private_text(
+        marker,
+        json.dumps(
+            {
+                "had_addon": had_addon,
+                "had_registry": had_registry,
+                "replace_addon": staged_addon is not None,
+                "replace_registry": staged_registry is not None,
+            },
+            separators=(",", ":"),
+        )
+        + "\n",
+    )
+    try:
+        if staged_addon is not None:
+            if had_addon:
+                os.replace(str(addon_path), str(addon_backup))
+            os.replace(str(staged_addon), str(addon_path))
+        if staged_registry is not None:
+            if had_registry:
+                shutil.copy2(str(registry_path), str(registry_backup))
+            os.replace(str(staged_registry), str(registry_path))
+            if had_registry:
+                shutil.copy2(str(registry_backup), str(registry_path) + ".bak")
+        _remove_path(addon_backup)
+        _remove_path(registry_backup)
+        marker.unlink()
+    except BaseException:
+        _recover_interrupted_install(addons_directory, addon_path, registry_path)
+        raise
+
+
+def _install():
     platform_name = _platform_name()
     architecture = _architecture()
     addons_directory = _addons_directory(platform_name)
@@ -313,6 +413,7 @@ def install():
     addons_directory.mkdir(parents=True, exist_ok=True)
 
     registry_path = addons_directory / "publish.xml"
+    _recover_interrupted_install(addons_directory, addon_path, registry_path)
     _load_registry(registry_path)
     auth_token = _credential(platform_name)
     source_digest = _source_digest()
@@ -321,16 +422,53 @@ def install():
     addon_changed = not _addon_is_current(
         addon_path, source_digest, runtime_config
     )
-    if addon_changed:
-        _replace_addon(
-            addons_directory, addon_path, source_digest, runtime_config
-        )
-    registration_changed = _merge_registration(registry_path)
+    registry_tree, registration_changed = _merged_registration(registry_path)
+    staging_root = None
+    staged_addon = None
+    staged_registry = None
+    try:
+        if addon_changed:
+            staging_root, staged_addon = _stage_addon(
+                addons_directory, source_digest, runtime_config
+            )
+        if registration_changed:
+            staged_registry = _stage_registry(registry_tree, registry_path)
+        if addon_changed or registration_changed:
+            _commit_install(
+                addons_directory,
+                addon_path,
+                staged_addon,
+                registry_path,
+                staged_registry,
+            )
+    finally:
+        if staging_root is not None:
+            shutil.rmtree(str(staging_root), ignore_errors=True)
+        if staged_registry is not None and staged_registry.exists():
+            staged_registry.unlink()
     changed = addon_changed or registration_changed
+    if existed and changed:
+        status = "updated"
+    elif changed:
+        status = "installed"
+    else:
+        status = "current"
     return {
         "platform": platform_name,
         "architecture": architecture,
-        "status": "updated" if existed and changed else "installed" if changed else "current",
+        "status": status,
         "restart_required": changed,
         "addon_path": str(addon_path),
     }
+
+
+def install():
+    try:
+        return _install()
+    except AddinInstallError:
+        raise
+    except (OSError, shutil.Error) as error:
+        raise AddinInstallError(
+            "ADDIN_INSTALL_FAILED",
+            "The WPS Add-in could not be installed: {0}".format(error),
+        )
