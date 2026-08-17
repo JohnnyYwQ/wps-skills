@@ -4,6 +4,7 @@
 
 - `SKILL.md`：安装、就绪检查、选择和调用 WPS Action，以及写入和破坏性操作风险门禁的核心流程。
 - `references/action-manifest.json`：WPS Action 名称、参数、结果、前置条件与风险的唯一事实来源。
+- `references/excel.md`：Excel 核心工作流的渐进式 Action 选择、顺序与错误处理指南。
 - `scripts/wps.py`：Python 3.9+ 标准库 Runner；提供 `check`、`install` 和 `invoke` 内部操作。
 - `scripts/wps_skill/addon_installer.py`：在 Linux/Windows 用户配置目录幂等安装 WPS Add-in、安全合并 `publish.xml` 并管理本机认证配置。
 - `assets/wps-addin/`：Linux x86_64、Linux ARM64、Windows x86_64 和 Windows ARM64 共用的 WPS Add-in 资源。

@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,54 @@ VALIDATOR = REPOSITORY_ROOT / "scripts" / "validate_action_manifest.py"
 REPRESENTATIVE_FIXTURES = (
     REPOSITORY_ROOT / "tests" / "fixtures" / "representative-actions.json"
 )
+UNIFIED_ADDIN = REPOSITORY_ROOT / "skills/wps-office/assets/wps-addin/main.js"
+EXCEL_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/excel.md"
+EXCEL_CORE_ACTION_GROUPS = {
+    "workbooks": {
+        "getActiveWorkbook",
+        "openWorkbook",
+        "getOpenWorkbooks",
+        "switchWorkbook",
+        "closeWorkbook",
+        "createWorkbook",
+    },
+    "worksheets": {
+        "createSheet",
+        "deleteSheet",
+        "renameSheet",
+        "copySheet",
+        "getSheetList",
+        "switchSheet",
+        "moveSheet",
+    },
+    "cells_and_ranges": {
+        "getCellValue",
+        "setCellValue",
+        "getRangeData",
+        "setRangeData",
+        "getCellInfo",
+        "clearRange",
+        "getSelection",
+        "insertRows",
+        "insertColumns",
+        "deleteRows",
+        "deleteColumns",
+    },
+    "formulas": {
+        "getFormula",
+        "setFormula",
+        "autoSum",
+        "evaluateFormula",
+    },
+    "basic_data": {
+        "cleanData",
+        "removeDuplicates",
+        "sortRange",
+        "findInSheet",
+        "replaceInSheet",
+    },
+}
+EXCEL_CORE_ACTIONS = set().union(*EXCEL_CORE_ACTION_GROUPS.values())
 
 
 class ActionManifestValidatorTests(unittest.TestCase):
@@ -529,6 +578,97 @@ class ActionManifestValidatorTests(unittest.TestCase):
     def _write_text(path: Path, value: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(value, encoding="utf-8")
+
+
+class ExcelCoreContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        manifest = json.loads(
+            (
+                REPOSITORY_ROOT
+                / "skills/wps-office/references/action-manifest.json"
+            ).read_text(encoding="utf-8")
+        )
+        cls.actions = {entry["action"]: entry for entry in manifest["actions"]}
+        cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
+        cls.reference_source = (
+            EXCEL_REFERENCE.read_text(encoding="utf-8")
+            if EXCEL_REFERENCE.is_file()
+            else ""
+        )
+
+    def test_every_core_action_has_a_manifest_contract_addin_dispatch_and_reference(self) -> None:
+        dispatch_actions = set(
+            re.findall(
+                r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
+                self.addin_source,
+                re.MULTILINE,
+            )
+        )
+        reference_actions = set(
+            re.findall(r"`([a-z][A-Za-z0-9]+)`", self.reference_source)
+        )
+
+        self.assertEqual(EXCEL_CORE_ACTIONS - set(self.actions), set())
+        self.assertEqual(EXCEL_CORE_ACTIONS - dispatch_actions, set())
+        self.assertEqual(EXCEL_CORE_ACTIONS - reference_actions, set())
+
+        for action_name in sorted(EXCEL_CORE_ACTIONS):
+            with self.subTest(action=action_name):
+                action = self.actions[action_name]
+                self.assertEqual(action["application"], "excel")
+                self.assertEqual(action["parameters"]["type"], "object")
+                self.assertEqual(action["result"]["type"], "object")
+                self.assertFalse(action["parameters"]["additionalProperties"])
+                self.assertFalse(action["result"]["additionalProperties"])
+                self.assertIn(action["risk"], {"read", "write", "destructive"})
+
+    def test_core_actions_require_inputs_needed_by_the_addin(self) -> None:
+        required_inputs = {
+            "switchSheet": {"sheet"},
+            "deleteRows": {"row"},
+            "findInSheet": {"searchText"},
+            "replaceInSheet": {"searchText", "replaceText"},
+        }
+
+        for action_name, expected in required_inputs.items():
+            with self.subTest(action=action_name):
+                actual = set(self.actions[action_name]["parameters"]["required"])
+                self.assertEqual(actual, expected)
+
+    def test_row_actions_return_numeric_row_positions(self) -> None:
+        result_positions = {
+            "insertRows": "insertedAt",
+            "deleteRows": "deletedFrom",
+        }
+
+        for action_name, field in result_positions.items():
+            with self.subTest(action=action_name):
+                field_schema = self.actions[action_name]["result"]["properties"][field]
+                self.assertEqual(field_schema["type"], "number")
+
+    def test_excel_reference_uses_only_the_skill_package_runtime(self) -> None:
+        self.assertTrue(EXCEL_REFERENCE.is_file())
+        self.assertIn("scripts/wps.py invoke", self.reference_source)
+        self.assertNotIn("MCP", self.reference_source)
+        self.assertNotIn("Node.js", self.reference_source)
+        self.assertNotIn("PowerShell", self.reference_source)
+
+    def test_excel_reference_documents_the_complete_core_workflow(self) -> None:
+        workflow_actions = (
+            "getActiveWorkbook",
+            "switchSheet",
+            "setRangeData",
+            "setFormula",
+            "getRangeData",
+            "save",
+        )
+
+        positions = [
+            self.reference_source.find(f"`{action}`") for action in workflow_actions
+        ]
+        self.assertTrue(all(position >= 0 for position in positions))
+        self.assertEqual(positions, sorted(positions))
 
 
 if __name__ == "__main__":

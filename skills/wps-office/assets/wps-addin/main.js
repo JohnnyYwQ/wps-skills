@@ -191,6 +191,12 @@ function handleAction(actionRequest) {
             case 'setFormula':
                 result = handleSetFormula(actionRequest.params);
                 break;
+            case 'autoSum':
+                result = handleAutoSum(actionRequest.params);
+                break;
+            case 'evaluateFormula':
+                result = handleEvaluateFormula(actionRequest.params);
+                break;
 
             // Word
             case 'getActiveDocument':
@@ -993,9 +999,9 @@ function handleGetActiveWorkbook() {
             success: true,
             data: {
                 name: wb.Name,
-                path: wb.FullName,
-                sheets: sheets,
-                activeSheet: wb.ActiveSheet.Name
+                path: wb.FullName || '',
+                sheetCount: wb.Sheets.Count,
+                sheets: sheets
             }
         };
     } catch (e) {
@@ -1031,7 +1037,17 @@ function handleGetCellValue(params) {
             return { success: false, error: '请指定单元格位置(cell或row/col)' };
         }
         var cell = sheet.Range(cellAddr);
-        return { success: true, data: { value: cell.Value, formula: cell.Formula } };
+        var value = cell.Value2;
+        var rawFormula = cell.Formula;
+        var formula = typeof rawFormula === 'string' && rawFormula.charAt(0) === '=' ? rawFormula : '';
+        return {
+            success: true,
+            data: {
+                value: value === undefined ? null : value,
+                text: cell.Text === undefined || cell.Text === null ? '' : String(cell.Text),
+                formula: formula === undefined ? null : formula
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -1055,7 +1071,7 @@ function handleSetCellValue(params) {
         }
         var cell = sheet.Range(cellAddr);
         cell.Value2 = params.value;
-        return { success: true, data: { cell: cellAddr } };
+        return { success: true, data: {} };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -1086,7 +1102,7 @@ function handleGetRangeData(params) {
             data.push(rowData);
         }
 
-        return { success: true, data: { data: data, rows: rowCount, cols: colCount } };
+        return { success: true, data: { data: data } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -1119,7 +1135,7 @@ function handleSetRangeData(params) {
                 }
             }
         }
-        return { success: true, data: { rows: data.length, cols: data[0] ? data[0].length : 0 } };
+        return { success: true, data: {} };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -1127,23 +1143,63 @@ function handleSetRangeData(params) {
 
 function handleSetFormula(params) {
     try {
+        if (params.formula.charAt(0) !== '=') {
+            return { success: false, error: '公式必须以=开头' };
+        }
         var sheet = params.sheet || Application.ActiveSheet;
         if (typeof sheet === 'string') {
             sheet = Application.ActiveWorkbook.Sheets.Item(sheet);
         }
-        // 支持两种方式：cell地址（如"C10"）或 row/col数字
-        var cell;
-        if (params.cell) {
-            cell = sheet.Range(params.cell);
-        } else if (params.row && params.col) {
-            cell = sheet.Cells(params.row, params.col);
-        } else if (params.range) {
-            cell = sheet.Range(params.range);
-        } else {
-            return { success: false, error: '请指定单元格位置(cell或row/col)' };
-        }
+        var cell = sheet.Range(params.range);
         cell.Formula = params.formula;
-        return { success: true, data: { cell: cell.Address, calculatedValue: cell.Value } };
+        return { success: true, data: {} };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleAutoSum(params) {
+    try {
+        var sheet = Application.ActiveSheet;
+        var target = sheet.Range(params.targetCell);
+        target.Formula = '=SUM(' + params.range + ')';
+        var result = target.Value2;
+        if (typeof result !== 'number' || isNaN(result)) {
+            return { success: false, error: '自动求和未返回数值结果' };
+        }
+        return {
+            success: true,
+            data: {
+                range: params.range,
+                targetCell: params.targetCell,
+                result: result
+            }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleEvaluateFormula(params) {
+    try {
+        if (params.formula.charAt(0) !== '=') {
+            return { success: false, error: '公式必须以=开头' };
+        }
+        var result;
+        if (params.cell) {
+            var cell = Application.ActiveSheet.Range(params.cell);
+            cell.Formula = params.formula;
+            result = cell.Value2;
+        } else {
+            result = Application.Evaluate(params.formula);
+        }
+        return {
+            success: true,
+            data: {
+                success: true,
+                result: result === undefined ? null : result
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -3795,7 +3851,7 @@ function handleSortRange(params) {
     try {
         var sheet = Application.ActiveSheet;
         var range = sheet.Range(params.range);
-        var keyCol = sheet.Range(params.keyColumn);
+        var keyCol = range.Columns.Item(params.keyColumn || 1);
         var order = params.order === 'desc' ? 2 : 1;
         range.Sort(keyCol, order);
         return { success: true };
@@ -4040,7 +4096,8 @@ function handleRemoveDuplicates(params) {
     try {
         var sheet = Application.ActiveSheet;
         var range = sheet.Range(params.range);
-        var hasHeader = params.has_header !== false ? 1 : 2; // xlYes=1, xlNo=2
+        var originalCount = range.Rows.Count;
+        var hasHeader = params.hasHeader !== false ? 1 : 2; // xlYes=1, xlNo=2
         // columns参数：数组形式的列索引
         var cols = params.columns;
         if (!cols || cols.length === 0) {
@@ -4052,7 +4109,15 @@ function handleRemoveDuplicates(params) {
             }
         }
         range.RemoveDuplicates(cols, hasHeader);
-        return { success: true, data: { message: '删除重复行成功' } };
+        var remainingCount = range.Rows.Count;
+        return {
+            success: true,
+            data: {
+                originalCount: originalCount,
+                remainingCount: remainingCount,
+                removedCount: originalCount - remainingCount
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -4060,7 +4125,10 @@ function handleRemoveDuplicates(params) {
 
 function handleCleanData(params) {
     try {
-        var sheet = Application.ActiveSheet;
+        var sheet = params.sheet || Application.ActiveSheet;
+        if (typeof sheet === 'string') {
+            sheet = Application.ActiveWorkbook.Sheets.Item(sheet);
+        }
         var range = sheet.Range(params.range);
         var operations = params.operations || ['trim'];
         var startRow = range.Row;
@@ -4072,15 +4140,22 @@ function handleCleanData(params) {
             var op = operations[opIdx];
             var count = 0;
             try {
-                for (var r = 0; r < range.Rows.Count; r++) {
-                    for (var c = 0; c < range.Columns.Count; c++) {
-                        var cellAddr = colToLetter(startCol + c) + (startRow + r);
-                        var cell = sheet.Range(cellAddr);
-                        var val = cell.Value2;
-                        if (val && typeof val === 'string') {
+                if (op === 'trim' || op === 'unify_date') {
+                    for (var r = 0; r < range.Rows.Count; r++) {
+                        for (var c = 0; c < range.Columns.Count; c++) {
+                            var cellAddr = colToLetter(startCol + c) + (startRow + r);
+                            var cell = sheet.Range(cellAddr);
+                            var val = cell.Value2;
                             var newVal = val;
-                            if (op === 'trim') {
-                                newVal = newVal.replace(/^\s+|\s+$/g, '');
+                            if (op === 'trim' && typeof val === 'string') {
+                                newVal = val.replace(/^\s+|\s+$/g, '');
+                            } else if (op === 'unify_date' && typeof val === 'number') {
+                                var date = new Date(Math.round((val - 25569) * 86400000));
+                                if (!isNaN(date.getTime())) {
+                                    var month = ('0' + (date.getUTCMonth() + 1)).slice(-2);
+                                    var day = ('0' + date.getUTCDate()).slice(-2);
+                                    newVal = date.getUTCFullYear() + '-' + month + '-' + day;
+                                }
                             }
                             if (newVal !== val) {
                                 cell.Value2 = newVal;
@@ -4088,13 +4163,45 @@ function handleCleanData(params) {
                             }
                         }
                     }
+                } else if (op === 'remove_duplicates') {
+                    var originalRows = range.Rows.Count;
+                    var columns = [];
+                    for (var column = 1; column <= range.Columns.Count; column++) {
+                        columns.push(column);
+                    }
+                    range.RemoveDuplicates(columns, 1);
+                    count = originalRows - range.Rows.Count;
+                } else if (op === 'remove_empty_rows') {
+                    for (var row = range.Rows.Count; row >= 1; row--) {
+                        var empty = true;
+                        for (var column = 1; column <= range.Columns.Count; column++) {
+                            var rowValue = range.Cells.Item(row, column).Value2;
+                            if (rowValue !== undefined && rowValue !== null && rowValue !== '') {
+                                empty = false;
+                                break;
+                            }
+                        }
+                        if (empty) {
+                            range.Rows.Item(row).Delete();
+                            count++;
+                        }
+                    }
+                } else {
+                    throw new Error('不支持的数据清理操作: ' + op);
                 }
                 opResults.push({ operation: op, success: true, message: '处理了' + count + '个单元格' });
             } catch (opErr) {
                 opResults.push({ operation: op, success: false, message: opErr.message });
             }
         }
-        return { success: true, data: { range: params.range, operations: opResults } };
+        return {
+            success: true,
+            data: {
+                range: params.range,
+                operations: opResults,
+                message: 'cleanData completed'
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -4942,8 +5049,13 @@ function handleFindInSheet(params) {
             var firstAddr = typeof found.Address === 'function' ? found.Address() : found.Address;
             do {
                 var addr = typeof found.Address === 'function' ? found.Address() : found.Address;
-                results.push({ address: addr.replace(/\$/g, ''), value: found.Value2 });
+                var value = found.Value2;
+                results.push({
+                    address: addr.replace(/\$/g, ''),
+                    value: value === undefined ? null : value
+                });
                 found = searchRange.FindNext(found);
+                if (!found) break;
                 var currAddr = typeof found.Address === 'function' ? found.Address() : found.Address;
             } while (found && currAddr !== firstAddr);
         }
@@ -5230,7 +5342,7 @@ function handleOpenWorkbook(params) {
     try {
         if (!params.path) return { success: false, error: '请提供工作簿路径' };
         var wb = Application.Workbooks.Open(params.path, params.updateLinks, params.readOnly);
-        return { success: true, data: { name: wb.Name, path: wb.FullName, sheets: wb.Sheets.Count } };
+        return { success: true, data: { name: wb.Name, path: wb.FullName || '', sheets: wb.Sheets.Count } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -5242,7 +5354,7 @@ function handleGetOpenWorkbooks(params) {
         var workbooks = [];
         for (var i = 1; i <= Application.Workbooks.Count; i++) {
             var wb = Application.Workbooks.Item(i);
-            workbooks.push({ name: wb.Name, path: wb.FullName, sheets: wb.Sheets.Count, active: wb.Name === Application.ActiveWorkbook.Name });
+            workbooks.push({ name: wb.Name, path: wb.FullName || '', sheets: wb.Sheets.Count, active: wb.Name === Application.ActiveWorkbook.Name });
         }
         return { success: true, data: { workbooks: workbooks, count: workbooks.length } };
     } catch (e) {
@@ -5255,7 +5367,7 @@ function handleSwitchWorkbook(params) {
     try {
         var wb = Application.Workbooks.Item(params.name || params.index);
         wb.Activate();
-        return { success: true, data: { name: wb.Name, path: wb.FullName } };
+        return { success: true, data: { name: wb.Name, path: wb.FullName || '' } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -5282,7 +5394,7 @@ function handleCreateWorkbook(params) {
             // 如果指定了名称，另存为
             wb.SaveAs(params.name);
         }
-        return { success: true, data: { name: wb.Name, path: wb.FullName, sheets: wb.Sheets.Count } };
+        return { success: true, data: { name: wb.Name, path: wb.FullName || '', sheets: wb.Sheets.Count } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -5293,8 +5405,10 @@ function handleGetFormula(params) {
     try {
         var sheet = Application.ActiveSheet;
         var cell = sheet.Range(params.cell);
-        var formula = cell.Formula || '';
-        var formulaLocal = cell.FormulaLocal || '';
+        var rawFormula = cell.Formula;
+        var rawFormulaLocal = cell.FormulaLocal;
+        var formula = typeof rawFormula === 'string' ? rawFormula : '';
+        var formulaLocal = typeof rawFormulaLocal === 'string' ? rawFormulaLocal : '';
         return { success: true, data: { cell: params.cell, formula: formula, formulaLocal: formulaLocal, hasFormula: formula.indexOf('=') === 0 } };
     } catch (e) {
         return { success: false, error: e.message };
@@ -5307,13 +5421,14 @@ function handleGetCellInfo(params) {
         var sheet = Application.ActiveSheet;
         var cell = sheet.Range(params.cell);
         var value = cell.Value2;
-        var formula = cell.Formula || '';
+        var rawFormula = cell.Formula;
+        var formula = typeof rawFormula === 'string' && rawFormula.charAt(0) === '=' ? rawFormula : '';
         var numberFormat = cell.NumberFormat || '';
         var fontName = cell.Font.Name || '';
         var fontSize = cell.Font.Size || 0;
-        var bold = cell.Font.Bold || false;
+        var bold = !!cell.Font.Bold;
         var bgColor = cell.Interior.Color || 0;
-        return { success: true, data: { cell: params.cell, value: value, formula: formula, numberFormat: numberFormat, font: { name: fontName, size: fontSize, bold: bold }, backgroundColor: bgColor } };
+        return { success: true, data: { cell: params.cell, value: value === undefined ? null : value, formula: formula, numberFormat: numberFormat, font: { name: fontName, size: fontSize, bold: bold }, backgroundColor: bgColor } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -5625,28 +5740,24 @@ function handleConvertToPDF(params) {
 function handleSave(params) {
     try {
         var appType = getAppType();
-        var filePath = '';
 
         if (appType === 'wps') {
             var doc = Application.ActiveDocument;
             if (!doc) return { success: false, error: '没有打开的文档' };
             doc.Save();
-            filePath = doc.FullName;
         } else if (appType === 'et') {
             var wb = Application.ActiveWorkbook;
             if (!wb) return { success: false, error: '没有打开的工作簿' };
             wb.Save();
-            filePath = wb.FullName;
         } else if (appType === 'wpp') {
             var pres = Application.ActivePresentation;
             if (!pres) return { success: false, error: '没有打开的演示文稿' };
             pres.Save();
-            filePath = pres.FullName;
         } else {
             return { success: false, error: '无法识别当前应用类型' };
         }
 
-        return { success: true, data: { filePath: filePath } };
+        return { success: true, data: {} };
     } catch (e) {
         return { success: false, error: e.message };
     }

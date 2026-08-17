@@ -30,6 +30,8 @@ Do not run the Action unless `data.ready` is `true`. The installer recognizes Li
 
 Read `references/action-manifest.json` and select the canonical WPS Action matching the request. Check its `application`, parameter contract, result contract, prerequisites, and `risk` before invoking it.
 
+For workbook, worksheet, cell, range, formula, or basic Excel data work, also read `references/excel.md`. Use its workflow guidance while treating the manifest as the exact parameter and result contract.
+
 Apply the manifest risk policy before invoking:
 
 - `read`: invoke directly after readiness succeeds.

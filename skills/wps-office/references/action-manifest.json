@@ -1732,8 +1732,7 @@
           }
         },
         "required": [
-          "row",
-          "startRow"
+          "row"
         ],
         "additionalProperties": false
       },
@@ -1745,7 +1744,7 @@
             "description": "Value returned as the 'count' result field."
           },
           "deletedFrom": {
-            "type": "string",
+            "type": "number",
             "description": "Value returned as the 'deletedFrom' result field."
           }
         },
@@ -2133,7 +2132,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "searchText"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -3391,7 +3392,7 @@
             "description": "Value returned as the 'count' result field."
           },
           "insertedAt": {
-            "type": "string",
+            "type": "number",
             "description": "Value returned as the 'insertedAt' result field."
           }
         },
@@ -3976,7 +3977,10 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "replaceText",
+          "searchText"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -4840,7 +4844,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "sheet"
+        ],
         "additionalProperties": false
       },
       "result": {

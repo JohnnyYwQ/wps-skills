@@ -690,6 +690,139 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(first.returncode, 0, first_stderr)
         self.assertTrue(json.loads(first_stdout)["ok"])
 
+    def test_excel_core_workflow_round_trips_through_real_loopback_http(self):
+        steps = (
+            (
+                {"action": "getActiveWorkbook", "params": {}, "timeout_ms": 1000},
+                {
+                    "name": "Budget.xlsx",
+                    "path": "/work/Budget.xlsx",
+                    "sheetCount": 2,
+                    "sheets": ["Raw", "Summary"],
+                },
+            ),
+            (
+                {
+                    "action": "switchSheet",
+                    "params": {"sheet": "Summary"},
+                    "timeout_ms": 1000,
+                },
+                {"activeSheet": "Summary"},
+            ),
+            (
+                {
+                    "action": "setRangeData",
+                    "params": {
+                        "range": "A1:B2",
+                        "data": [["Item", "Amount"], ["Hosting", 42]],
+                    },
+                    "timeout_ms": 1000,
+                },
+                {},
+            ),
+            (
+                {
+                    "action": "setFormula",
+                    "params": {"range": "B3", "formula": "=SUM(B2:B2)"},
+                    "timeout_ms": 1000,
+                },
+                {},
+            ),
+            (
+                {
+                    "action": "getRangeData",
+                    "params": {"range": "A1:B3"},
+                    "timeout_ms": 1000,
+                },
+                {"data": [["Item", "Amount"], ["Hosting", 42], [None, 42]]},
+            ),
+            (
+                {"action": "save", "params": {}, "timeout_ms": 1000},
+                {},
+            ),
+        )
+
+        for request, data in steps:
+            with self.subTest(action=request["action"]):
+                completed, addin = self._invoke_with_fake_addin(
+                    request, {"success": True, "data": data}
+                )
+
+                self.assertEqual(completed.returncode, 0, completed.stdout)
+                self.assertEqual(
+                    json.loads(completed.stdout),
+                    {"ok": True, "action": request["action"], "data": data},
+                )
+                self.assertEqual(addin.action_request["action"], request["action"])
+                self.assertEqual(addin.action_request["params"], request["params"])
+
+    def test_empty_excel_result_is_preserved_as_structured_data(self):
+        completed, _addin = self._invoke_with_fake_addin(
+            {
+                "action": "getRangeData",
+                "params": {"range": "A1:B2"},
+                "timeout_ms": 1000,
+            },
+            {"success": True, "data": {"data": []}},
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stdout)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {"ok": True, "action": "getRangeData", "data": {"data": []}},
+        )
+
+    def test_invalid_excel_params_never_reach_the_addin(self):
+        addin = FakeAddin({"success": True, "data": {"activeSheet": "Summary"}})
+        addin.start()
+
+        completed = invoke_runner(
+            {"action": "switchSheet", "params": {}, "timeout_ms": 1000}
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "switchSheet",
+                "error": {
+                    "code": "INVALID_PARAMS",
+                    "message": "params is missing required field 'sheet'",
+                    "retryable": False,
+                },
+            },
+        )
+        self.assertFalse(addin.action_received.wait(0.1))
+        addin.stop()
+        self.assertTrue(addin.finished.wait(1))
+        if addin.error:
+            raise addin.error
+
+    def test_excel_wps_failure_returns_a_structured_error(self):
+        completed, _addin = self._invoke_with_fake_addin(
+            {
+                "action": "getCellValue",
+                "params": {"sheet": "Summary", "row": 1, "col": 1},
+                "timeout_ms": 1000,
+            },
+            {"success": False, "error": "Worksheet was not found"},
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "getCellValue",
+                "error": {
+                    "code": "WPS_ACTION_FAILED",
+                    "message": "Worksheet was not found",
+                    "retryable": False,
+                },
+            },
+        )
+
     def test_process_exit_releases_the_lock_even_when_the_lock_file_remains(self):
         result_gate = threading.Event()
         addin = FakeAddin(
