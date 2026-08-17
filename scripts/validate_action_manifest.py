@@ -42,6 +42,8 @@ SCHEMA_FIELDS = {
     "description",
     "enum",
     "items",
+    "maximum",
+    "minimum",
     "pattern",
     "properties",
     "required",
@@ -135,6 +137,27 @@ def validate_schema_node(schema: Any, context: str) -> None:
             re.compile(schema["pattern"])
         except re.error as error:
             raise ValueError(f"{context}.pattern must be a valid regular expression") from error
+    for bound_name in ("minimum", "maximum"):
+        if bound_name not in schema:
+            continue
+        bound = schema[bound_name]
+        declared_types = schema.get("type")
+        if (
+            "number"
+            not in (
+                [declared_types]
+                if isinstance(declared_types, str)
+                else declared_types or []
+            )
+            or not matches_json_type(bound, "number")
+        ):
+            raise ValueError(f"{context}.{bound_name} requires a number schema")
+    if (
+        "minimum" in schema
+        and "maximum" in schema
+        and schema["minimum"] > schema["maximum"]
+    ):
+        raise ValueError(f"{context}.minimum must not exceed maximum")
     if "properties" in schema:
         properties = schema["properties"]
         if not isinstance(properties, dict):
@@ -251,6 +274,18 @@ def validate_example_value(value: Any, schema: Dict[str, Any], context: str) -> 
         raise ValueError(f"{context}: value does not match declared type")
     if "enum" in schema and value not in schema["enum"]:
         raise ValueError(f"{context}: value is not one of the declared enum values")
+    if (
+        matches_json_type(value, "number")
+        and "minimum" in schema
+        and value < schema["minimum"]
+    ):
+        raise ValueError(f"{context}: value is below the declared minimum")
+    if (
+        matches_json_type(value, "number")
+        and "maximum" in schema
+        and value > schema["maximum"]
+    ):
+        raise ValueError(f"{context}: value exceeds the declared maximum")
     if (
         isinstance(value, str)
         and "pattern" in schema

@@ -199,6 +199,28 @@ class ActionManifestValidatorTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
+    def test_numeric_bounds_are_valid_contract_constraints(self) -> None:
+        with self._minimal_baseline() as root:
+            manifest_path = root / "skills/wps-office/references/action-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["actions"][0]["parameters"] = {
+                "type": "object",
+                "properties": {
+                    "percent": {
+                        "type": "number",
+                        "minimum": 10,
+                        "maximum": 400,
+                    },
+                },
+                "required": ["percent"],
+                "additionalProperties": False,
+            }
+            self._write_json(manifest_path, manifest)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_result_array_requires_an_items_contract(self) -> None:
         with self._minimal_baseline() as root:
             manifest_path = root / "skills/wps-office/references/action-manifest.json"
@@ -719,6 +741,185 @@ class ExcelCoreContractTests(unittest.TestCase):
         )
 
         self.assertEqual(documented, self.core_actions)
+
+
+class ExcelAdvancedContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.manifest = json.loads(
+            (
+                REPOSITORY_ROOT
+                / "skills/wps-office/references/action-manifest.json"
+            ).read_text(encoding="utf-8")
+        )
+        cls.actions = {entry["action"]: entry for entry in cls.manifest["actions"]}
+        cls.excel_actions = {
+            entry["action"]
+            for entry in cls.manifest["actions"]
+            if entry["application"] == "excel"
+        }
+        cls.core_actions = set(
+            cls.manifest["reference_groups"]["excel_core"]["actions"]
+        )
+        advanced_group = cls.manifest["reference_groups"].get(
+            "excel_advanced", {"actions": []}
+        )
+        cls.advanced_group = advanced_group
+        cls.advanced_actions = set(advanced_group["actions"])
+        cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
+        cls.reference_source = EXCEL_REFERENCE.read_text(encoding="utf-8")
+
+    def test_core_and_advanced_groups_partition_every_excel_action(self) -> None:
+        self.assertEqual(self.core_actions & self.advanced_actions, set())
+        self.assertEqual(self.core_actions | self.advanced_actions, self.excel_actions)
+        self.assertEqual(self.advanced_group.get("reference"), "excel.md")
+
+    def test_every_advanced_action_has_a_contract_and_addin_dispatch(self) -> None:
+        dispatch_actions = set(
+            re.findall(
+                r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
+                self.addin_source,
+                re.MULTILINE,
+            )
+        )
+
+        self.assertEqual(self.advanced_actions - dispatch_actions, set())
+        for action_name in sorted(self.advanced_actions):
+            with self.subTest(action=action_name):
+                action = self.actions[action_name]
+                self.assertEqual(action["application"], "excel")
+                self.assertEqual(action["parameters"]["type"], "object")
+                self.assertEqual(action["result"]["type"], "object")
+                self.assertFalse(action["parameters"]["additionalProperties"])
+                self.assertFalse(action["result"]["additionalProperties"])
+                self.assertIn(action["risk"], {"read", "write", "destructive"})
+
+    def test_advanced_actions_require_inputs_used_unconditionally(self) -> None:
+        required_inputs = {
+            "addCellComment": {"cell", "text"},
+            "addDataValidation": {"range", "validationType"},
+            "clearFormats": {"range"},
+            "consolidate": {"destination", "sources"},
+            "copyFormat": {"source", "target"},
+            "copyRange": {"range"},
+            "createPivotTable": {"sourceRange", "destinationCell"},
+            "deleteNamedRange": {"name"},
+            "groupColumns": {"startColumn", "endColumn"},
+            "getConditionalFormats": {"range"},
+            "getDataValidations": {"range"},
+            "removeConditionalFormat": {"range"},
+            "removeDataValidation": {"range"},
+            "setCellFormat": {"range", "numberFormat"},
+            "transpose": {"sourceRange"},
+            "wrapText": {"range"},
+        }
+
+        for action_name, expected in required_inputs.items():
+            with self.subTest(action=action_name):
+                actual = set(self.actions[action_name]["parameters"]["required"])
+                self.assertEqual(actual, expected)
+
+    def test_actions_with_alternative_identifiers_declare_any_of_contracts(self) -> None:
+        expected_alternatives = {
+            "hideColumns": [{"required": ["column"]}, {"required": ["columns"]}],
+            "hideRows": [{"required": ["row"]}, {"required": ["rows"]}],
+            "showColumns": [{"required": ["column"]}, {"required": ["columns"]}],
+            "showRows": [{"required": ["row"]}, {"required": ["rows"]}],
+            "subtotal": [
+                {"required": ["totalColumn"]},
+                {"required": ["totalColumns"]},
+            ],
+            "transpose": [{"required": ["destinationCell"]}, {"required": ["targetCell"]}],
+            "updateChart": [{"required": ["chartIndex"]}, {"required": ["chartName"]}],
+            "updatePivotTable": [
+                {"required": ["pivotTableName"]},
+                {"required": ["pivotTableCell"]},
+            ],
+        }
+
+        for action_name, expected in expected_alternatives.items():
+            with self.subTest(action=action_name):
+                self.assertEqual(
+                    self.actions[action_name]["parameters"].get("anyOf"), expected
+                )
+
+    def test_advanced_result_types_match_the_addin_values(self) -> None:
+        self.assertEqual(
+            self.actions["wrapText"]["result"]["properties"]["wrapText"]["type"],
+            "boolean",
+        )
+        self.assertEqual(
+            self.actions["getDataValidations"]["result"]["properties"]["type"]["type"],
+            "number",
+        )
+        for action_name, result_field in (
+            ("hideColumns", "hiddenColumns"),
+            ("hideRows", "hiddenRows"),
+            ("showColumns", "shownColumns"),
+            ("showRows", "shownRows"),
+        ):
+            with self.subTest(action=action_name):
+                result = self.actions[action_name]["result"]["properties"][result_field]
+                self.assertEqual(result["type"], "array")
+                self.assertEqual(result["items"]["type"], "number")
+
+    def test_context_actions_share_the_unified_structured_result(self) -> None:
+        expected_fields = {
+            "workbookName",
+            "currentSheet",
+            "allSheets",
+            "selectedCell",
+            "usedRange",
+            "usedRangeAddress",
+            "headers",
+            "rowCount",
+            "colCount",
+        }
+
+        for action_name in ("getContext", "getExcelContext"):
+            with self.subTest(action=action_name):
+                result = self.actions[action_name]["result"]
+                self.assertEqual(set(result["properties"]), expected_fields)
+                self.assertEqual(set(result["required"]), expected_fields)
+
+    def test_set_zoom_rejects_values_outside_the_wps_range(self) -> None:
+        percent = self.actions["setZoom"]["parameters"]["properties"]["percent"]
+
+        self.assertEqual(percent["minimum"], 10)
+        self.assertEqual(percent["maximum"], 400)
+        self.assertEqual(
+            self.actions["setZoom"]["result"]["required"], ["percent"]
+        )
+
+    def test_overwriting_advanced_actions_are_destructive(self) -> None:
+        for action_name in ("addCellComment", "pasteRange"):
+            with self.subTest(action=action_name):
+                self.assertEqual(self.actions[action_name]["risk"], "destructive")
+
+    def test_pivot_contracts_preserve_the_destination_sheet_and_field_names(self) -> None:
+        create_pivot = self.actions["createPivotTable"]
+        self.assertIn("sheet", create_pivot["result"]["required"])
+        self.assertIn("sheet", self.actions["updatePivotTable"]["parameters"]["properties"])
+
+        for action_name, property_name in (
+            ("createPivotTable", "valueFields"),
+            ("updatePivotTable", "addValueFields"),
+            ("updatePivotTable", "updateValueFields"),
+        ):
+            with self.subTest(action=action_name, property=property_name):
+                item_contract = self.actions[action_name]["parameters"]["properties"][
+                    property_name
+                ]["items"]
+                self.assertEqual(item_contract["required"], ["field"])
+
+    def test_excel_reference_catalog_is_derived_from_the_advanced_group(self) -> None:
+        start = self.reference_source.index("<!-- excel-advanced-actions:start -->")
+        end = self.reference_source.index("<!-- excel-advanced-actions:end -->")
+        documented = set(
+            re.findall(r"`([a-z][A-Za-z0-9]*)`", self.reference_source[start:end])
+        )
+
+        self.assertEqual(documented, self.advanced_actions)
 
 
 if __name__ == "__main__":

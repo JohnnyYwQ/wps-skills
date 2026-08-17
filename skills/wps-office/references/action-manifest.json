@@ -38,6 +38,73 @@
         "findInSheet",
         "replaceInSheet"
       ]
+    },
+    "excel_advanced": {
+      "reference": "excel.md",
+      "actions": [
+        "addCellComment",
+        "addConditionalFormat",
+        "addDataValidation",
+        "autoFilter",
+        "autoFitAll",
+        "autoFitColumn",
+        "autoFitRow",
+        "calculateSheet",
+        "clearFormats",
+        "consolidate",
+        "copyFormat",
+        "copyRange",
+        "createChart",
+        "createNamedRange",
+        "createPivotTable",
+        "deleteCellComment",
+        "deleteNamedRange",
+        "diagnoseFormula",
+        "exportChartAsImage",
+        "exportRangeAsImage",
+        "fillSeries",
+        "freezePanes",
+        "getCellComments",
+        "getConditionalFormats",
+        "getContext",
+        "getDataValidations",
+        "getExcelContext",
+        "getNamedRanges",
+        "groupColumns",
+        "groupRows",
+        "hideColumns",
+        "hideRows",
+        "insertExcelImage",
+        "lockCells",
+        "mergeCells",
+        "pasteRange",
+        "protectSheet",
+        "protectWorkbook",
+        "refreshLinks",
+        "removeConditionalFormat",
+        "removeDataValidation",
+        "setArrayFormula",
+        "setBorder",
+        "setCellFormat",
+        "setCellStyle",
+        "setColumnWidth",
+        "setHyperlink",
+        "setNumberFormat",
+        "setPrintArea",
+        "setRowHeight",
+        "setZoom",
+        "showColumns",
+        "showRows",
+        "subtotal",
+        "textToColumns",
+        "transpose",
+        "unfreezePanes",
+        "unmergeCells",
+        "unprotectSheet",
+        "updateChart",
+        "updatePivotTable",
+        "wrapText"
+      ]
     }
   },
   "actions": [
@@ -450,7 +517,10 @@
             "type": "boolean"
           }
         },
-        "required": [],
+        "required": [
+          "cell",
+          "text"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -476,7 +546,7 @@
         "wps_running",
         "active_workbook"
       ],
-      "risk": "write"
+      "risk": "destructive"
     },
     {
       "action": "addConditionalFormat",
@@ -605,7 +675,8 @@
           }
         },
         "required": [
-          "range"
+          "range",
+          "validationType"
         ],
         "additionalProperties": false
       },
@@ -969,7 +1040,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "range"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -1118,7 +1191,10 @@
             "type": "number"
           }
         },
-        "required": [],
+        "required": [
+          "destination",
+          "sources"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -1165,7 +1241,10 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "source",
+          "target"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -1205,7 +1284,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "range"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -1512,12 +1593,17 @@
                   "type": "string"
                 }
               },
-              "required": [],
+              "required": [
+                "field"
+              ],
               "additionalProperties": false
             }
           }
         },
-        "required": [],
+        "required": [
+          "sourceRange",
+          "destinationCell"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -1538,13 +1624,18 @@
           "rowCount": {
             "type": "number",
             "description": "Value returned as the 'rowCount' result field."
+          },
+          "sheet": {
+            "type": "string",
+            "description": "Worksheet containing the created pivot table."
           }
         },
         "required": [
           "columnCount",
           "location",
           "pivotTableName",
-          "rowCount"
+          "rowCount",
+          "sheet"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the createPivotTable WPS Action."
@@ -1740,7 +1831,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "name"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -2563,7 +2656,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "range"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -2673,6 +2768,14 @@
             "type": "string",
             "description": "Value returned as the 'usedRangeAddress' result field."
           },
+          "rowCount": {
+            "type": "number",
+            "description": "Number of rows in the active worksheet used range."
+          },
+          "colCount": {
+            "type": "number",
+            "description": "Number of columns in the active worksheet used range."
+          },
           "workbookName": {
             "type": "string",
             "description": "Value returned as the 'workbookName' result field."
@@ -2685,6 +2788,8 @@
           "selectedCell",
           "usedRange",
           "usedRangeAddress",
+          "rowCount",
+          "colCount",
           "workbookName"
         ],
         "additionalProperties": false,
@@ -2708,7 +2813,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "range"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -2735,7 +2842,7 @@
             "description": "Value returned as the 'range' result field."
           },
           "type": {
-            "type": "string",
+            "type": "number",
             "description": "Value returned as the 'type' result field."
           }
         },
@@ -2817,6 +2924,14 @@
             "type": "string",
             "description": "Value returned as the 'usedRangeAddress' result field."
           },
+          "rowCount": {
+            "type": "number",
+            "description": "Number of rows in the active worksheet used range."
+          },
+          "colCount": {
+            "type": "number",
+            "description": "Number of columns in the active worksheet used range."
+          },
           "workbookName": {
             "type": "string",
             "description": "Value returned as the 'workbookName' result field."
@@ -2829,6 +2944,8 @@
           "selectedCell",
           "usedRange",
           "usedRangeAddress",
+          "rowCount",
+          "colCount",
           "workbookName"
         ],
         "additionalProperties": false,
@@ -3179,7 +3296,10 @@
             "type": "number"
           }
         },
-        "required": [],
+        "required": [
+          "startColumn",
+          "endColumn"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -3257,11 +3377,24 @@
           },
           "columns": {
             "description": "Value passed as the 'columns' Action parameter.",
-            "type": "number"
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         },
-        "required": [
-          "column"
+        "required": [],
+        "anyOf": [
+          {
+            "required": [
+              "column"
+            ]
+          },
+          {
+            "required": [
+              "columns"
+            ]
+          }
         ],
         "additionalProperties": false
       },
@@ -3269,7 +3402,10 @@
         "type": "object",
         "properties": {
           "hiddenColumns": {
-            "type": "number",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
             "description": "Value returned as the 'hiddenColumns' result field."
           }
         },
@@ -3298,11 +3434,24 @@
           },
           "rows": {
             "description": "Value passed as the 'rows' Action parameter.",
-            "type": "number"
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         },
-        "required": [
-          "row"
+        "required": [],
+        "anyOf": [
+          {
+            "required": [
+              "row"
+            ]
+          },
+          {
+            "required": [
+              "rows"
+            ]
+          }
         ],
         "additionalProperties": false
       },
@@ -3310,7 +3459,10 @@
         "type": "object",
         "properties": {
           "hiddenRows": {
-            "type": "number",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
             "description": "Value returned as the 'hiddenRows' result field."
           }
         },
@@ -3708,7 +3860,7 @@
         "wps_running",
         "active_workbook"
       ],
-      "risk": "write"
+      "risk": "destructive"
     },
     {
       "action": "protectSheet",
@@ -3866,7 +4018,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "range"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -3901,7 +4055,9 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "range"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -4211,7 +4367,8 @@
           }
         },
         "required": [
-          "range"
+          "range",
+          "numberFormat"
         ],
         "additionalProperties": false
       },
@@ -4705,6 +4862,8 @@
         "properties": {
           "percent": {
             "type": "number",
+            "minimum": 10,
+            "maximum": 400,
             "description": "Zoom percentage from 10 through 400."
           }
         },
@@ -4716,16 +4875,16 @@
       "result": {
         "type": "object",
         "properties": {
-          "message": {
-            "type": "string",
-            "description": "Value returned as the 'message' result field."
+          "percent": {
+            "type": "number",
+            "description": "The applied worksheet zoom percentage."
           }
         },
         "required": [
-          "message"
+          "percent"
         ],
         "additionalProperties": false,
-        "description": "Result payload declared by the legacy handler for the setZoom WPS Action."
+        "description": "Result payload returned by the setZoom WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -4746,17 +4905,35 @@
           },
           "columns": {
             "description": "Value passed as the 'columns' Action parameter.",
-            "type": "number"
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         },
         "required": [],
+        "anyOf": [
+          {
+            "required": [
+              "column"
+            ]
+          },
+          {
+            "required": [
+              "columns"
+            ]
+          }
+        ],
         "additionalProperties": false
       },
       "result": {
         "type": "object",
         "properties": {
           "shownColumns": {
-            "type": "boolean",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
             "description": "Value returned as the 'shownColumns' result field."
           }
         },
@@ -4785,17 +4962,35 @@
           },
           "rows": {
             "description": "Value passed as the 'rows' Action parameter.",
-            "type": "number"
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         },
         "required": [],
+        "anyOf": [
+          {
+            "required": [
+              "row"
+            ]
+          },
+          {
+            "required": [
+              "rows"
+            ]
+          }
+        ],
         "additionalProperties": false
       },
       "result": {
         "type": "object",
         "properties": {
           "shownRows": {
-            "type": "boolean",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
             "description": "Value returned as the 'shownRows' result field."
           }
         },
@@ -4885,6 +5080,18 @@
           "function",
           "groupBy",
           "range"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "totalColumn"
+            ]
+          },
+          {
+            "required": [
+              "totalColumns"
+            ]
+          }
         ],
         "additionalProperties": false
       },
@@ -5056,7 +5263,21 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "sourceRange"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "destinationCell"
+            ]
+          },
+          {
+            "required": [
+              "targetCell"
+            ]
+          }
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -5247,6 +5468,18 @@
           }
         },
         "required": [],
+        "anyOf": [
+          {
+            "required": [
+              "chartIndex"
+            ]
+          },
+          {
+            "required": [
+              "chartName"
+            ]
+          }
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -5324,7 +5557,9 @@
                   "type": "string"
                 }
               },
-              "required": [],
+              "required": [
+                "field"
+              ],
               "additionalProperties": false
             }
           },
@@ -5339,6 +5574,10 @@
           "refresh": {
             "description": "Value passed as the 'refresh' Action parameter.",
             "type": "boolean"
+          },
+          "sheet": {
+            "description": "Worksheet containing the pivot table.",
+            "type": "string"
           },
           "removeColumnFields": {
             "description": "Value passed as the 'removeColumnFields' Action parameter.",
@@ -5387,12 +5626,26 @@
                   "type": "string"
                 }
               },
-              "required": [],
+              "required": [
+                "field"
+              ],
               "additionalProperties": false
             }
           }
         },
         "required": [],
+        "anyOf": [
+          {
+            "required": [
+              "pivotTableName"
+            ]
+          },
+          {
+            "required": [
+              "pivotTableCell"
+            ]
+          }
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -5456,7 +5709,9 @@
             "type": "boolean"
           }
         },
-        "required": [],
+        "required": [
+          "range"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -5467,7 +5722,7 @@
             "description": "Value returned as the 'range' result field."
           },
           "wrapText": {
-            "type": "string",
+            "type": "boolean",
             "description": "Value returned as the 'wrapText' result field."
           }
         },

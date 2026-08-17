@@ -1,6 +1,6 @@
 /**
  * Input: Python Runner 的 WPS Action 与加载项事件
- * Output: WPS 应用侧执行结果
+ * Output: 包含 Excel 核心与高级工作流在内的 WPS 应用侧结构化执行结果
  * Pos: 跨平台统一 WPS Add-in 主入口。一旦我被修改，请更新我的头部注释，以及所属文件夹的md。
  * WPS Skill Platform Bridge（轮询模式）
  * 加载项作为 HTTP 客户端，轮询 Python Runner 获取 WPS Action
@@ -666,8 +666,14 @@ function handleAction(actionRequest) {
             case 'getContext':
                 result = handleGetContext(actionRequest.params);
                 break;
+            case 'getExcelContext':
+                result = handleGetContext(actionRequest.params);
+                break;
             case 'diagnoseFormula':
                 result = handleDiagnoseFormula(actionRequest.params);
+                break;
+            case 'setZoom':
+                result = handleSetZoom(actionRequest.params);
                 break;
 
             // Excel 工作表操作
@@ -756,16 +762,16 @@ function handleAction(actionRequest) {
                 result = handleDeleteColumns(actionRequest.params);
                 break;
             case 'hideRows':
-                result = handleHideRows(actionRequest.params);
+                result = handleRowVisibility(actionRequest.params, true, 'hiddenRows');
                 break;
             case 'hideColumns':
-                result = handleHideColumns(actionRequest.params);
+                result = handleColumnVisibility(actionRequest.params, true, 'hiddenColumns');
                 break;
             case 'showRows':
-                result = handleShowRows(actionRequest.params);
+                result = handleRowVisibility(actionRequest.params, false, 'shownRows');
                 break;
             case 'showColumns':
-                result = handleShowColumns(actionRequest.params);
+                result = handleColumnVisibility(actionRequest.params, false, 'shownColumns');
                 break;
 
             // Excel 条件格式
@@ -3869,6 +3875,15 @@ function handleAutoFilter(params) {
     }
 }
 
+function resolveExcelChartType(chartType, fallback) {
+    var chartTypes = {
+        column: 51, column_clustered: 51, bar: 57, bar_clustered: 57,
+        line: 4, line_markers: 65, pie: 5, doughnut: -4120,
+        area: 1, scatter: -4169, radar: -4151
+    };
+    return chartTypes[chartType] || fallback;
+}
+
 function handleCreateChart(params) {
     try {
         var sheet = Application.ActiveSheet;
@@ -3878,14 +3893,8 @@ function handleCreateChart(params) {
             return { success: false, error: '请指定数据范围(dataRange)' };
         }
         var range = sheet.Range(dataRange);
-        // 兼容更多图表类型名
-        var chartTypes = {
-            column: 51, column_clustered: 51, bar: 57, bar_clustered: 57,
-            line: 4, line_markers: 65, pie: 5, doughnut: -4120,
-            area: 1, scatter: -4169, radar: -4151
-        };
-        var chartType = params.chartType || params.chart_type || 'column';
-        var chartTypeNum = chartTypes[chartType] || (typeof chartType === 'number' ? chartType : 51);
+        var chartType = params.chartType || params.chartTypeName || params.chart_type || 'column';
+        var chartTypeNum = resolveExcelChartType(chartType, typeof chartType === 'number' ? chartType : 51);
 
         // 兼容position对象或直接left/top
         var pos = params.position || {};
@@ -3901,6 +3910,14 @@ function handleCreateChart(params) {
         if (params.title) {
             chartObj.Chart.HasTitle = true;
             chartObj.Chart.ChartTitle.Text = params.title;
+        }
+        if (params.showLegend !== undefined) {
+            chartObj.Chart.HasLegend = params.showLegend;
+        }
+        if (params.showDataLabels !== undefined) {
+            for (var seriesIndex = 1; seriesIndex <= chartObj.Chart.SeriesCollection().Count; seriesIndex++) {
+                chartObj.Chart.SeriesCollection(seriesIndex).HasDataLabels = params.showDataLabels;
+            }
         }
         return {
             success: true,
@@ -3920,7 +3937,8 @@ function handleCreateChart(params) {
 // 更新图表
 function handleUpdateChart(params) {
     try {
-        var sheet = Application.ActiveSheet;
+        var workbook = Application.ActiveWorkbook;
+        var sheet = params.sheet ? workbook.Sheets.Item(params.sheet) : Application.ActiveSheet;
         var chartObj;
 
         // 通过索引或名称找到图表
@@ -3935,6 +3953,11 @@ function handleUpdateChart(params) {
         var chart = chartObj.Chart;
         var updated = [];
 
+        if (params.dataRange !== undefined) {
+            chart.SetSourceData(sheet.Range(params.dataRange));
+            updated.push('dataRange');
+        }
+
         // 更新标题
         if (params.title !== undefined) {
             chart.HasTitle = true;
@@ -3944,7 +3967,7 @@ function handleUpdateChart(params) {
 
         // 更新图表类型
         if (params.chartType !== undefined) {
-            chart.ChartType = params.chartType;
+            chart.ChartType = resolveExcelChartType(params.chartType, params.chartType);
             updated.push('chartType');
         }
 
@@ -3960,6 +3983,25 @@ function handleUpdateChart(params) {
         if (params.showLegend !== undefined) {
             chart.HasLegend = params.showLegend;
             updated.push('showLegend');
+        }
+
+        if (params.legendPosition !== undefined) {
+            var legendPositions = { bottom: -4107, left: -4131, right: -4152, top: -4160 };
+            chart.HasLegend = true;
+            chart.Legend.Position = legendPositions[params.legendPosition] || params.legendPosition;
+            updated.push('legendPosition');
+        }
+
+        if (params.colors && params.colors.length) {
+            var seriesCount = Math.min(chart.SeriesCollection().Count, params.colors.length);
+            for (var colorIndex = 1; colorIndex <= seriesCount; colorIndex++) {
+                var color = params.colors[colorIndex - 1].replace('#', '');
+                var red = parseInt(color.substr(0, 2), 16);
+                var green = parseInt(color.substr(2, 2), 16);
+                var blue = parseInt(color.substr(4, 2), 16);
+                chart.SeriesCollection(colorIndex).Format.Fill.ForeColor.RGB = red + green * 256 + blue * 65536;
+            }
+            updated.push('colors');
         }
 
         return {
@@ -4009,16 +4051,30 @@ function handleCreatePivotTable(params) {
             }
         }
 
+        // 添加筛选字段
+        if (params.filterFields && params.filterFields.length > 0) {
+            for (var filterIndex = 0; filterIndex < params.filterFields.length; filterIndex++) {
+                var filterField = pivotTable.PivotFields(params.filterFields[filterIndex]);
+                filterField.Orientation = 3; // xlPageField
+            }
+        }
+
         // 添加值字段
         if (params.valueFields && params.valueFields.length > 0) {
             for (var i = 0; i < params.valueFields.length; i++) {
                 var vf = params.valueFields[i];
-                var field = pivotTable.PivotFields(vf.field);
+                var valueFieldName = typeof vf === 'string' ? vf : vf.field;
+                var field = pivotTable.PivotFields(valueFieldName);
                 field.Orientation = 4; // xlDataField
                 // 设置聚合函数
                 var funcMap = { 'SUM': -4157, 'COUNT': -4112, 'AVERAGE': -4106, 'MAX': -4136, 'MIN': -4139 };
-                if (vf.aggregation && funcMap[vf.aggregation]) {
-                    field.Function = funcMap[vf.aggregation];
+                var requestedFunction = typeof vf === 'string' ? '' : (vf.function || vf.aggregation || '');
+                var normalizedFunction = String(requestedFunction).toUpperCase();
+                if (funcMap[normalizedFunction]) {
+                    field.Function = funcMap[normalizedFunction];
+                }
+                if (typeof vf !== 'string' && vf.name) {
+                    field.Name = vf.name;
                 }
             }
         }
@@ -4027,9 +4083,10 @@ function handleCreatePivotTable(params) {
             success: true,
             data: {
                 pivotTableName: tableName,
-                location: destCell.Address,
+                location: String(typeof destCell.Address === 'function' ? destCell.Address() : destCell.Address).replace(/\$/g, ''),
                 rowCount: pivotTable.TableRange1.Rows.Count,
-                columnCount: pivotTable.TableRange1.Columns.Count
+                columnCount: pivotTable.TableRange1.Columns.Count,
+                sheet: destSheet.Name
             }
         };
     } catch (e) {
@@ -4040,7 +4097,8 @@ function handleCreatePivotTable(params) {
 // 更新透视表
 function handleUpdatePivotTable(params) {
     try {
-        var sheet = Application.ActiveSheet;
+        var workbook = Application.ActiveWorkbook;
+        var sheet = params.sheet ? workbook.Sheets.Item(params.sheet) : Application.ActiveSheet;
         var pivotTable;
 
         // 找到透视表
@@ -4055,24 +4113,46 @@ function handleUpdatePivotTable(params) {
 
         var operations = [];
 
+        function fieldName(spec) {
+            return typeof spec === 'string' ? spec : spec.field;
+        }
+
+        function applyOrientation(items, orientation, operation) {
+            if (!items) return;
+            for (var itemIndex = 0; itemIndex < items.length; itemIndex++) {
+                var name = fieldName(items[itemIndex]);
+                try {
+                    var field = pivotTable.PivotFields(name);
+                    field.Orientation = orientation;
+                    if (orientation === 4 && typeof items[itemIndex] !== 'string') {
+                        var spec = items[itemIndex];
+                        var functions = { SUM: -4157, COUNT: -4112, AVERAGE: -4106, MAX: -4136, MIN: -4139 };
+                        var requestedFunction = String(spec.function || '').toUpperCase();
+                        if (functions[requestedFunction]) field.Function = functions[requestedFunction];
+                        if (spec.name) field.Name = spec.name;
+                    }
+                    operations.push({ operation: operation, success: true, message: name });
+                } catch (fieldError) {
+                    operations.push({ operation: operation, success: false, message: fieldError.message });
+                }
+            }
+        }
+
         // 刷新数据
         if (params.refresh) {
             pivotTable.RefreshTable();
             operations.push({ operation: 'refresh', success: true, message: '刷新成功' });
         }
 
-        // 添加行字段
-        if (params.addRowFields) {
-            for (var i = 0; i < params.addRowFields.length; i++) {
-                try {
-                    var field = pivotTable.PivotFields(params.addRowFields[i]);
-                    field.Orientation = 1;
-                    operations.push({ operation: 'addRowField', success: true, message: params.addRowFields[i] });
-                } catch (e) {
-                    operations.push({ operation: 'addRowField', success: false, message: e.message });
-                }
-            }
-        }
+        applyOrientation(params.addRowFields, 1, 'addRowField');
+        applyOrientation(params.addColumnFields, 2, 'addColumnField');
+        applyOrientation(params.addFilterFields, 3, 'addFilterField');
+        applyOrientation(params.addValueFields, 4, 'addValueField');
+        applyOrientation(params.updateValueFields, 4, 'updateValueField');
+        applyOrientation(params.removeRowFields, 0, 'removeRowField');
+        applyOrientation(params.removeColumnFields, 0, 'removeColumnField');
+        applyOrientation(params.removeFilterFields, 0, 'removeFilterField');
+        applyOrientation(params.removeValueFields, 0, 'removeValueField');
 
         return {
             success: true,
@@ -4253,12 +4333,24 @@ function handleGetContext(params) {
                 currentSheet: sheet.Name,
                 allSheets: allSheets,
                 selectedCell: selectedCell,
+                usedRange: String(usedAddr).replace(/\$/g, ''),
                 usedRangeAddress: String(usedAddr).replace(/\$/g, ''),
                 headers: headers,
                 rowCount: usedRange.Rows.Count,
                 colCount: usedRange.Columns.Count
             }
         };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleSetZoom(params) {
+    try {
+        var activeWindow = Application.ActiveWindow;
+        if (!activeWindow) return { success: false, error: '没有活动的工作簿窗口' };
+        activeWindow.Zoom = params.percent;
+        return { success: true, data: { percent: params.percent } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -4817,61 +4909,35 @@ function handleDeleteColumns(params) {
     }
 }
 
-// 隐藏行 - 使用Range("1:1")格式
-function handleHideRows(params) {
+function handleRowVisibility(params, hidden, resultField) {
     try {
         var sheet = Application.ActiveSheet;
         var rows = params.rows || [params.row];
+        if (!Array.isArray(rows)) rows = [rows];
         for (var i = 0; i < rows.length; i++) {
-            sheet.Range(rows[i] + ':' + rows[i]).Hidden = true;
+            sheet.Range(rows[i] + ':' + rows[i]).Hidden = hidden;
         }
-        return { success: true, data: { hiddenRows: rows } };
+        var data = {};
+        data[resultField] = rows;
+        return { success: true, data: data };
     } catch (e) {
         return { success: false, error: e.message };
     }
 }
 
-// 隐藏列 - 使用Range("A:A")格式
-function handleHideColumns(params) {
+function handleColumnVisibility(params, hidden, resultField) {
     try {
         var sheet = Application.ActiveSheet;
         var cols = params.columns || [params.column];
+        if (!Array.isArray(cols)) cols = [cols];
         for (var i = 0; i < cols.length; i++) {
             var c = cols[i];
             if (typeof c === 'number') c = colToLetter(c);
-            sheet.Range(c + ':' + c).Hidden = true;
+            sheet.Range(c + ':' + c).Hidden = hidden;
         }
-        return { success: true, data: { hiddenColumns: cols } };
-    } catch (e) {
-        return { success: false, error: e.message };
-    }
-}
-
-// 显示行 - 使用Range("1:1")格式
-function handleShowRows(params) {
-    try {
-        var sheet = Application.ActiveSheet;
-        var rows = params.rows || [params.row];
-        for (var i = 0; i < rows.length; i++) {
-            sheet.Range(rows[i] + ':' + rows[i]).Hidden = false;
-        }
-        return { success: true, data: { shownRows: rows } };
-    } catch (e) {
-        return { success: false, error: e.message };
-    }
-}
-
-// 显示列 - 使用Range("A:A")格式
-function handleShowColumns(params) {
-    try {
-        var sheet = Application.ActiveSheet;
-        var cols = params.columns || [params.column];
-        for (var i = 0; i < cols.length; i++) {
-            var c = cols[i];
-            if (typeof c === 'number') c = colToLetter(c);
-            sheet.Range(c + ':' + c).Hidden = false;
-        }
-        return { success: true, data: { shownColumns: cols } };
+        var data = {};
+        data[resultField] = cols;
+        return { success: true, data: data };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -4968,12 +5034,19 @@ function handleAddDataValidation(params) {
         var typeMap = {
             'list': 3, 'whole': 1, 'decimal': 2, 'date': 4, 'time': 5, 'textLength': 6, 'custom': 7
         };
-        var validationType = typeMap[params.validationType] || 3;
+        var validationName = params.validationType || 'list';
+        var validationType = typeMap[validationName] || 3;
 
         range.Validation.Delete(); // 先删除已有验证
 
-        if (params.validationType === 'list') {
-            range.Validation.Add(validationType, 1, 1, params.formula1 || params.list.join(','));
+        if (validationName === 'list') {
+            var listFormula = params.formula1;
+            if (!listFormula && Array.isArray(params.list)) {
+                listFormula = params.list.join(',');
+            } else if (!listFormula) {
+                listFormula = params.list || '';
+            }
+            range.Validation.Add(validationType, 1, 1, listFormula);
             if (params.showDropdown !== false) {
                 range.Validation.InCellDropdown = true;
             }
@@ -4992,7 +5065,7 @@ function handleAddDataValidation(params) {
             range.Validation.ErrorMessage = params.errorMessage || '';
         }
 
-        return { success: true, data: { range: params.range, type: params.validationType } };
+        return { success: true, data: { range: params.range, type: validationName } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -5021,10 +5094,10 @@ function handleGetDataValidations(params) {
             data: {
                 range: params.range,
                 type: validation.Type,
-                formula1: validation.Formula1,
-                formula2: validation.Formula2,
-                inputTitle: validation.InputTitle,
-                inputMessage: validation.InputMessage
+                formula1: String(validation.Formula1 || ''),
+                formula2: String(validation.Formula2 || ''),
+                inputTitle: String(validation.InputTitle || ''),
+                inputMessage: String(validation.InputMessage || '')
             }
         };
     } catch (e) {
@@ -5159,10 +5232,17 @@ function handleTextToColumns(params) {
         var range = sheet.Range(params.range);
         var delimiter = params.delimiter || ',';
 
-        var delimiterMap = { ',': 1, '\t': 2, ';': 3, ' ': 4 };
-        var delimType = delimiterMap[delimiter] || 1;
+        var isTab = delimiter === '\t';
+        var isSemicolon = delimiter === ';';
+        var isComma = delimiter === ',';
+        var isSpace = delimiter === ' ';
+        var isOther = !isTab && !isSemicolon && !isComma && !isSpace;
 
-        range.TextToColumns(null, 1, 1, false, true);
+        range.TextToColumns(
+            null, 1, 1, false,
+            isTab, isSemicolon, isComma, isSpace,
+            isOther, isOther ? delimiter : ''
+        );
         return { success: true, data: { range: params.range, delimiter: delimiter } };
     } catch (e) {
         return { success: false, error: e.message };
@@ -5179,7 +5259,7 @@ function handleSubtotal(params) {
         var func = funcMap[params.function] || 9;
 
         // totalColumn需要是数组格式
-        var totalCol = params.totalColumn;
+        var totalCol = params.totalColumn || params.totalColumns;
         if (!Array.isArray(totalCol)) {
             totalCol = [totalCol];
         }
@@ -5615,7 +5695,7 @@ function handleSetHyperlink(params) {
         var sheet = Application.ActiveSheet;
         var range = sheet.Range(params.cell);
         sheet.Hyperlinks.Add(range, params.address || '', params.subAddress || '', params.screenTip || '', params.textToDisplay || '');
-        return { success: true, data: { cell: params.cell, address: params.address } };
+        return { success: true, data: { cell: params.cell, address: params.address || '' } };
     } catch (e) {
         return { success: false, error: e.message };
     }

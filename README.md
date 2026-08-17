@@ -6,7 +6,7 @@ AI编程助手通过自然语言操控WPS Office的MCP工具集。
 
 ## Python Skill Package 迁移状态
 
-Issue #4 已在 `skills/wps-office/` 交付首个可加载的 WPS Skill Package 链路。Issue #5 进一步加入 Linux/Windows x86_64、ARM64 用户级 WPS Add-in 首次安装、幂等升级、`publish.xml` 安全合并、本机认证配置和就绪检查。Issue #6 加入按用户跨进程互斥、共享密钥认证、Action 全程超时、稳定传输错误和端口/锁清理。Issue #7 从 Action 清单强制执行 `read`、`write`、`destructive` 风险策略，并在 WPS Add-in 收到请求前拒绝未显式确认的破坏性操作。Issue #8 已迁移 Excel 工作簿、工作表、单元格、区域、公式和基础数据处理工作流，并加入渐进式 Excel reference、契约覆盖及 Runner/Fake Add-in 黑盒场景。智能体先运行 `python3 scripts/wps.py check`，仅在状态为 `ready` 后通过临时 loopback HTTP 服务执行单个 WPS Action。
+Issue #4 已在 `skills/wps-office/` 交付首个可加载的 WPS Skill Package 链路。Issue #5 进一步加入 Linux/Windows x86_64、ARM64 用户级 WPS Add-in 首次安装、幂等升级、`publish.xml` 安全合并、本机认证配置和就绪检查。Issue #6 加入按用户跨进程互斥、共享密钥认证、Action 全程超时、稳定传输错误和端口/锁清理。Issue #7 从 Action 清单强制执行 `read`、`write`、`destructive` 风险策略，并在 WPS Add-in 收到请求前拒绝未显式确认的破坏性操作。Issue #8 已迁移 Excel 核心数据工作流；Issue #9 继续覆盖格式、图表、数据分析、数据透视、保护、图片和上下文感知能力，并加入相应渐进式 reference、契约覆盖及 Runner/Fake Add-in 黑盒场景。智能体先运行 `python3 scripts/wps.py check`，仅在状态为 `ready` 后通过临时 loopback HTTP 服务执行单个 WPS Action。
 
 当前里程碑开放清单中的只读和普通写入 WPS Action；破坏性操作需要明确确认并由 Runner 强制校验 `confirmed: true`。完整能力迁移由后续迁移 Issue 继续交付。下方 Node.js、MCP 和旧平台桥说明仍记录尚未删除的旧运行时，在替代路径通过完整验收前继续保留。
 

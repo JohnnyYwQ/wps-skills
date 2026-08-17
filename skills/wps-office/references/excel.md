@@ -35,6 +35,33 @@ The catalog below is derived from the manifest's `excel_core` reference group. T
 
 For formula-only calculations, `evaluateFormula` returns the calculated value and can optionally write the formula to a target cell. For a simple total written into the workbook, `autoSum` accepts the source range and target cell. Both formula strings are governed by the manifest contract.
 
+## Analysis and Presentation Workflow
+
+Use advanced Actions after the core workflow has established the source data:
+
+1. Use `setCellStyle`, `setNumberFormat`, or `addConditionalFormat` to make the data readable.
+2. Use `createChart` for a visualization, or `createPivotTable` for grouped analysis. Retain the returned object name for later updates.
+3. Use `updateChart` or `updatePivotTable` with that name to change the object. These Actions require either the object name or the alternate identifier declared by the manifest. When a pivot was created on `destinationSheet`, pass the same worksheet as `sheet` when updating it.
+4. Use `getExcelContext`, `getConditionalFormats`, `getDataValidations`, or `getNamedRanges` to read the resulting workbook state.
+5. Use the common `save` Action to persist the completed workbook.
+
+For presentation-only changes, omit the pivot step. For analysis-only changes, omit the chart step. Each step remains one separate Runner process.
+
+## Choose an Advanced Action
+
+The catalog below is derived from the manifest's `excel_advanced` reference group.
+
+<!-- excel-advanced-actions:start -->
+- Formatting and layout: `setCellFormat`, `setCellStyle`, `mergeCells`, `unmergeCells`, `setColumnWidth`, `setRowHeight`, `autoFitColumn`, `autoFitRow`, `autoFitAll`, `copyFormat`, `clearFormats`, `setBorder`, `setNumberFormat`, `freezePanes`, `unfreezePanes`, `hideRows`, `hideColumns`, `showRows`, `showColumns`, `groupRows`, `groupColumns`, `wrapText`, `setZoom`, `setPrintArea`
+- Validation, links, comments, and names: `addConditionalFormat`, `removeConditionalFormat`, `getConditionalFormats`, `addDataValidation`, `removeDataValidation`, `getDataValidations`, `setHyperlink`, `createNamedRange`, `deleteNamedRange`, `getNamedRanges`, `addCellComment`, `deleteCellComment`, `getCellComments`
+- Charts and images: `createChart`, `updateChart`, `exportChartAsImage`, `exportRangeAsImage`, `insertExcelImage`
+- Analysis and pivots: `autoFilter`, `createPivotTable`, `updatePivotTable`, `diagnoseFormula`, `calculateSheet`, `refreshLinks`, `consolidate`, `setArrayFormula`, `subtotal`
+- Advanced data movement: `copyRange`, `pasteRange`, `fillSeries`, `transpose`, `textToColumns`
+- Protection and context: `protectSheet`, `unprotectSheet`, `protectWorkbook`, `lockCells`, `getContext`, `getExcelContext`
+<!-- excel-advanced-actions:end -->
+
+`getExcelContext` is the canonical context-aware read for callers that need workbook, worksheet, selection, used-range dimensions, and header information together. `getContext` remains available with the same structured result for compatibility with the existing formula-generation workflow.
+
 ## Validation and Results
 
 The Runner validates Action parameters before the Add-in receives an Action. Correct `INVALID_PARAMS` errors instead of retrying unchanged input.
@@ -42,3 +69,5 @@ The Runner validates Action parameters before the Add-in receives an Action. Cor
 Successful reads always return structured `data`. An empty range is represented as `{"data":[]}` rather than an absent result. A WPS-side exception becomes `WPS_ACTION_FAILED`; preserve its message and do not treat it as an empty success.
 
 For every destructive Action, explain the specific deletion, replacement, clearing, or close consequence and obtain explicit confirmation before setting `"confirmed":true`.
+
+Image exports are destructive because their output path can overwrite an existing file. Pasting over cells and replacing an existing cell comment also require confirmation, as do clearing formats, deleting names/comments/rules, and removing validation even when cell values remain intact.

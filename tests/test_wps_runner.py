@@ -342,7 +342,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         addin = FakeAddin(result)
         addin.start()
         completed = invoke_runner(request)
-        addin_finished = addin.finished.wait(1)
+        addin_finished = addin.finished.wait(2)
         if not addin_finished:
             addin.stop()
             addin.finished.wait(1)
@@ -948,6 +948,162 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             json.loads(completed.stdout),
             {"ok": True, "action": "getCellInfo", "data": data},
         )
+
+    def test_excel_analysis_and_presentation_workflow_round_trips(self):
+        steps = (
+            (
+                {
+                    "action": "setCellStyle",
+                    "params": {
+                        "range": "A1:B3",
+                        "bold": True,
+                        "backgroundColor": "#1F4E78",
+                    },
+                    "timeout_ms": 1000,
+                },
+                {"range": "A1:B3"},
+            ),
+            (
+                {
+                    "action": "createChart",
+                    "params": {
+                        "dataRange": "A1:B3",
+                        "chartType": "column",
+                        "title": "Quarterly revenue",
+                    },
+                    "timeout_ms": 1000,
+                },
+                {
+                    "chartName": "Chart 1",
+                    "chartIndex": 1,
+                    "dataRange": "A1:B3",
+                    "chartType": "column",
+                    "position": {"left": 300, "top": 20, "width": 400, "height": 300},
+                },
+            ),
+            (
+                {
+                    "action": "updateChart",
+                    "params": {"chartName": "Chart 1", "showLegend": False},
+                    "timeout_ms": 1000,
+                },
+                {"chartName": "Chart 1", "updatedProperties": ["showLegend"]},
+            ),
+            (
+                {
+                    "action": "createPivotTable",
+                    "params": {
+                        "sourceRange": "A1:C20",
+                        "destinationCell": "E1",
+                        "rowFields": ["Region"],
+                        "valueFields": [{"field": "Revenue", "function": "sum"}],
+                    },
+                    "timeout_ms": 1000,
+                },
+                {
+                    "pivotTableName": "PivotTable1",
+                    "location": "E1",
+                    "sheet": "Analysis",
+                    "rowCount": 5,
+                    "columnCount": 2,
+                },
+            ),
+            (
+                {
+                    "action": "updatePivotTable",
+                    "params": {
+                        "pivotTableName": "PivotTable1",
+                        "sheet": "Analysis",
+                        "refresh": True,
+                    },
+                    "timeout_ms": 1000,
+                },
+                {
+                    "pivotTableName": "PivotTable1",
+                    "operations": [
+                        {"operation": "refresh", "success": True, "message": "refreshed"}
+                    ],
+                },
+            ),
+            (
+                {"action": "getExcelContext", "params": {}, "timeout_ms": 1000},
+                {
+                    "workbookName": "Revenue.xlsx",
+                    "currentSheet": "Analysis",
+                    "allSheets": ["Raw", "Analysis"],
+                    "selectedCell": "E1",
+                    "usedRange": "A1:F20",
+                    "usedRangeAddress": "A1:F20",
+                    "headers": [{"column": "A", "value": "Region"}],
+                    "rowCount": 20,
+                    "colCount": 6,
+                },
+            ),
+        )
+
+        for request, data in steps:
+            with self.subTest(action=request["action"]):
+                completed, addin = self._invoke_with_fake_addin(
+                    request, {"success": True, "data": data}
+                )
+
+                self.assertEqual(completed.returncode, 0, completed.stdout)
+                self.assertEqual(
+                    json.loads(completed.stdout),
+                    {"ok": True, "action": request["action"], "data": data},
+                )
+                self.assertEqual(addin.action_request["params"], request["params"])
+
+    def test_invalid_zoom_never_reaches_the_addin(self):
+        addin = FakeAddin({"success": True, "data": {"percent": 500}})
+        addin.start()
+
+        completed = invoke_runner(
+            {
+                "action": "setZoom",
+                "params": {"percent": 500},
+                "timeout_ms": 1000,
+            }
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout)["error"],
+            {
+                "code": "INVALID_PARAMS",
+                "message": "params.percent must be at most 400",
+                "retryable": False,
+            },
+        )
+        self.assertFalse(addin.action_received.wait(0.1))
+        addin.stop()
+        self.assertTrue(addin.finished.wait(1))
+        if addin.error:
+            raise addin.error
+
+    def test_advanced_overwrite_requires_confirmation_before_the_addin(self):
+        addin = FakeAddin(
+            {"success": True, "data": {"cell": "A1", "text": "replacement"}}
+        )
+        addin.start()
+
+        completed = invoke_runner(
+            {
+                "action": "addCellComment",
+                "params": {"cell": "A1", "text": "replacement"},
+                "timeout_ms": 1000,
+            }
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout)["error"]["code"], "CONFIRMATION_REQUIRED"
+        )
+        self.assertFalse(addin.action_received.wait(0.1))
+        addin.stop()
+        self.assertTrue(addin.finished.wait(1))
+        if addin.error:
+            raise addin.error
 
     def test_process_exit_releases_the_lock_even_when_the_lock_file_remains(self):
         result_gate = threading.Event()

@@ -262,6 +262,18 @@ def validate_contract(value, schema, path):
             path, ", ".join(str(item) for item in allowed_values)
         )
 
+    minimum = schema.get("minimum")
+    if value_matches_type(value, "number") and isinstance(
+        minimum, (int, float)
+    ) and value < minimum:
+        return "{0} must be at least {1}".format(path, minimum)
+
+    maximum = schema.get("maximum")
+    if value_matches_type(value, "number") and isinstance(
+        maximum, (int, float)
+    ) and value > maximum:
+        return "{0} must be at most {1}".format(path, maximum)
+
     pattern = schema.get("pattern")
     if isinstance(value, str) and isinstance(pattern, str):
         try:
