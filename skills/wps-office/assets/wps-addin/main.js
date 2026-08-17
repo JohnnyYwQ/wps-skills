@@ -1719,6 +1719,15 @@ function handleReplaceRange(params) {
 
 // ==================== PPT Handlers ====================
 
+function resolvePptGeometry(params, defaults) {
+    return {
+        left: params.left !== undefined ? params.left : defaults.left,
+        top: params.top !== undefined ? params.top : defaults.top,
+        width: params.width !== undefined ? params.width : defaults.width,
+        height: params.height !== undefined ? params.height : defaults.height
+    };
+}
+
 function handleGetActivePresentation() {
     try {
         var ppt = Application.ActivePresentation;
@@ -1748,7 +1757,7 @@ function handleAddSlide(params) {
             'title_content': 2,   // ppLayoutText
             'blank': 12,          // ppLayoutBlank
             'two_column': 3,      // ppLayoutTwoColumnText
-            'comparison': 4       // ppLayoutComparison
+            'comparison': 34      // ppLayoutComparison
         };
 
         var index = params.index || params.position || ppt.Slides.Count + 1;
@@ -1775,7 +1784,7 @@ function handleAddSlide(params) {
                     var shape = slide.Shapes.Item(i);
                     if (shape.Type === 14 && shape.PlaceholderFormat) { // msoPlaceholder
                         var phType = shape.PlaceholderFormat.Type;
-                        if (phType === 2 || phType === 7 || phType === 15) {
+                        if (phType === 2 || phType === 6 || phType === 7 || phType === 17) {
                             shape.TextFrame.TextRange.Text = params.content;
                             break;
                         }
@@ -2048,7 +2057,7 @@ function handleSetSlideLayout(params) {
             'blank': 12,
             'two_column': 3,
             'twoColumn': 3,
-            'comparison': 4,
+            'comparison': 34,
             'title_only': 11,
             'titleOnly': 11
         };
@@ -2122,11 +2131,19 @@ function handleAddTextBox(params) {
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
-        var left = params.left !== undefined ? params.left : 100;
-        var top = params.top !== undefined ? params.top : 100;
-        var width = params.width !== undefined ? params.width : 200;
-        var height = params.height !== undefined ? params.height : 50;
-        var textBox = slide.Shapes.AddTextbox(1, left, top, width, height);
+        var geometry = resolvePptGeometry(params, {
+            left: 100,
+            top: 100,
+            width: 200,
+            height: 50
+        });
+        var textBox = slide.Shapes.AddTextbox(
+            1,
+            geometry.left,
+            geometry.top,
+            geometry.width,
+            geometry.height
+        );
         if (params.text) {
             textBox.TextFrame.TextRange.Text = params.text;
         }
@@ -2291,7 +2308,12 @@ function handleSetSlideContent(params) {
             var shape = slide.Shapes.Item(i);
             if (shape.PlaceholderFormat) {
                 var placeholderType = shape.PlaceholderFormat.Type;
-                if (placeholderType !== 2 && placeholderType !== 7 && placeholderType !== 15) {
+                if (
+                    placeholderType !== 2 &&
+                    placeholderType !== 6 &&
+                    placeholderType !== 7 &&
+                    placeholderType !== 17
+                ) {
                     continue;
                 }
                 shape.TextFrame.TextRange.Text = params.content || '';
@@ -2436,11 +2458,21 @@ function handleInsertPptImage(params) {
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
-        var left = params.left !== undefined ? params.left : 100;
-        var top = params.top !== undefined ? params.top : 100;
-        var width = params.width !== undefined ? params.width : -1;
-        var height = params.height !== undefined ? params.height : -1;
-        var pic = slide.Shapes.AddPicture(params.path, false, true, left, top, width, height);
+        var geometry = resolvePptGeometry(params, {
+            left: 100,
+            top: 100,
+            width: -1,
+            height: -1
+        });
+        var pic = slide.Shapes.AddPicture(
+            params.path,
+            false,
+            true,
+            geometry.left,
+            geometry.top,
+            geometry.width,
+            geometry.height
+        );
         return {
             success: true,
             data: { name: pic.Name, path: params.path, slideIndex: index }
@@ -2546,11 +2578,20 @@ function handleInsertPptTable(params) {
         var slide = ppt.Slides.Item(index);
         var rows = params.rows;
         var cols = params.cols;
-        var left = params.left !== undefined ? params.left : 100;
-        var top = params.top !== undefined ? params.top : 100;
-        var width = params.width !== undefined ? params.width : 400;
-        var height = params.height !== undefined ? params.height : 200;
-        var table = slide.Shapes.AddTable(rows, cols, left, top, width, height);
+        var geometry = resolvePptGeometry(params, {
+            left: 100,
+            top: 100,
+            width: 400,
+            height: 200
+        });
+        var table = slide.Shapes.AddTable(
+            rows,
+            cols,
+            geometry.left,
+            geometry.top,
+            geometry.width,
+            geometry.height
+        );
         return {
             success: true,
             data: { name: table.Name, rows: rows, cols: cols, slideIndex: index }

@@ -999,6 +999,24 @@ class WordContractTests(unittest.TestCase):
                 )
 
         self.assertEqual(
+            self.actions["addSlide"]["parameters"]["properties"]["layout"]["enum"],
+            ["title", "title_content", "blank", "two_column", "comparison"],
+        )
+        self.assertEqual(
+            self.actions["setSlideLayout"]["parameters"]["properties"]["layout"][
+                "enum"
+            ],
+            [
+                "title",
+                "title_content",
+                "blank",
+                "two_column",
+                "comparison",
+                "title_only",
+            ],
+        )
+
+        self.assertEqual(
             self.actions["switchDocument"]["parameters"].get("anyOf"),
             [{"required": ["name"]}, {"required": ["index"]}],
         )
@@ -1224,6 +1242,13 @@ class PowerPointCoreContractTests(unittest.TestCase):
         self.assertEqual(
             set(table_result["required"]), {"row", "col", "value"}
         )
+
+        row_style = self.actions["setPptTableRowStyle"]
+        self.assertEqual(
+            row_style["parameters"]["properties"]["alignment"]["enum"],
+            ["left", "center", "right"],
+        )
+        self.assertEqual(set(row_style["result"]["required"]), {"row", "cols"})
 
     def test_destructive_core_actions_are_gated(self) -> None:
         for action_name in (

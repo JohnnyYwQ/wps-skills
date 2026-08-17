@@ -8326,7 +8326,14 @@
           },
           "layout": {
             "description": "Value passed as the 'layout' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "title",
+              "title_content",
+              "blank",
+              "two_column",
+              "comparison"
+            ]
           },
           "position": {
             "description": "Value passed as the 'position' Action parameter.",
@@ -12634,6 +12641,15 @@
             "description": "Value passed as the 'backgroundColor' Action parameter.",
             "type": "string"
           },
+          "alignment": {
+            "description": "Horizontal alignment applied to each cell in the row.",
+            "type": "string",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ]
+          },
           "bold": {
             "description": "Value passed as the 'bold' Action parameter.",
             "type": "boolean"
@@ -12726,6 +12742,15 @@
             "description": "Value passed as the 'backgroundColor' Action parameter.",
             "type": "string"
           },
+          "alignment": {
+            "description": "Horizontal alignment applied to each cell in the row.",
+            "type": "string",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ]
+          },
           "bold": {
             "description": "Value passed as the 'bold' Action parameter.",
             "type": "boolean"
@@ -12782,10 +12807,15 @@
           "row": {
             "type": "number",
             "description": "Value returned as the 'row' result field."
+          },
+          "cols": {
+            "type": "number",
+            "description": "Number of styled columns in the row."
           }
         },
         "required": [
-          "row"
+          "row",
+          "cols"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the setPptTableRowStyle WPS Action."
@@ -13655,7 +13685,15 @@
           },
           "layout": {
             "description": "Value passed as the 'layout' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "title",
+              "title_content",
+              "blank",
+              "two_column",
+              "comparison",
+              "title_only"
+            ]
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",

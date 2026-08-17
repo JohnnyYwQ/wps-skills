@@ -1344,6 +1344,29 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             "INVALID_PARAMS",
         )
 
+    def test_powerpoint_table_row_style_result_matches_its_contract(self):
+        data = {"row": 1, "cols": 3}
+        completed, addin = self._invoke_with_fake_addin(
+            {
+                "action": "setPptTableRowStyle",
+                "params": {
+                    "slideIndex": 1,
+                    "tableName": "Table 1",
+                    "row": 1,
+                    "alignment": "center",
+                },
+                "timeout_ms": 1000,
+            },
+            {"success": True, "data": data},
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stdout)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {"ok": True, "action": "setPptTableRowStyle", "data": data},
+        )
+        self.assertEqual(addin.action_request["params"]["alignment"], "center")
+
     def test_powerpoint_wps_failure_returns_a_structured_error(self):
         completed, _addin = self._invoke_with_fake_addin(
             {
