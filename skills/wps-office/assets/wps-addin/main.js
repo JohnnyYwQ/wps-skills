@@ -361,6 +361,9 @@ function handleAction(actionRequest) {
             case 'setShapeStyle':
                 result = handleSetShapeStyle(actionRequest.params);
                 break;
+            case 'setShapeFill':
+                result = handleSetShapeFill(actionRequest.params);
+                break;
             case 'setShapeText':
                 result = handleSetShapeText(actionRequest.params);
                 break;
@@ -378,8 +381,16 @@ function handleAction(actionRequest) {
             case 'setImageStyle':
                 result = handleSetImageStyle(actionRequest.params);
                 break;
+            case 'replacePptImage':
+                result = handleReplacePptImage(actionRequest.params);
+                break;
             case 'exportSlideAsImage':
                 result = handleExportSlideAsImage(actionRequest.params);
+                break;
+
+            // PPT 跨文稿操作
+            case 'insertSlidesFromFile':
+                result = handleInsertSlidesFromFile(actionRequest.params);
                 break;
 
             // PPT 表格操作
@@ -581,6 +592,12 @@ function handleAction(actionRequest) {
                 break;
             case 'setBackgroundImage':
                 result = handleSetBackgroundImage(actionRequest.params);
+                break;
+            case 'setFontColor':
+                result = handleSetFontColor(actionRequest.params);
+                break;
+            case 'setSlideTheme':
+                result = handleSetSlideTheme(actionRequest.params);
                 break;
 
             // PPT 超链接
@@ -2408,6 +2425,28 @@ function handleSetShapeStyle(params) {
     }
 }
 
+// 设置形状填充色
+function handleSetShapeFill(params) {
+    try {
+        var ppt = Application.ActivePresentation;
+        if (!ppt) return { success: false, error: '没有打开的演示文稿' };
+        var slide = ppt.Slides.Item(params.slideIndex);
+        var shape = slide.Shapes.Item(params.shapeIndex);
+        var color = String(params.color || '').replace('#', '');
+        var rgb = parseInt(color.substr(0, 2), 16)
+            + parseInt(color.substr(2, 2), 16) * 256
+            + parseInt(color.substr(4, 2), 16) * 65536;
+        shape.Fill.Solid();
+        shape.Fill.ForeColor.RGB = rgb;
+        return {
+            success: true,
+            data: { success: true, message: '形状填充色已更新', name: shape.Name }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
 // 设置形状文本
 function handleSetShapeText(params) {
     try {
@@ -2504,6 +2543,92 @@ function handleSetImageStyle(params) {
         if (params.height !== undefined) shape.Height = params.height;
         if (params.rotation !== undefined) shape.Rotation = params.rotation;
         return { success: true, data: { name: shape.Name } };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+// 原位替换图片，保留原图片的版式几何信息
+function handleReplacePptImage(params) {
+    var replacement = null;
+    try {
+        var ppt = Application.ActivePresentation;
+        if (!ppt) return { success: false, error: '没有打开的演示文稿' };
+        var slide = ppt.Slides.Item(params.slideIndex);
+        var target = params.name || params.shapeIndex;
+        if (!target) return { success: false, error: 'shapeIndex or name required' };
+        var imagePath = params.filePath || params.path;
+        if (!imagePath) return { success: false, error: 'filePath required' };
+
+        var oldShape = slide.Shapes.Item(target);
+        var left = oldShape.Left;
+        var top = oldShape.Top;
+        var width = oldShape.Width;
+        var height = oldShape.Height;
+        var rotation = 0;
+        try { rotation = oldShape.Rotation; } catch (ignored) {}
+
+        // Insert before deleting the original so a WPS-side image error does not
+        // destroy existing slide content.
+        replacement = slide.Shapes.AddPicture(
+            imagePath, false, true, left, top, width, height
+        );
+        try { replacement.Rotation = rotation; } catch (ignoredRotation) {}
+        oldShape.Delete();
+
+        return {
+            success: true,
+            data: {
+                name: replacement.Name,
+                left: left,
+                top: top,
+                width: width,
+                height: height,
+                path: imagePath
+            }
+        };
+    } catch (e) {
+        // Roll back a newly inserted image when a later WPS operation fails.
+        try { if (replacement) replacement.Delete(); } catch (ignoredRollback) {}
+        return { success: false, error: e.message };
+    }
+}
+
+// 从外部演示文稿插入一段幻灯片
+function handleInsertSlidesFromFile(params) {
+    try {
+        var ppt = Application.ActivePresentation;
+        if (!ppt) return { success: false, error: '没有打开的演示文稿' };
+        var source = params.filePath || params.path;
+        if (!source) return { success: false, error: 'filePath required' };
+
+        var before = ppt.Slides.Count;
+        var afterIndex = params.afterIndex !== undefined
+            ? params.afterIndex
+            : before;
+        afterIndex = Math.floor(afterIndex);
+        afterIndex = Math.max(0, Math.min(before, afterIndex));
+
+        if (params.slideStart !== undefined && params.slideEnd !== undefined) {
+            ppt.Slides.InsertFromFile(
+                source, afterIndex, params.slideStart, params.slideEnd
+            );
+        } else if (params.slideStart !== undefined) {
+            ppt.Slides.InsertFromFile(source, afterIndex, params.slideStart);
+        } else {
+            ppt.Slides.InsertFromFile(source, afterIndex);
+        }
+
+        var totalSlides = ppt.Slides.Count;
+        return {
+            success: true,
+            data: {
+                inserted: totalSlides - before,
+                afterIndex: afterIndex,
+                totalSlides: totalSlides,
+                source: source
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -3783,6 +3908,52 @@ function handleSetBackgroundImage(params) {
         slide.FollowMasterBackground = false;
         slide.Background.Fill.UserPicture(params.path);
         return { success: true, data: { slideIndex: index, path: params.path } };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+// 设置演示文稿主题。WPS 兼容实现优先使用 ApplyTheme，部分版本暴露
+// ApplyTemplate；两者都接受主题文件路径或 WPS 可识别的主题标识。
+function handleSetSlideTheme(params) {
+    try {
+        var ppt = Application.ActivePresentation;
+        if (!ppt) return { success: false, error: '没有打开的演示文稿' };
+        var theme = String(params.theme || '').trim();
+        if (!theme) return { success: false, error: 'theme required' };
+
+        if (ppt.ApplyTheme) {
+            ppt.ApplyTheme(theme);
+        } else if (ppt.ApplyTemplate) {
+            ppt.ApplyTemplate(theme);
+        } else {
+            return { success: false, error: '当前 WPS 版本不支持主题应用' };
+        }
+        return {
+            success: true,
+            data: { success: true, message: '演示文稿主题已更新' }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+// 设置形状中的文字颜色
+function handleSetFontColor(params) {
+    try {
+        var ppt = Application.ActivePresentation;
+        if (!ppt) return { success: false, error: '没有打开的演示文稿' };
+        var slide = ppt.Slides.Item(params.slideIndex);
+        var shape = slide.Shapes.Item(params.shapeIndex);
+        var color = String(params.color || '').replace('#', '');
+        var rgb = parseInt(color.substr(0, 2), 16)
+            + parseInt(color.substr(2, 2), 16) * 256
+            + parseInt(color.substr(4, 2), 16) * 65536;
+        shape.TextFrame.TextRange.Font.Color.RGB = rgb;
+        return {
+            success: true,
+            data: { success: true, message: '文字颜色已更新' }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }

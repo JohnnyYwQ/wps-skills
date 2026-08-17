@@ -1300,5 +1300,112 @@ class PowerPointCoreContractTests(unittest.TestCase):
         self.assertEqual(documented, self.CORE_ACTIONS)
 
 
+class PowerPointAdvancedContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.manifest = json.loads(
+            (
+                REPOSITORY_ROOT
+                / "skills/wps-office/references/action-manifest.json"
+            ).read_text(encoding="utf-8")
+        )
+        cls.actions = {entry["action"]: entry for entry in cls.manifest["actions"]}
+        cls.powerpoint_actions = {
+            entry["action"]
+            for entry in cls.manifest["actions"]
+            if entry["application"] == "powerpoint"
+        }
+        cls.core_actions = set(
+            cls.manifest["reference_groups"]["powerpoint_core"]["actions"]
+        )
+        cls.advanced_group = cls.manifest["reference_groups"].get(
+            "powerpoint_advanced", {"actions": []}
+        )
+        cls.advanced_actions = set(cls.advanced_group["actions"])
+        cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
+        cls.reference_source = POWERPOINT_REFERENCE.read_text(encoding="utf-8")
+
+    def test_core_and_advanced_groups_partition_every_powerpoint_action(self) -> None:
+        self.assertEqual(self.core_actions & self.advanced_actions, set())
+        self.assertEqual(
+            self.core_actions | self.advanced_actions, self.powerpoint_actions
+        )
+        self.assertEqual(self.advanced_group.get("reference"), "powerpoint.md")
+
+    def test_every_advanced_action_has_a_contract_and_addin_dispatch(self) -> None:
+        dispatch_actions = set(
+            re.findall(
+                r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
+                self.addin_source,
+                re.MULTILINE,
+            )
+        )
+
+        self.assertEqual(self.advanced_actions - dispatch_actions, set())
+        for action_name in sorted(self.advanced_actions):
+            with self.subTest(action=action_name):
+                action = self.actions[action_name]
+                self.assertEqual(action["application"], "powerpoint")
+                self.assertEqual(action["parameters"]["type"], "object")
+                self.assertEqual(action["result"]["type"], "object")
+                self.assertFalse(action["parameters"]["additionalProperties"])
+                self.assertFalse(action["result"]["additionalProperties"])
+                self.assertIn(action["risk"], {"read", "write", "destructive"})
+
+    def test_advanced_reference_catalog_is_complete(self) -> None:
+        start = self.reference_source.index("<!-- powerpoint-advanced-actions:start -->")
+        end = self.reference_source.index("<!-- powerpoint-advanced-actions:end -->")
+        documented = set(
+            re.findall(r"`([a-z][A-Za-z0-9]*)`", self.reference_source[start:end])
+        )
+
+        self.assertEqual(documented, self.advanced_actions)
+
+    def test_external_slide_and_image_actions_have_migration_dispatch(self) -> None:
+        dispatch_actions = set(
+            re.findall(
+                r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
+                self.addin_source,
+                re.MULTILINE,
+            )
+        )
+        self.assertTrue(
+            {
+                "insertSlidesFromFile",
+                "replacePptImage",
+                "setFontColor",
+                "setShapeFill",
+                "setSlideTheme",
+            }.issubset(dispatch_actions)
+        )
+
+    def test_external_slide_result_uses_numeric_insert_count(self) -> None:
+        self.assertEqual(
+            self.actions["insertSlidesFromFile"]["result"]["properties"][
+                "inserted"
+            ]["type"],
+            "number",
+        )
+        self.assertEqual(
+            set(self.actions["replacePptImage"]["result"]["required"]),
+            {"name", "left", "top", "width", "height", "path"},
+        )
+        self.assertEqual(
+            self.actions["replacePptImage"]["parameters"]["anyOf"],
+            [{"required": ["name"]}, {"required": ["shapeIndex"]}],
+        )
+
+    def test_advanced_destructive_actions_are_gated(self) -> None:
+        for action_name in (
+            "removeAnimation",
+            "removePptHyperlink",
+            "removeSlideTransition",
+            "replacePptImage",
+            "replacePptText",
+        ):
+            with self.subTest(action=action_name):
+                self.assertEqual(self.actions[action_name]["risk"], "destructive")
+
+
 if __name__ == "__main__":
     unittest.main()

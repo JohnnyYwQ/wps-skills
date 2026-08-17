@@ -6,7 +6,7 @@
 - `references/action-manifest.json`：WPS Action 名称、参数、结果、前置条件与风险的唯一事实来源。
 - `references/excel.md`：Excel 核心数据以及格式、图表、分析、透视、保护、图片和上下文工作流的渐进式 Action 指南。
 - `references/word.md`：Word 文档生命周期、内容、格式、模板、书签、批注和修订工作流的渐进式 Action 指南。
-- `references/powerpoint.md`：PowerPoint 演示文稿、幻灯片、文本、图片、表格、备注和基础版式工作流的渐进式 Action 指南。
+- `references/powerpoint.md`：PowerPoint 演示文稿、幻灯片、文本、图片、表格、备注、基础版式和高级设计工作流的渐进式 Action 指南。
 - `scripts/wps.py`：Python 3.9+ 标准库 Runner；提供 `check`、`install` 和 `invoke` 内部操作。
 - `scripts/wps_skill/addon_installer.py`：在 Linux/Windows 用户配置目录幂等安装 WPS Add-in、安全合并 `publish.xml` 并管理本机认证配置。
 - `assets/wps-addin/`：Linux x86_64、Linux ARM64、Windows x86_64 和 Windows ARM64 共用的 WPS Add-in 资源。

@@ -37,6 +37,21 @@ The catalog below is derived from the manifest's `powerpoint_core` reference gro
 
 Use names returned by image, text-box, and table creation Actions for later updates when possible. Table indexes count only table shapes on the slide; they are not raw shape indexes. Use the context reads before an update when the current presentation, slide, or object identity is uncertain.
 
+## Advanced Design Workflows
+
+Use this section for shape composition, data visualization, diagrams, visual styling, animation, transitions, themes, masters, and cross-presentation editing. Build and inspect in small steps: create the object, apply its style or behavior, then read the resulting slide context before saving.
+
+<!-- powerpoint-advanced-actions:start -->
+- Shapes and composition: `addShape`, `deleteShape`, `getShapes`, `setShapeStyle`, `setShapeFill`, `setShapeText`, `setShapePosition`, `setShapeBorder`, `setShapeGradient`, `setShapeShadow`, `setShapeTransparency`, `setShapeRoundness`, `setShapeFullStyle`, `alignShapes`, `distributeShapes`, `smartDistribute`, `groupShapes`, `duplicateShape`, `setShapeZOrder`, `addConnector`, `addArrow`, `setFontColor`
+- Charts and visual components: `insertPptChart`, `setPptChartData`, `setPptChartStyle`, `createProgressBar`, `createGauge`, `createMiniCharts`, `createDonutChart`, `createGrid`, `createStyledTable`, `createKpiCards`
+- Diagrams and polish: `createFlowChart`, `createOrgChart`, `createTimeline`, `applyColorScheme`, `autoBeautifySlide`, `beautifySlide`, `beautifyAllSlides`, `autoLayout`, `addTitleDecoration`, `addPageIndicator`, `unifyFont`
+- Animation and transitions: `addAnimation`, `addAnimationPreset`, `addEmphasisAnimation`, `getAnimations`, `setAnimationOrder`, `removeAnimation`, `setSlideTransition`, `applyTransitionToAll`, `removeSlideTransition`
+- Themes, masters, and 3D: `getSlideMaster`, `setMasterBackground`, `addMasterElement`, `setSlideTheme`, `set3DRotation`, `set3DDepth`, `set3DMaterial`, `create3DText`, `setBackgroundGradient`
+- External content and presentation controls: `insertSlidesFromFile`, `replacePptImage`, `findPptText`, `replacePptText`, `addPptHyperlink`, `removePptHyperlink`, `setSlideNumber`, `setPptFooter`, `setPptDateTime`, `startSlideShow`, `endSlideShow`
+<!-- powerpoint-advanced-actions:end -->
+
+For `insertSlidesFromFile`, provide the source presentation in `filePath`; optionally set `afterIndex`, `slideStart`, and `slideEnd`. For `replacePptImage`, provide `filePath` and the one-based `slideIndex`, plus the target image's `name` or `shapeIndex`; the replacement preserves the target geometry and rotation. Both operations return diagnostic errors from WPS when the source or target cannot be used.
+
 ## Validation, Safety, and Results
 
 The Runner rejects zero or negative indexes, missing paths, incomplete dimensions, and missing object identifiers before the Add-in receives an Action. Correct `INVALID_PARAMS` errors instead of retrying unchanged input. A WPS-side exception becomes `WPS_ACTION_FAILED`; preserve its message and do not treat it as an empty presentation or slide.
@@ -49,4 +64,4 @@ The following core Actions are destructive and require explicit confirmation plu
 
 Explain the exact deletion, close consequence, or output path before asking for confirmation. Ordinary authoring writes—including changing title/content text, notes, a table cell, layout, size, or background—follow the user's current editing request without a confirmation marker.
 
-Advanced shapes, charts, diagrams, animation, transitions, themes, masters, external slide insertion, beautification, and in-place image replacement are outside this core slice.
+The advanced Actions that remove, replace, or reorder presentation content are destructive where declared by the manifest and require explicit confirmation plus `"confirmed":true`; ordinary design edits remain normal writes. Read the manifest before invoking an Action with complex arrays, file paths, or object identifiers.

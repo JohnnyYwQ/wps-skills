@@ -439,6 +439,68 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(addin.action_request["action"], "insertText")
         self.assertEqual(addin.action_request["params"], fixture["params"])
 
+    def test_powerpoint_advanced_action_round_trips_over_http(self):
+        completed, addin = self._invoke_with_fake_addin(
+            {
+                "action": "insertPptChart",
+                "params": {"slideIndex": 1, "type": "column"},
+                "timeout_ms": 2000,
+            },
+            {"success": True, "data": {"name": "Chart 1"}},
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": True,
+                "action": "insertPptChart",
+                "data": {"name": "Chart 1"},
+            },
+        )
+        self.assertEqual(addin.action_request["action"], "insertPptChart")
+        self.assertEqual(
+            addin.action_request["params"], {"slideIndex": 1, "type": "column"}
+        )
+
+    def test_powerpoint_image_replacement_requires_confirmation(self):
+        self._assert_rejected_before_addin(
+            {
+                "action": "replacePptImage",
+                "params": {
+                    "filePath": "/tmp/replacement.png",
+                    "slideIndex": 1,
+                    "shapeIndex": 2,
+                },
+                "timeout_ms": 2000,
+            },
+            "CONFIRMATION_REQUIRED",
+        )
+
+    def test_powerpoint_external_slide_action_preserves_wps_failure_details(self):
+        completed, _addin = self._invoke_with_fake_addin(
+            {
+                "action": "insertSlidesFromFile",
+                "params": {"filePath": "/tmp/missing.pptx"},
+                "timeout_ms": 2000,
+            },
+            {"success": False, "error": "source file not found"},
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "insertSlidesFromFile",
+                "error": {
+                    "code": "WPS_ACTION_FAILED",
+                    "message": "source file not found",
+                    "retryable": False,
+                },
+            },
+        )
+
     def test_destructive_action_without_confirmation_never_reaches_the_addin(self):
         fixture = representative_action("deleteSlide")
         addin = FakeAddin({"success": True, **fixture["result"]})

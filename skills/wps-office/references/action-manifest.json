@@ -189,6 +189,83 @@
         "setBackgroundColor",
         "setBackgroundImage"
       ]
+    },
+    "powerpoint_advanced": {
+      "reference": "powerpoint.md",
+      "actions": [
+        "addAnimation",
+        "addAnimationPreset",
+        "addArrow",
+        "addConnector",
+        "addEmphasisAnimation",
+        "addMasterElement",
+        "addPageIndicator",
+        "addPptHyperlink",
+        "addShape",
+        "addTitleDecoration",
+        "alignShapes",
+        "applyColorScheme",
+        "applyTransitionToAll",
+        "autoBeautifySlide",
+        "autoLayout",
+        "beautifyAllSlides",
+        "beautifySlide",
+        "create3DText",
+        "createDonutChart",
+        "createFlowChart",
+        "createGauge",
+        "createGrid",
+        "createKpiCards",
+        "createMiniCharts",
+        "createOrgChart",
+        "createProgressBar",
+        "createStyledTable",
+        "createTimeline",
+        "deleteShape",
+        "distributeShapes",
+        "duplicateShape",
+        "endSlideShow",
+        "findPptText",
+        "getAnimations",
+        "getShapes",
+        "getSlideMaster",
+        "groupShapes",
+        "insertPptChart",
+        "insertSlidesFromFile",
+        "removeAnimation",
+        "removePptHyperlink",
+        "removeSlideTransition",
+        "replacePptImage",
+        "replacePptText",
+        "set3DDepth",
+        "set3DMaterial",
+        "set3DRotation",
+        "setAnimationOrder",
+        "setBackgroundGradient",
+        "setFontColor",
+        "setMasterBackground",
+        "setPptChartData",
+        "setPptChartStyle",
+        "setPptDateTime",
+        "setPptFooter",
+        "setShapeBorder",
+        "setShapeFill",
+        "setShapeFullStyle",
+        "setShapeGradient",
+        "setShapePosition",
+        "setShapeRoundness",
+        "setShapeShadow",
+        "setShapeStyle",
+        "setShapeText",
+        "setShapeTransparency",
+        "setShapeZOrder",
+        "setSlideNumber",
+        "setSlideTheme",
+        "setSlideTransition",
+        "smartDistribute",
+        "startSlideShow",
+        "unifyFont"
+      ]
     }
   },
   "actions": [
@@ -11368,7 +11445,7 @@
             "description": "Value returned as the 'afterIndex' result field."
           },
           "inserted": {
-            "type": "string",
+            "type": "number",
             "description": "Value returned as the 'inserted' result field."
           },
           "source": {
@@ -11650,11 +11727,23 @@
             "type": "number"
           }
         },
-        "required": [
-          "filePath",
-          "slideIndex"
-        ],
-        "additionalProperties": false
+      "required": [
+        "filePath",
+        "slideIndex"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "required": [
+            "shapeIndex"
+          ]
+        }
+      ],
+      "additionalProperties": false
       },
       "result": {
         "type": "object",
