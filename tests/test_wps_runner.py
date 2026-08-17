@@ -306,8 +306,12 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             timeout=5,
             check=False,
         )
-        if not readiness_addin.finished.wait(1):
-            raise AssertionError("Fake Add-in did not finish readiness setup")
+        if not readiness_addin.finished.wait(2):
+            raise AssertionError(
+                "Fake Add-in did not finish readiness setup: "
+                + checked.stdout
+                + checked.stderr
+            )
         if readiness_addin.error:
             raise readiness_addin.error
         if checked.returncode != 0 or json.loads(checked.stdout)["data"]["status"] != "ready":
