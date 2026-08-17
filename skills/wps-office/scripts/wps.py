@@ -283,7 +283,7 @@ def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
         server = HTTPServer((HOST, PORT), make_handler(state, auth_token))
     except OSError as error:
         if error.errno == errno.EADDRINUSE:
-            return False
+            return "restart_required" if restart_pending else "addin_unavailable"
         raise
     try:
         deadline = time.monotonic() + (timeout_ms / 1000.0)
@@ -295,13 +295,17 @@ def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
     result = state["result"]
     if result is None:
         return "restart_required" if restart_pending else "addin_unavailable"
-    ready = (
+    if (
         isinstance(result, dict)
         and result.get("success") is True
         and result.get("message") == "pong"
-        and result.get("installDigest") == expected_digest
-    )
-    return "ready" if ready else "restart_required"
+    ):
+        loaded_digest = result.get("installDigest")
+        if loaded_digest == expected_digest:
+            return "ready"
+        if isinstance(loaded_digest, str) and loaded_digest:
+            return "restart_required"
+    return "restart_required" if restart_pending else "addin_unavailable"
 
 
 def readiness_context(action=None, operation=None):
