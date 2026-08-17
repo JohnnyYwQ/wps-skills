@@ -825,6 +825,10 @@ class RetirementContractTests(unittest.TestCase):
     def test_add_arrow_uses_only_the_packaged_coordinate_contract(self) -> None:
         retirement = self.ledger["retired_contracts"][0]
         parameters = self.actions["addArrow"]["parameters"]["properties"]
+        powershell_source = WINDOWS_BRIDGE.read_text(encoding="utf-8")
+        arrow_dispatch = powershell_source.split('    "addArrow" {', 1)[1].split(
+            '\n    "', 1
+        )[0]
 
         self.assertEqual(retirement["action"], "addArrow")
         self.assertEqual(retirement["decision"], "ADR-0014")
@@ -833,9 +837,19 @@ class RetirementContractTests(unittest.TestCase):
         )
         self.assertTrue({"startX", "startY", "endX", "endY"}.issubset(parameters))
         self.assertFalse(set(retirement["retired_parameters"]) & set(parameters))
+        for parameter in ("startX", "startY", "endX", "endY"):
+            self.assertIn(f"$p.{parameter}", arrow_dispatch)
+        for retired_parameter in retirement["retired_parameters"]:
+            self.assertNotIn(f"$p.{retired_parameter}", arrow_dispatch)
 
     def test_corrected_cross_application_mappings_are_canonical(self) -> None:
         mappings = {entry["tool"]: entry for entry in self.ledger["legacy_tools"]}
+        excel_source = (
+            REPOSITORY_ROOT / "wps-office-mcp/src/tools/excel/data.ts"
+        ).read_text(encoding="utf-8")
+        powerpoint_source = (
+            REPOSITORY_ROOT / "wps-office-mcp/src/tools/ppt/presentation.ts"
+        ).read_text(encoding="utf-8")
 
         self.assertEqual(
             mappings["wps_excel_add_comment"],
@@ -860,6 +874,10 @@ class RetirementContractTests(unittest.TestCase):
             set(self.actions["addArrow"]["parameters"]["required"]),
             {"startX", "startY", "endX", "endY"},
         )
+        self.assertIn("'addCellComment'", excel_source)
+        self.assertNotIn("'addComment'", excel_source)
+        self.assertIn("'insertPptImage'", powerpoint_source)
+        self.assertNotIn("'insertImage'", powerpoint_source)
 
 
 class ExcelCoreContractTests(unittest.TestCase):

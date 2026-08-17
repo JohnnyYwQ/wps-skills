@@ -3569,12 +3569,11 @@ switch ($Action) {
         $pres = Get-TargetPres $ppt $p
         $slideIndex = if ($p.slideIndex) { $p.slideIndex } else { 1 }
         $slide = $pres.Slides.Item($slideIndex)
-        $left = if ($p.left) { $p.left } else { 100 }
-        $top = if ($p.top) { $p.top } else { 100 }
-        $width = if ($p.width) { $p.width } else { 120 }
-        $height = if ($p.height) { $p.height } else { 60 }
-        $shape = $slide.Shapes.AddShape(13, $left, $top, $width, $height)
-        Output-Json @{ success = $true; data = @{ name = $shape.Name } }
+        $line = $slide.Shapes.AddLine($p.startX, $p.startY, $p.endX, $p.endY)
+        $line.Line.EndArrowheadStyle = 2
+        if ($p.color) { $line.Line.ForeColor.RGB = Convert-HexColorToRgbInt([string]$p.color) }
+        if ($p.weight) { $line.Line.Weight = $p.weight }
+        Output-Json @{ success = $true; data = @{ name = $line.Name } }
     }
 
     "applyColorScheme" {

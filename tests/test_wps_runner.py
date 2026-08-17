@@ -1130,6 +1130,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
                     json.loads(completed.stdout),
                     {"ok": True, "action": request["action"], "data": data},
                 )
+                self.assertEqual(addin.action_request["action"], request["action"])
                 self.assertEqual(addin.action_request["params"], request["params"])
 
     def test_invalid_zoom_never_reaches_the_addin(self):
@@ -1204,6 +1205,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
                     json.loads(completed.stdout),
                     {"ok": True, "action": request["action"], "data": data},
                 )
+                self.assertEqual(addin.action_request["action"], request["action"])
                 self.assertEqual(addin.action_request["params"], request["params"])
 
     def test_legacy_arrow_bounding_box_is_rejected_before_the_addin(self):

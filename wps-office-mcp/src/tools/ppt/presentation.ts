@@ -588,13 +588,12 @@ export const insertSlideImageHandler: ToolHandler = async (
   };
 
   try {
-    // 跨平台参数对齐：底层 insertImage handler 读取 path/filePath，需同时发送别名
     const response = await wpsClient.executeMethod<{
       success: boolean;
       message: string;
     }>(
-      'insertImage',
-      { slideIndex, imagePath, path: imagePath, filePath: imagePath, left, top },
+      'insertPptImage',
+      { slideIndex, path: imagePath, left, top },
       WpsAppType.PRESENTATION
     );
 
