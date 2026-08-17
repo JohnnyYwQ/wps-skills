@@ -40,6 +40,8 @@ python3 scripts/wps.py invoke '{"action":"ping","params":{},"timeout_ms":30000}'
 
 Replace `ping` and `params` with the chosen read Action. Keep `timeout_ms` bounded. Each invocation starts one temporary service bound to `127.0.0.1:58891`, waits for the WPS Add-in to poll and return the correlated result, then closes the service and exits.
 
+Readiness checks and invocations share a per-user cross-process lock. If another WPS Action owns it, `ACTION_BUSY` is retryable after that process finishes. Never start a background service to work around this error.
+
 Parse stdout as one JSON object. A success has this shape:
 
 ```json
@@ -53,3 +55,12 @@ A failure returns a nonzero exit code and a structured stdout result:
 ```
 
 Retry only when `error.retryable` is `true`. Report non-retryable WPS Action failures to the user without changing their message.
+
+Use transport error codes to explain recovery precisely:
+
+- `ADDIN_NOT_READY`: no authenticated WPS Add-in polled before the deadline; check readiness again.
+- `ACTION_TIMEOUT`: WPS accepted the Action but did not finish before the deadline; retry only when the returned metadata permits it.
+- `PORT_IN_USE`: another process owns the loopback port; stop that conflicting process before retrying.
+- `ADDIN_DISCONNECTED`, `INVALID_ADDIN_JSON`, or `REQUEST_ID_MISMATCH`: the authenticated WPS Add-in failed the result protocol; do not retry automatically.
+
+The Runner releases its loopback port and Action lock on every success or failure path. Do not print, copy, or log the installed authentication credential or Action parameters while diagnosing transport failures.

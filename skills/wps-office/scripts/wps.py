@@ -8,9 +8,12 @@ Position: public process boundary used by the WPS Skill Package.
 
 import errno
 import json
+import os
 import secrets
+import socket
 import sys
 import time
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -45,6 +48,88 @@ class RunnerError(Exception):
         else:
             result["action"] = self.action
         return result
+
+
+@contextmanager
+def action_lock(action=None, operation=None):
+    """Hold the current user's non-blocking cross-process WPS Action lock."""
+    lock_file = None
+    try:
+        lock_path = addon_installer.action_lock_path()
+        lock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if os.name != "nt":
+            lock_path.parent.chmod(0o700)
+        lock_file = lock_path.open("a+b")
+        if os.name != "nt":
+            lock_path.chmod(0o600)
+    except (OSError, addon_installer.AddinInstallError) as error:
+        if lock_file is not None:
+            lock_file.close()
+        if isinstance(error, addon_installer.AddinInstallError):
+            raise RunnerError(
+                error.code,
+                error.message,
+                error.retryable,
+                action=action,
+                operation=operation,
+            )
+        raise RunnerError(
+            "LOCK_UNAVAILABLE",
+            "The WPS Action lock could not be opened",
+            True,
+            action=action,
+            operation=operation,
+        )
+
+    acquired = False
+    try:
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                if lock_path.stat().st_size == 0:
+                    lock_file.write(b"\0")
+                    lock_file.flush()
+                lock_file.seek(0)
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            acquired = True
+        except (OSError, IOError) as error:
+            busy_error_numbers = {errno.EACCES, errno.EAGAIN}
+            if error.errno not in busy_error_numbers:
+                raise RunnerError(
+                    "LOCK_UNAVAILABLE",
+                    "The WPS Action lock could not be acquired",
+                    True,
+                    action=action,
+                    operation=operation,
+                )
+            raise RunnerError(
+                "ACTION_BUSY",
+                "Another WPS Action is already running",
+                True,
+                action=action,
+                operation=operation,
+            )
+        yield
+    finally:
+        if acquired:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    lock_file.seek(0)
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
+        lock_file.close()
 
 
 def load_action(action_name):
@@ -172,11 +257,31 @@ def parse_request(raw_request):
     return request
 
 
-def make_handler(state, auth_token=None):
+def make_handler(state, auth_token):
     class PollingHandler(BaseHTTPRequestHandler):
+        def setup(self):
+            BaseHTTPRequestHandler.setup(self)
+            deadline = state.get("deadline")
+            if deadline is not None:
+                self.connection.settimeout(
+                    max(0.001, deadline - time.monotonic())
+                )
+
         def _is_authorized(self):
-            return auth_token is None or self.headers.get("Authorization") == (
-                "Bearer {0}".format(auth_token)
+            provided = self.headers.get("Authorization", "")
+            expected = "Bearer {0}".format(auth_token)
+            return secrets.compare_digest(provided, expected)
+
+        def _reject_unauthorized(self):
+            self._send_json(
+                401,
+                {
+                    "ok": False,
+                    "error": {
+                        "code": "AUTHENTICATION_FAILED",
+                        "message": "Loopback request authentication failed",
+                    },
+                },
             )
 
         def do_GET(self):
@@ -184,27 +289,86 @@ def make_handler(state, auth_token=None):
                 self._send_json(404, {"error": "Not found"})
                 return
             if not self._is_authorized():
-                self._send_json(401, {"error": "Unauthorized"})
+                self._reject_unauthorized()
                 return
-            self._send_json(200, {"actionRequest": state["action_request"]})
+            if self._send_json(
+                200, {"actionRequest": state["action_request"]}
+            ):
+                state["action_delivered"] = True
 
         def do_POST(self):
             if self.path != "/result":
                 self._send_json(404, {"error": "Not found"})
                 return
             if not self._is_authorized():
-                self._send_json(401, {"error": "Unauthorized"})
+                self._reject_unauthorized()
                 return
             try:
                 content_length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+                request_body = self.rfile.read(content_length)
+            except socket.timeout:
+                state["protocol_error"] = RunnerError(
+                    "ACTION_TIMEOUT",
+                    "WPS Action did not return a result before the timeout",
+                    True,
+                    state["action_request"]["action"],
+                )
+                return
+            except (TypeError, ValueError):
+                request_body = b""
+                content_length = 0
+            if len(request_body) != content_length:
+                state["protocol_error"] = RunnerError(
+                    "ADDIN_DISCONNECTED",
+                    "WPS Add-in disconnected while sending its result",
+                    False,
+                    state["action_request"]["action"],
+                )
+                return
+            try:
+                payload = json.loads(request_body.decode("utf-8"))
             except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
-                self._send_json(400, {"error": "Invalid JSON"})
+                message = "WPS Add-in result must be valid JSON"
+                state["protocol_error"] = RunnerError(
+                    "INVALID_ADDIN_JSON",
+                    message,
+                    False,
+                    state["action_request"]["action"],
+                )
+                self._send_json(
+                    400,
+                    {
+                        "ok": False,
+                        "error": {
+                            "code": "INVALID_ADDIN_JSON",
+                            "message": message,
+                        },
+                    },
+                )
                 return
             if payload.get("requestId") != state["action_request"]["requestId"]:
-                self._send_json(409, {"error": "Unknown requestId"})
+                message = (
+                    "WPS Add-in result does not match the pending WPS Action"
+                )
+                state["protocol_error"] = RunnerError(
+                    "REQUEST_ID_MISMATCH",
+                    message,
+                    False,
+                    state["action_request"]["action"],
+                )
+                self._send_json(
+                    409,
+                    {
+                        "ok": False,
+                        "error": {
+                            "code": "REQUEST_ID_MISMATCH",
+                            "message": message,
+                        },
+                    },
+                )
                 return
             state["result"] = payload.get("result")
+            state["result_received"] = True
             self._send_json(200, {"ok": True})
 
         def do_OPTIONS(self):
@@ -221,12 +385,40 @@ def make_handler(state, auth_token=None):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.wfile.write(body)
+                return True
+            except (BrokenPipeError, ConnectionResetError):
+                return False
 
         def log_message(self, format_string, *args):
             del format_string, args
 
     return PollingHandler
+
+
+def exchange_with_addin(action_request, auth_token, timeout_ms):
+    state = {
+        "action_request": action_request,
+        "result": None,
+        "result_received": False,
+        "protocol_error": None,
+        "action_delivered": False,
+    }
+    server = HTTPServer((HOST, PORT), make_handler(state, auth_token))
+    try:
+        deadline = time.monotonic() + (timeout_ms / 1000.0)
+        state["deadline"] = deadline
+        while (
+            not state["result_received"]
+            and state["protocol_error"] is None
+            and time.monotonic() < deadline
+        ):
+            server.timeout = min(0.25, max(0.0, deadline - time.monotonic()))
+            server.handle_request()
+        return state
+    finally:
+        server.server_close()
 
 
 def check_options(raw_options):
@@ -271,29 +463,24 @@ def check_options(raw_options):
 
 
 def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
-    state = {
-        "action_request": {
-            "action": "ping",
-            "params": {},
-            "requestId": "req-{0}".format(secrets.token_urlsafe(18)),
-        },
-        "result": None,
-    }
     try:
-        server = HTTPServer((HOST, PORT), make_handler(state, auth_token))
+        state = exchange_with_addin(
+            {
+                "action": "ping",
+                "params": {},
+                "requestId": "req-{0}".format(secrets.token_urlsafe(18)),
+            },
+            auth_token,
+            timeout_ms,
+        )
     except OSError as error:
         if error.errno == errno.EADDRINUSE:
             return "restart_required" if restart_pending else "addin_unavailable"
         raise
-    try:
-        deadline = time.monotonic() + (timeout_ms / 1000.0)
-        while state["result"] is None and time.monotonic() < deadline:
-            server.timeout = min(0.25, max(0.0, deadline - time.monotonic()))
-            server.handle_request()
-    finally:
-        server.server_close()
     result = state["result"]
-    if result is None:
+    if state["protocol_error"] is not None:
+        return "restart_required" if restart_pending else "addin_unavailable"
+    if not state["result_received"]:
         return "restart_required" if restart_pending else "addin_unavailable"
     if (
         isinstance(result, dict)
@@ -345,6 +532,11 @@ def invoke(request):
         raise RunnerError(
             "INVALID_PARAMS", params_problem, False, action_name
         )
+    with action_lock(action=action_name):
+        return invoke_locked(action, action_name, params, request)
+
+
+def invoke_locked(action, action_name, params, request):
     readiness = readiness_context(action=action_name)
     install_result = readiness["install"]
     if install_result["restart_required"]:
@@ -370,17 +562,16 @@ def invoke(request):
         )
     auth_token = readiness["auth_token"]
     timeout_ms = request.get("timeout_ms", 30000)
-    state = {
-        "action_request": {
-            "action": action_name,
-            "params": params,
-            "requestId": "req-{0}".format(secrets.token_urlsafe(18)),
-        },
-        "result": None,
-    }
-
     try:
-        server = HTTPServer((HOST, PORT), make_handler(state, auth_token))
+        state = exchange_with_addin(
+            {
+                "action": action_name,
+                "params": params,
+                "requestId": "req-{0}".format(secrets.token_urlsafe(18)),
+            },
+            auth_token,
+            timeout_ms,
+        )
     except OSError as error:
         if error.errno != errno.EADDRINUSE:
             raise
@@ -390,15 +581,17 @@ def invoke(request):
             True,
             action_name,
         )
-    try:
-        deadline = time.monotonic() + (timeout_ms / 1000.0)
-        while state["result"] is None and time.monotonic() < deadline:
-            server.timeout = min(0.25, max(0.0, deadline - time.monotonic()))
-            server.handle_request()
-    finally:
-        server.server_close()
 
-    if state["result"] is None:
+    if state["protocol_error"] is not None:
+        raise state["protocol_error"]
+    if not state["result_received"]:
+        if state["action_delivered"]:
+            raise RunnerError(
+                "ACTION_TIMEOUT",
+                "WPS Action did not return a result before the timeout",
+                True,
+                action_name,
+            )
         raise RunnerError(
             "ADDIN_NOT_READY",
             "WPS Add-in did not return a result before the timeout",
@@ -444,6 +637,45 @@ def invoke(request):
     return {"ok": True, "action": action_name, "data": data}
 
 
+def check_addin(options):
+    readiness = readiness_context(operation="check")
+    install_result = readiness["install"]
+    if install_result["restart_required"]:
+        return {
+            "status": "restart_required",
+            "ready": False,
+            "restart_required": True,
+            "platform": install_result["platform"],
+            "architecture": install_result["architecture"],
+        }
+    if not readiness["wps_running"]:
+        return {
+            "status": "wps_not_running",
+            "ready": False,
+            "restart_required": False,
+            "platform": install_result["platform"],
+            "architecture": install_result["architecture"],
+        }
+    platform_name = install_result["platform"]
+    expected_digest = readiness["source_digest"]
+    status = ping_addin(
+        readiness["auth_token"],
+        options["timeout_ms"],
+        expected_digest,
+        readiness["restart_pending"],
+    )
+    ready = status == "ready"
+    if ready:
+        addon_installer.acknowledge_loaded_digest(platform_name, expected_digest)
+    return {
+        "status": status,
+        "ready": ready,
+        "restart_required": status == "restart_required",
+        "platform": install_result["platform"],
+        "architecture": install_result["architecture"],
+    }
+
+
 def main(argv):
     if len(argv) == 2 and argv[1] == "install":
         try:
@@ -464,45 +696,8 @@ def main(argv):
         return 0
     if 2 <= len(argv) <= 3 and argv[1] == "check":
         options = check_options(argv[2] if len(argv) == 3 else None)
-        readiness = readiness_context(operation="check")
-        install_result = readiness["install"]
-        if install_result["restart_required"]:
-            check_result = {
-                "status": "restart_required",
-                "ready": False,
-                "restart_required": True,
-                "platform": install_result["platform"],
-                "architecture": install_result["architecture"],
-            }
-        elif not readiness["wps_running"]:
-            check_result = {
-                "status": "wps_not_running",
-                "ready": False,
-                "restart_required": False,
-                "platform": install_result["platform"],
-                "architecture": install_result["architecture"],
-            }
-        else:
-            platform_name = install_result["platform"]
-            expected_digest = readiness["source_digest"]
-            status = ping_addin(
-                readiness["auth_token"],
-                options["timeout_ms"],
-                expected_digest,
-                readiness["restart_pending"],
-            )
-            ready = status == "ready"
-            if ready:
-                addon_installer.acknowledge_loaded_digest(
-                    platform_name, expected_digest
-                )
-            check_result = {
-                "status": status,
-                "ready": ready,
-                "restart_required": status == "restart_required",
-                "platform": install_result["platform"],
-                "architecture": install_result["architecture"],
-            }
+        with action_lock(operation="check"):
+            check_result = check_addin(options)
         result = {"ok": True, "operation": "check", "data": check_result}
         print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
         return 0

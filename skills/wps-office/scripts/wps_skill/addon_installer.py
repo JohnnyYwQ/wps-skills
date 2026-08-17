@@ -139,6 +139,11 @@ def auth_token(platform_name):
     return _credential(platform_name)
 
 
+def action_lock_path():
+    """Return the current user's cross-process WPS Action lock path."""
+    return _config_path(_platform_name()).parent / "action.lock"
+
+
 def source_digest():
     """Return the digest the loaded Add-in must acknowledge."""
     return _source_digest()
