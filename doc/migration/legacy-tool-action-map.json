@@ -1,0 +1,1916 @@
+{
+  "schema_version": 1,
+  "legacy_tools": [
+    {
+      "tool": "wps_cache_data",
+      "actions": [],
+      "status": "retired",
+      "reason": "This was MCP runtime state or an unrestricted dynamic call, not a stable WPS Action."
+    },
+    {
+      "tool": "wps_check_connection",
+      "actions": [
+        "ping"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_clear_cache",
+      "actions": [],
+      "status": "retired",
+      "reason": "This was MCP runtime state or an unrestricted dynamic call, not a stable WPS Action."
+    },
+    {
+      "tool": "wps_common_get_app_info",
+      "actions": [
+        "getAppInfo"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_common_get_selected_text",
+      "actions": [
+        "getSelectedText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_common_ping",
+      "actions": [
+        "ping"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_common_save",
+      "actions": [
+        "save"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_common_save_as",
+      "actions": [
+        "saveAs"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_common_set_selected_text",
+      "actions": [
+        "setSelectedText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_common_wire_check",
+      "actions": [
+        "wireCheck"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_convert_format",
+      "actions": [
+        "convertFormat"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_convert_to_pdf",
+      "actions": [
+        "convertToPDF"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_add_comment",
+      "actions": [],
+      "status": "conflict",
+      "reason": "The Tool dispatches addComment, but both legacy bridges assign that Action name to Word comments; the Excel capability has no distinct canonical Action."
+    },
+    {
+      "tool": "wps_excel_auto_fill",
+      "actions": [
+        "fillSeries"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_auto_filter",
+      "actions": [
+        "autoFilter"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_auto_sum",
+      "actions": [
+        "autoSum"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_clean_data",
+      "actions": [
+        "cleanData"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_clear_range",
+      "actions": [
+        "clearRange"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_close_workbook",
+      "actions": [
+        "closeWorkbook"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_copy_range",
+      "actions": [
+        "copyRange"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_copy_sheet",
+      "actions": [
+        "copySheet"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_create_chart",
+      "actions": [
+        "createChart"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_create_pivot_table",
+      "actions": [
+        "createPivotTable"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_create_sheet",
+      "actions": [
+        "createSheet"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_create_workbook",
+      "actions": [
+        "createWorkbook"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_delete_cell_comment",
+      "actions": [
+        "deleteCellComment"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_delete_column",
+      "actions": [
+        "deleteColumns"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_delete_columns",
+      "actions": [
+        "deleteColumns"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_delete_row",
+      "actions": [
+        "deleteRows"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_delete_rows",
+      "actions": [
+        "deleteRows"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_delete_sheet",
+      "actions": [
+        "deleteSheet"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_diagnose_formula",
+      "actions": [
+        "diagnoseFormula"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_evaluate_formula",
+      "actions": [
+        "evaluateFormula"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_export_chart_as_image",
+      "actions": [
+        "exportChartAsImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_export_range_as_image",
+      "actions": [
+        "exportRangeAsImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_fill_series",
+      "actions": [
+        "fillSeries"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_find_replace",
+      "actions": [],
+      "status": "conflict",
+      "reason": "The Tool dispatches findReplace, but both legacy bridges assign that Action name to Word replacement with an incompatible parameter contract."
+    },
+    {
+      "tool": "wps_excel_freeze_panes",
+      "actions": [
+        "freezePanes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_generate_formula",
+      "actions": [
+        "getContext"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_get_cell_comments",
+      "actions": [
+        "getCellComments"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_get_cell_info",
+      "actions": [
+        "getCellInfo"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_get_cell_value",
+      "actions": [
+        "getCellValue"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_get_formula",
+      "actions": [
+        "getFormula"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_get_open_workbooks",
+      "actions": [
+        "getOpenWorkbooks"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_get_selection",
+      "actions": [
+        "getSelection"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_get_sheet_list",
+      "actions": [
+        "getSheetList"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_group_rows",
+      "actions": [
+        "groupRows"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_hide_column",
+      "actions": [
+        "hideColumns"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_hide_row",
+      "actions": [
+        "hideRows"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_hide_rows",
+      "actions": [
+        "hideRows"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_insert_column",
+      "actions": [
+        "insertColumns"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_insert_columns",
+      "actions": [
+        "insertColumns"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_insert_excel_image",
+      "actions": [
+        "insertExcelImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_insert_row",
+      "actions": [
+        "insertRows"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_insert_rows",
+      "actions": [
+        "insertRows"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_lock_cells",
+      "actions": [
+        "lockCells"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_merge_cells",
+      "actions": [
+        "mergeCells"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_move_sheet",
+      "actions": [
+        "moveSheet"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_open_workbook",
+      "actions": [
+        "openWorkbook"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_paste_range",
+      "actions": [
+        "pasteRange"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_protect_sheet",
+      "actions": [
+        "protectSheet"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_protect_workbook",
+      "actions": [
+        "protectWorkbook"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_read_range",
+      "actions": [
+        "getRangeData"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_remove_duplicates",
+      "actions": [
+        "removeDuplicates"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_rename_sheet",
+      "actions": [
+        "renameSheet"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_array_formula",
+      "actions": [
+        "setArrayFormula"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_border",
+      "actions": [
+        "setBorder"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_cell_format",
+      "actions": [
+        "setCellFormat"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_cell_style",
+      "actions": [
+        "setCellStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_cell_value",
+      "actions": [
+        "setCellValue"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_column_width",
+      "actions": [
+        "setColumnWidth"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_conditional_format",
+      "actions": [
+        "addConditionalFormat"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_data_validation",
+      "actions": [
+        "addDataValidation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_formula",
+      "actions": [
+        "setFormula"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_hyperlink",
+      "actions": [
+        "setHyperlink"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_named_range",
+      "actions": [
+        "createNamedRange"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_number_format",
+      "actions": [
+        "setNumberFormat"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_print_area",
+      "actions": [
+        "setPrintArea"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_row_height",
+      "actions": [
+        "setRowHeight"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_set_zoom",
+      "actions": [
+        "setZoom"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_show_columns",
+      "actions": [
+        "showColumns"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_show_rows",
+      "actions": [
+        "showRows"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_sort_range",
+      "actions": [
+        "sortRange"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_subtotal",
+      "actions": [
+        "subtotal"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_switch_sheet",
+      "actions": [
+        "switchSheet"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_switch_workbook",
+      "actions": [
+        "switchWorkbook"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_text_to_columns",
+      "actions": [
+        "textToColumns"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_transpose",
+      "actions": [
+        "transpose"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_unmerge_cells",
+      "actions": [
+        "unmergeCells"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_unprotect_sheet",
+      "actions": [
+        "unprotectSheet"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_update_chart",
+      "actions": [
+        "updateChart"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_update_pivot_table",
+      "actions": [
+        "updatePivotTable"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_write_range",
+      "actions": [
+        "setRangeData"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_excel_zoom",
+      "actions": [
+        "setZoom"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_execute_method",
+      "actions": [],
+      "status": "retired",
+      "reason": "This was MCP runtime state or an unrestricted dynamic call, not a stable WPS Action."
+    },
+    {
+      "tool": "wps_get_active_document",
+      "actions": [
+        "getActiveDocument"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_get_active_presentation",
+      "actions": [
+        "getActivePresentation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_get_active_workbook",
+      "actions": [
+        "getActiveWorkbook"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_get_cached_data",
+      "actions": [],
+      "status": "retired",
+      "reason": "This was MCP runtime state or an unrestricted dynamic call, not a stable WPS Action."
+    },
+    {
+      "tool": "wps_get_cell_value",
+      "actions": [
+        "getCellValue"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_insert_text",
+      "actions": [
+        "insertText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_list_cache",
+      "actions": [],
+      "status": "retired",
+      "reason": "This was MCP runtime state or an unrestricted dynamic call, not a stable WPS Action."
+    },
+    {
+      "tool": "wps_ppt_add_animation",
+      "actions": [
+        "addAnimation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_animation_preset",
+      "actions": [
+        "addAnimationPreset"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_chart",
+      "actions": [
+        "insertPptChart"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_emphasis_animation",
+      "actions": [
+        "addEmphasisAnimation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_master_element",
+      "actions": [
+        "addMasterElement"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_page_indicator",
+      "actions": [
+        "addPageIndicator"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_ppt_hyperlink",
+      "actions": [
+        "addPptHyperlink"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_shape",
+      "actions": [
+        "addShape"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_slide",
+      "actions": [
+        "addSlide"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_speaker_notes",
+      "actions": [
+        "setSlideNotes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_textbox",
+      "actions": [
+        "addTextBox"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_add_title_decoration",
+      "actions": [
+        "addTitleDecoration"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_align_objects",
+      "actions": [
+        "alignShapes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_align_shapes",
+      "actions": [
+        "alignShapes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_apply_color_scheme",
+      "actions": [
+        "applyColorScheme"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_apply_transition_to_all",
+      "actions": [
+        "applyTransitionToAll"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_auto_beautify_slide",
+      "actions": [
+        "autoBeautifySlide"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_auto_layout",
+      "actions": [
+        "autoLayout"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_beautify",
+      "actions": [
+        "beautifySlide"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_beautify_all_slides",
+      "actions": [
+        "beautifyAllSlides"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_close_presentation",
+      "actions": [
+        "closePresentation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_copy_slide",
+      "actions": [
+        "duplicateSlide"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_3d_text",
+      "actions": [
+        "create3DText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_donut_chart",
+      "actions": [
+        "createDonutChart"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_flow_chart",
+      "actions": [
+        "createFlowChart"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_gauge",
+      "actions": [
+        "createGauge"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_grid",
+      "actions": [
+        "createGrid"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_kpi_cards",
+      "actions": [
+        "createKpiCards"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_mini_charts",
+      "actions": [
+        "createMiniCharts"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_org_chart",
+      "actions": [
+        "createOrgChart"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_presentation",
+      "actions": [
+        "createPresentation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_progress_bar",
+      "actions": [
+        "createProgressBar"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_styled_table",
+      "actions": [
+        "createStyledTable"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_create_timeline",
+      "actions": [
+        "createTimeline"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_delete_ppt_image",
+      "actions": [
+        "deletePptImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_delete_shape",
+      "actions": [
+        "deleteShape"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_delete_slide",
+      "actions": [
+        "deleteSlide"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_delete_textbox",
+      "actions": [
+        "deleteTextBox"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_distribute_shapes",
+      "actions": [
+        "distributeShapes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_duplicate_shape",
+      "actions": [
+        "duplicateShape"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_duplicate_slide",
+      "actions": [
+        "duplicateSlide"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_export_slide_as_image",
+      "actions": [
+        "exportSlideAsImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_find_ppt_text",
+      "actions": [
+        "findPptText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_animations",
+      "actions": [
+        "getAnimations"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_open_presentations",
+      "actions": [
+        "getOpenPresentations"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_shapes",
+      "actions": [
+        "getShapes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_slide_count",
+      "actions": [
+        "getSlideCount"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_slide_info",
+      "actions": [
+        "getSlideInfo"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_slide_master",
+      "actions": [
+        "getSlideMaster"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_slide_notes",
+      "actions": [
+        "getSlideNotes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_slide_title",
+      "actions": [
+        "getSlideTitle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_table_cell",
+      "actions": [
+        "getPptTableCell"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_get_textboxes",
+      "actions": [
+        "getTextBoxes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_group_shapes",
+      "actions": [
+        "groupShapes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_insert_image",
+      "actions": [
+        "insertPptImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_insert_ppt_chart",
+      "actions": [
+        "insertPptChart"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_insert_ppt_image",
+      "actions": [
+        "insertPptImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_insert_slide_image",
+      "actions": [],
+      "status": "conflict",
+      "reason": "The Tool dispatches insertImage, but both legacy bridges assign that Action name to Word images; PowerPoint uses insertPptImage for its canonical image Action."
+    },
+    {
+      "tool": "wps_ppt_insert_slides_from_file",
+      "actions": [
+        "insertSlidesFromFile"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_insert_table",
+      "actions": [
+        "insertPptTable"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_move_slide",
+      "actions": [
+        "moveSlide"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_open_presentation",
+      "actions": [
+        "openPresentation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_remove_animation",
+      "actions": [
+        "removeAnimation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_remove_ppt_hyperlink",
+      "actions": [
+        "removePptHyperlink"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_remove_slide_transition",
+      "actions": [
+        "removeSlideTransition"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_replace_ppt_image",
+      "actions": [
+        "replacePptImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_replace_ppt_text",
+      "actions": [
+        "replacePptText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_3d_depth",
+      "actions": [
+        "set3DDepth"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_3d_material",
+      "actions": [
+        "set3DMaterial"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_3d_rotation",
+      "actions": [
+        "set3DRotation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_active_target",
+      "actions": [
+        "getOpenPresentations"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_animation",
+      "actions": [
+        "addAnimation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_animation_order",
+      "actions": [
+        "setAnimationOrder"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_background",
+      "actions": [
+        "setSlideBackground"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_background_color",
+      "actions": [
+        "setBackgroundColor"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_background_gradient",
+      "actions": [
+        "setBackgroundGradient"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_background_image",
+      "actions": [
+        "setBackgroundImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_font_color",
+      "actions": [
+        "setFontColor"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_image_style",
+      "actions": [
+        "setImageStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_master_background",
+      "actions": [
+        "setMasterBackground"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_ppt_chart_data",
+      "actions": [
+        "setPptChartData"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_ppt_chart_style",
+      "actions": [
+        "setPptChartStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_ppt_date_time",
+      "actions": [
+        "setPptDateTime"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_ppt_footer",
+      "actions": [
+        "setPptFooter"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_border",
+      "actions": [
+        "setShapeBorder"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_fill",
+      "actions": [
+        "setShapeFill"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_gradient",
+      "actions": [
+        "setShapeGradient"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_position",
+      "actions": [
+        "setShapePosition"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_shadow",
+      "actions": [
+        "setShapeShadow"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_style",
+      "actions": [
+        "setShapeStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_text",
+      "actions": [
+        "setShapeText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_transparency",
+      "actions": [
+        "setShapeTransparency"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_shape_z_order",
+      "actions": [
+        "setShapeZOrder"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_background",
+      "actions": [
+        "setSlideBackground"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_content",
+      "actions": [
+        "setSlideContent"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_layout",
+      "actions": [
+        "setSlideLayout"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_notes",
+      "actions": [
+        "setSlideNotes"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_number",
+      "actions": [
+        "setSlideNumber"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_size",
+      "actions": [
+        "setSlideSize"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_subtitle",
+      "actions": [
+        "setSlideSubtitle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_theme",
+      "actions": [
+        "setSlideTheme"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_title",
+      "actions": [
+        "setSlideTitle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_slide_transition",
+      "actions": [
+        "setSlideTransition"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_table_cell",
+      "actions": [
+        "setPptTableCell"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_table_cell_style",
+      "actions": [
+        "setPptTableCellStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_table_row_style",
+      "actions": [
+        "setPptTableRowStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_table_style",
+      "actions": [
+        "setPptTableStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_textbox_style",
+      "actions": [
+        "setTextBoxStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_textbox_text",
+      "actions": [
+        "setTextBoxText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_set_transition",
+      "actions": [
+        "setSlideTransition"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_smart_distribute",
+      "actions": [
+        "smartDistribute"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_start_slide_show",
+      "actions": [
+        "startSlideShow"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_switch_presentation",
+      "actions": [
+        "switchPresentation"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_switch_slide",
+      "actions": [
+        "switchSlide"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_ppt_unify_font",
+      "actions": [
+        "unifyFont"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_set_cell_value",
+      "actions": [
+        "setCellValue"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_apply_style",
+      "actions": [
+        "applyStyle"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_enable_track_changes",
+      "actions": [
+        "enableTrackChanges"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_find_in_document",
+      "actions": [
+        "findInDocument"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_find_replace",
+      "actions": [
+        "findReplace"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_generate_doc_toc",
+      "actions": [
+        "generateTOC"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_generate_toc",
+      "actions": [
+        "generateTOC"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_get_active_document",
+      "actions": [
+        "getActiveDocument"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_get_document_text",
+      "actions": [
+        "getDocumentText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_get_open_documents",
+      "actions": [
+        "getOpenDocuments"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_get_paragraphs",
+      "actions": [
+        "getDocumentParagraphs"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_get_track_changes_status",
+      "actions": [
+        "getTrackChangesStatus"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_bookmark",
+      "actions": [
+        "insertBookmark"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_comment",
+      "actions": [
+        "addComment"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_footer",
+      "actions": [
+        "insertFooter"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_header",
+      "actions": [
+        "insertHeader"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_image",
+      "actions": [
+        "insertImage"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_page_break",
+      "actions": [
+        "insertPageBreak"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_section_break",
+      "actions": [
+        "insertSectionBreak"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_table",
+      "actions": [
+        "insertTable"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_insert_text",
+      "actions": [
+        "insertText"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_open_document",
+      "actions": [
+        "openDocument"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_proofread_basic",
+      "actions": [],
+      "status": "retired",
+      "reason": "The legacy WPS Tool performed local analysis or orchestration and did not dispatch a WPS Action."
+    },
+    {
+      "tool": "wps_word_replace_bookmark_content",
+      "actions": [
+        "replaceBookmarkContent"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_replace_range",
+      "actions": [
+        "replaceRange"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_set_font",
+      "actions": [
+        "setFont"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_set_font_style",
+      "actions": [
+        "setFont"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_set_line_spacing",
+      "actions": [
+        "setLineSpacing"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_set_page_setup",
+      "actions": [
+        "setPageSetup"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_set_paragraph",
+      "actions": [
+        "setParagraph"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_set_text_color",
+      "actions": [
+        "setTextColor"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_smart_fill_field",
+      "actions": [
+        "smartFillField"
+      ],
+      "status": "mapped"
+    },
+    {
+      "tool": "wps_word_switch_document",
+      "actions": [
+        "switchDocument"
+      ],
+      "status": "mapped"
+    }
+  ],
+  "bridge_exceptions": {
+    "javascript_missing": [
+      {
+        "action": "autoSum",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "closeDocument",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "convertFormat",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "createDocument",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "enableTrackChanges",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "evaluateFormula",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "findInDocument",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "getDocumentParagraphs",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "getExcelContext",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "getTrackChangesStatus",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "insertSectionBreak",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "insertSlidesFromFile",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "openFile",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "replaceBookmarkContent",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "replacePptImage",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "replaceRange",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "setFontColor",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "setLineSpacing",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "setShapeFill",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "setSlideSize",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "setSlideTheme",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "setTextColor",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "setZoom",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      },
+      {
+        "action": "smartFillField",
+        "reason": "The legacy PowerShell bridge implements this capability, but the JavaScript add-in has not ported it yet."
+      }
+    ],
+    "powershell_missing": [
+      {
+        "action": "autoSum",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "evaluateFormula",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "insertSectionBreak",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "setFontColor",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "setLineSpacing",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "setShapeFill",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "setSlideSize",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "setSlideTheme",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "setTextColor",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      },
+      {
+        "action": "setZoom",
+        "reason": "The legacy JavaScript add-in implements this capability, but the PowerShell bridge does not."
+      }
+    ],
+    "powershell_duplicate_dispatches": [
+      {
+        "action": "create3DText",
+        "occurrences": 2,
+        "reason": "The legacy switch contains repeated implementations; the manifest records one canonical WPS Action and migration must reconcile them."
+      },
+      {
+        "action": "set3DDepth",
+        "occurrences": 2,
+        "reason": "The legacy switch contains repeated implementations; the manifest records one canonical WPS Action and migration must reconcile them."
+      },
+      {
+        "action": "set3DMaterial",
+        "occurrences": 2,
+        "reason": "The legacy switch contains repeated implementations; the manifest records one canonical WPS Action and migration must reconcile them."
+      },
+      {
+        "action": "set3DRotation",
+        "occurrences": 2,
+        "reason": "The legacy switch contains repeated implementations; the manifest records one canonical WPS Action and migration must reconcile them."
+      }
+    ],
+    "contract_conflicts": [
+      {
+        "action": "addArrow",
+        "reason": "JavaScript draws a line arrow from start/end coordinates, while PowerShell inserts a block arrow from a bounding box. The manifest accepts both parameter sets until the unified add-in chooses one behavior."
+      }
+    ]
+  }
+}

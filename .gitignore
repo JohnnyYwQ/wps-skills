@@ -13,10 +13,16 @@ docs/*
 !docs/agents/
 !docs/agents/*.md
 WPS接口API/
-/scripts/
+/scripts/*
+!/scripts/validate_action_manifest.py
 /logs/
 planplan.md
 **/tests/
+!/tests/
+/tests/*
+!/tests/test_action_manifest.py
+!/tests/fixtures/
+!/tests/fixtures/*.json
 **/test/
 **/README.md
 !README.md

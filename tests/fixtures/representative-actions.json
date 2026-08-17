@@ -1,0 +1,61 @@
+[
+  {
+    "action": "ping",
+    "application": "common",
+    "risk": "read",
+    "required": [],
+    "params": {},
+    "result": {
+      "message": "pong",
+      "timestamp": 1723852800000
+    }
+  },
+  {
+    "action": "getCellValue",
+    "application": "excel",
+    "risk": "read",
+    "required": [
+      "sheet",
+      "row",
+      "col"
+    ],
+    "params": {
+      "sheet": "Sheet1",
+      "row": 1,
+      "col": 1
+    },
+    "result": {
+      "value": 42,
+      "text": "42",
+      "formula": ""
+    }
+  },
+  {
+    "action": "insertText",
+    "application": "word",
+    "risk": "write",
+    "required": [
+      "text"
+    ],
+    "params": {
+      "text": "Quarterly report",
+      "position": "end"
+    },
+    "result": {
+      "position": "end",
+      "textLength": 16
+    }
+  },
+  {
+    "action": "deleteSlide",
+    "application": "powerpoint",
+    "risk": "destructive",
+    "required": [],
+    "params": {
+      "slideIndex": 2
+    },
+    "result": {
+      "deleted": 2
+    }
+  }
+]

@@ -59,6 +59,9 @@ module.exports = {
   // 在测试失败时强制退出
   forceExit: true,
 
+  // 当前仓库尚未迁入旧 Jest 用例；测试发现为空时仍允许统一校验命令通过
+  passWithNoTests: true,
+
   // 根目录
   rootDir: '.',
 
@@ -70,8 +73,5 @@ module.exports = {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: 'tsconfig.json'
     }]
-  },
-
-  // 测试运行前的设置文件
-  setupFilesAfterEnv: ['<rootDir>/src/tests/setup.ts']
+  }
 };
