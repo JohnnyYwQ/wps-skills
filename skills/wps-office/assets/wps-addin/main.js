@@ -1,6 +1,6 @@
 /**
  * Input: Python Runner 的 WPS Action 与加载项事件
- * Output: 包含 Excel 核心与高级工作流在内的 WPS 应用侧结构化执行结果
+ * Output: 包含 Excel 与 Word 已迁移工作流在内的 WPS 应用侧结构化执行结果
  * Pos: 跨平台统一 WPS Add-in 主入口。一旦我被修改，请更新我的头部注释，以及所属文件夹的md。
  * WPS Skill Platform Bridge（轮询模式）
  * 加载项作为 HTTP 客户端，轮询 Python Runner 获取 WPS Action
@@ -199,6 +199,9 @@ function handleAction(actionRequest) {
                 break;
 
             // Word
+            case 'createDocument':
+                result = handleCreateDocument(actionRequest.params);
+                break;
             case 'getActiveDocument':
                 result = handleGetActiveDocument();
                 break;
@@ -211,11 +214,44 @@ function handleAction(actionRequest) {
             case 'openDocument':
                 result = handleOpenDocument(actionRequest.params);
                 break;
+            case 'closeDocument':
+                result = handleCloseDocument(actionRequest.params);
+                break;
             case 'getDocumentText':
                 result = handleGetDocumentText();
                 break;
+            case 'getDocumentParagraphs':
+                result = handleGetDocumentParagraphs(actionRequest.params);
+                break;
+            case 'findInDocument':
+                result = handleFindInDocument(actionRequest.params);
+                break;
             case 'insertText':
                 result = handleInsertText(actionRequest.params);
+                break;
+            case 'insertSectionBreak':
+                result = handleInsertSectionBreak(actionRequest.params);
+                break;
+            case 'replaceBookmarkContent':
+                result = handleReplaceBookmarkContent(actionRequest.params);
+                break;
+            case 'smartFillField':
+                result = handleSmartFillField(actionRequest.params);
+                break;
+            case 'setLineSpacing':
+                result = handleSetLineSpacing(actionRequest.params);
+                break;
+            case 'setTextColor':
+                result = handleSetTextColor(actionRequest.params);
+                break;
+            case 'enableTrackChanges':
+                result = handleEnableTrackChanges(actionRequest.params);
+                break;
+            case 'getTrackChangesStatus':
+                result = handleGetTrackChangesStatus(actionRequest.params);
+                break;
+            case 'replaceRange':
+                result = handleReplaceRange(actionRequest.params);
                 break;
 
             // PPT
@@ -1207,6 +1243,19 @@ function handleEvaluateFormula(params) {
 
 // ==================== Word Handlers ====================
 
+function handleCreateDocument(params) {
+    try {
+        var doc = Application.Documents.Add();
+        if (!doc) return { success: false, error: '无法创建文档' };
+        return {
+            success: true,
+            data: { name: doc.Name || '', path: doc.Path || '' }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
 // 获取所有打开的Word文档
 function handleGetOpenDocuments(params) {
     try {
@@ -1251,6 +1300,19 @@ function handleOpenDocument(params) {
     }
 }
 
+function handleCloseDocument(params) {
+    try {
+        var doc = params.name ? Application.Documents.Item(params.name) : Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有可关闭的文档' };
+        var name = doc.Name || '';
+        var saveChanges = params.saveChanges === undefined ? true : !!params.saveChanges;
+        doc.Close(saveChanges);
+        return { success: true, data: { closed: name } };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
 function handleGetActiveDocument() {
     try {
         var doc = Application.ActiveDocument;
@@ -1260,9 +1322,10 @@ function handleGetActiveDocument() {
             success: true,
             data: {
                 name: doc.Name,
-                path: doc.FullName,
-                paragraphs: doc.Paragraphs.Count,
-                words: doc.Words.Count
+                path: doc.FullName || '',
+                paragraphCount: doc.Paragraphs.Count,
+                wordCount: doc.Words.Count,
+                characterCount: doc.Characters.Count
             }
         };
     } catch (e) {
@@ -1280,7 +1343,109 @@ function handleGetDocumentText() {
         var text = sel.Text || '';
         // 取消选择，恢复光标
         sel.Collapse(1);
-        return { success: true, data: { text: text } };
+        return { success: true, data: { text: text, length: text.length } };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleGetDocumentParagraphs(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+
+        var totalCount = doc.Paragraphs.Count;
+        var startIndex = params.startParagraph === undefined ? 1 : Number(params.startParagraph);
+        var endIndex = params.endParagraph === undefined
+            ? Math.min(totalCount, startIndex + 49)
+            : Number(params.endParagraph);
+        if (startIndex < 1 || endIndex < startIndex) {
+            return { success: false, error: '段落范围无效' };
+        }
+        endIndex = Math.min(endIndex, totalCount);
+
+        var paragraphs = [];
+        for (var i = startIndex; i <= endIndex; i++) {
+            var paragraph = doc.Paragraphs.Item(i);
+            var paragraphText = String(paragraph.Range.Text || '').replace(/[\r\n]+$/, '');
+            if (paragraphText.length > 200) paragraphText = paragraphText.substr(0, 200) + '...';
+            var style = '';
+            try {
+                style = paragraph.Range.Style.NameLocal || paragraph.Range.Style.Name || String(paragraph.Range.Style || '');
+            } catch (ignored) {}
+            paragraphs.push({
+                index: i,
+                text: paragraphText,
+                style: style,
+                start: paragraph.Range.Start,
+                end: paragraph.Range.End
+            });
+        }
+        return {
+            success: true,
+            data: {
+                paragraphs: paragraphs,
+                totalCount: totalCount,
+                returnedCount: paragraphs.length
+            }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleFindInDocument(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        var maxResults = params.maxResults === undefined ? 20 : Number(params.maxResults);
+        var results = [];
+        var searchRange = doc.Content.Duplicate;
+
+        while (results.length < maxResults) {
+            searchRange.Find.ClearFormatting();
+            var found = searchRange.Find.Execute(
+                params.findText,
+                !!params.matchCase,
+                !!params.matchWholeWord,
+                false,
+                false,
+                false,
+                true,
+                1,
+                false,
+                '',
+                0
+            );
+            if (!found) break;
+
+            var matchStart = searchRange.Start;
+            var matchEnd = searchRange.End;
+            var paragraphIndex = 0;
+            for (var i = 1; i <= doc.Paragraphs.Count; i++) {
+                var paragraphRange = doc.Paragraphs.Item(i).Range;
+                if (matchStart >= paragraphRange.Start && matchStart <= paragraphRange.End) {
+                    paragraphIndex = i;
+                    break;
+                }
+            }
+            var contextStart = Math.max(0, matchStart - 50);
+            var contextEnd = Math.min(doc.Content.End, matchEnd + 50);
+            results.push({
+                text: searchRange.Text || '',
+                start: matchStart,
+                end: matchEnd,
+                paragraphIndex: paragraphIndex,
+                context: doc.Range(contextStart, contextEnd).Text || ''
+            });
+
+            if (matchEnd >= doc.Content.End) break;
+            searchRange = doc.Range(matchEnd, doc.Content.End);
+        }
+        return {
+            success: true,
+            data: { results: results, count: results.length, findText: params.findText }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -1302,8 +1467,248 @@ function handleInsertText(params) {
             range = Application.Selection.Range;
         }
 
-        range.InsertAfter(params.text);
-        return { success: true };
+        if (pos === 'selection' || (pos !== 'start' && pos !== 'end')) {
+            Application.Selection.TypeText(params.text);
+        } else if (pos === 'start') {
+            range.InsertBefore(params.text);
+        } else {
+            range.InsertAfter(params.text);
+        }
+        if (params.style) {
+            try { Application.Selection.Range.Style = params.style; } catch (ignored) {}
+        }
+        return {
+            success: true,
+            data: { position: pos, textLength: params.text.length }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleInsertSectionBreak(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        var breakType = params.breakType || 'nextPage';
+        var breakTypes = {
+            nextPage: 2,
+            continuous: 3,
+            evenPage: 4,
+            oddPage: 5
+        };
+        Application.Selection.InsertBreak(breakTypes[breakType]);
+        return { success: true, data: { breakType: breakType } };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleReplaceBookmarkContent(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        var bookmark = doc.Bookmarks.Item(params.name);
+        if (!bookmark) return { success: false, error: '未找到书签: ' + params.name };
+        var start = bookmark.Start;
+        bookmark.Range.Text = params.text;
+        var end = start + params.text.length;
+        doc.Bookmarks.Add(params.name, doc.Range(start, end));
+        return {
+            success: true,
+            data: { name: params.name, text: params.text, start: start, end: end }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleSmartFillField(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+
+        var searchRange = doc.Content.Duplicate;
+        searchRange.Find.ClearFormatting();
+        var found = searchRange.Find.Execute(
+            params.keyword, false, false, false, false, false, true, 1, false, '', 0
+        );
+        if (!found) return { success: false, error: '未找到关键字: ' + params.keyword };
+
+        var matchStart = searchRange.Start;
+        var matchEnd = searchRange.End;
+        var paragraphRange = searchRange.Paragraphs.Item(1).Range;
+        var paragraphText = String(paragraphRange.Text || '');
+        var fillMode = params.fillMode || 'auto';
+        var escapedKeyword = params.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        if (fillMode === 'auto') {
+            if (new RegExp('[{【\\[]' + escapedKeyword + '[}】\\]]').test(paragraphText)) {
+                fillMode = 'placeholder';
+            } else {
+                var afterKeyword = paragraphText.substr(
+                    Math.max(0, matchEnd - paragraphRange.Start)
+                );
+                if (/^[\s]*[：:][\s]*_+/.test(afterKeyword)) {
+                    fillMode = 'underline';
+                } else if (/^[\s]*[：:]/.test(afterKeyword)) {
+                    fillMode = 'afterColon';
+                } else {
+                    fillMode = 'afterLabel';
+                }
+            }
+        }
+
+        var resultMessage;
+        if (fillMode === 'placeholder') {
+            var placeholderMatch = paragraphText.match(
+                new RegExp('([{【\\[])' + escapedKeyword + '([}】\\]])')
+            );
+            var placeholder = placeholderMatch ? placeholderMatch[0] : params.keyword;
+            var placeholderOffset = paragraphText.indexOf(placeholder);
+            var placeholderRange = doc.Range(
+                paragraphRange.Start + placeholderOffset,
+                paragraphRange.Start + placeholderOffset + placeholder.length
+            );
+            placeholderRange.Text = params.value;
+            resultMessage = 'replaced placeholder';
+        } else if (fillMode === 'underline') {
+            var underlineText = doc.Range(matchEnd, paragraphRange.End).Text || '';
+            var underlineMatch = /_+/.exec(underlineText);
+            if (underlineMatch) {
+                var underlineStart = matchEnd + underlineMatch.index;
+                var underlineRange = doc.Range(
+                    underlineStart,
+                    underlineStart + underlineMatch[0].length
+                );
+                underlineRange.Text = params.value;
+                try { underlineRange.Font.Underline = 1; } catch (ignored) {}
+                resultMessage = 'replaced underline';
+            } else {
+                doc.Range(matchEnd, matchEnd).InsertAfter(params.value);
+                resultMessage = 'inserted after keyword';
+            }
+        } else if (fillMode === 'afterColon') {
+            var suffixRange = doc.Range(matchEnd, paragraphRange.End);
+            var suffix = String(suffixRange.Text || '');
+            var colonIndex = suffix.search(/[：:]/);
+            if (colonIndex < 0) {
+                doc.Range(matchEnd, matchEnd).InsertAfter('：' + params.value);
+                resultMessage = 'inserted after new colon';
+            } else {
+                var valueStart = matchEnd + colonIndex + 1;
+                var valueEnd = paragraphRange.End;
+                while (valueEnd > valueStart && /[\r\n]/.test(doc.Range(valueEnd - 1, valueEnd).Text || '')) {
+                    valueEnd--;
+                }
+                doc.Range(valueStart, valueEnd).Text = params.value;
+                resultMessage = 'replaced content after colon';
+            }
+        } else {
+            doc.Range(matchEnd, matchEnd).InsertAfter(params.value);
+            resultMessage = 'inserted after label';
+        }
+
+        return {
+            success: true,
+            data: {
+                keyword: params.keyword,
+                value: params.value,
+                fillMode: fillMode,
+                result: resultMessage
+            }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleSetLineSpacing(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        var range = params.paragraphIndex === undefined
+            ? Application.Selection.Range
+            : doc.Paragraphs.Item(params.paragraphIndex).Range;
+        range.ParagraphFormat.LineSpacingRule = 5; // wdLineSpaceMultiple
+        range.ParagraphFormat.LineSpacing = params.lineSpacing * 12;
+        return { success: true, data: { lineSpacing: params.lineSpacing } };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function wordColorValue(color) {
+    var namedColors = { red: 255, green: 65280, blue: 16711680, black: 0, white: 16777215 };
+    var normalized = String(color || '').toLowerCase();
+    if (namedColors[normalized] !== undefined) return namedColors[normalized];
+    var hex = normalized.replace('#', '');
+    return parseInt(hex.substr(0, 2), 16)
+        + parseInt(hex.substr(2, 2), 16) * 256
+        + parseInt(hex.substr(4, 2), 16) * 65536;
+}
+
+function handleSetTextColor(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        Application.Selection.Range.Font.Color = wordColorValue(params.color);
+        return { success: true, data: { color: params.color } };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleEnableTrackChanges(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        var enabled = params.enable === undefined ? true : !!params.enable;
+        doc.TrackRevisions = enabled;
+        return {
+            success: true,
+            data: { trackChanges: enabled, active: !!doc.TrackRevisions }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleGetTrackChangesStatus(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        var revisionCount = 0;
+        try { revisionCount = doc.Revisions.Count; } catch (ignored) {}
+        return {
+            success: true,
+            data: { trackChanges: !!doc.TrackRevisions, revisionCount: revisionCount }
+        };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+function handleReplaceRange(params) {
+    try {
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        if (params.startPos < 0 || params.endPos <= params.startPos || params.endPos > doc.Content.End) {
+            return { success: false, error: '字符范围无效' };
+        }
+        var range = doc.Range(params.startPos, params.endPos);
+        var originalText = String(range.Text || '').replace(/[\r\n]+$/, '');
+        range.Text = params.text;
+        return {
+            success: true,
+            data: {
+                startPos: params.startPos,
+                originalEndPos: params.endPos,
+                endPos: range.End,
+                originalText: originalText,
+                newText: params.text
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -3466,12 +3871,13 @@ function handleFindReplace(params) {
         find.Replacement.ClearFormatting();
         find.Text = params.findText;
         find.Replacement.Text = params.replaceText || '';
-        var replaceType = params.replaceAll ? 2 : 1;
+        var replaceAll = params.replaceAll === undefined ? true : !!params.replaceAll;
+        var replaceType = replaceAll ? 2 : 1;
         var result = find.Execute(
-            params.findText, false, false, false, false, false,
+            params.findText, !!params.matchCase, !!params.matchWholeWord, false, false, false,
             true, 1, false, params.replaceText || '', replaceType
         );
-        return { success: true, data: { replaced: result } };
+        return { success: true, data: { replaced: !!result } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -3487,8 +3893,22 @@ function handleSetFont(params) {
         if (params.fontSize) range.Font.Size = params.fontSize;
         if (params.bold !== undefined) range.Font.Bold = params.bold;
         if (params.italic !== undefined) range.Font.Italic = params.italic;
+        if (params.underline !== undefined) range.Font.Underline = params.underline;
+        if (params.color) range.Font.Color = wordColorValue(params.color);
 
-        return { success: true };
+        return {
+            success: true,
+            data: {
+                settings: {
+                    fontName: params.fontName || null,
+                    fontSize: params.fontSize === undefined ? null : params.fontSize,
+                    bold: params.bold === undefined ? null : params.bold,
+                    italic: params.italic === undefined ? null : params.italic,
+                    underline: params.underline === undefined ? null : params.underline,
+                    color: params.color || null
+                }
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -3496,9 +3916,13 @@ function handleSetFont(params) {
 
 function handleApplyStyle(params) {
     try {
-        var range = Application.Selection.Range;
+        var doc = Application.ActiveDocument;
+        if (!doc) return { success: false, error: '没有打开的文档' };
+        var range = params.range
+            ? doc.Range(params.range.start, params.range.end)
+            : Application.Selection.Range;
         range.Style = params.styleName;
-        return { success: true };
+        return { success: true, data: { affectedText: range.Text || '' } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -3550,8 +3974,21 @@ function handleGenerateTOC(params) {
             range = Application.Selection.Range;
         }
 
-        doc.TablesOfContents.Add(range, true, 1, levels, false, null, true, true, null, true);
-        return { success: true, data: { levels: levels } };
+        var includePageNumbers = params.includePageNumbers === undefined
+            ? true
+            : !!params.includePageNumbers;
+        doc.TablesOfContents.Add(
+            range, true, 1, levels, false, null, true,
+            includePageNumbers, null, true
+        );
+        return {
+            success: true,
+            data: {
+                position: position,
+                levels: levels,
+                includePageNumbers: includePageNumbers
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -3575,7 +4012,7 @@ function handleSetParagraph(params) {
 
         // 行间距
         if (params.lineSpacing) {
-            para.LineSpacingRule = 4; // wdLineSpaceMultiple
+            para.LineSpacingRule = 5; // wdLineSpaceMultiple
             para.LineSpacing = params.lineSpacing * 12; // 倍数转磅值
         }
 

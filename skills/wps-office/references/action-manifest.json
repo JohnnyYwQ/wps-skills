@@ -105,6 +105,46 @@
         "updatePivotTable",
         "wrapText"
       ]
+    },
+    "word_workflows": {
+      "reference": "word.md",
+      "actions": [
+        "addComment",
+        "applyStyle",
+        "closeDocument",
+        "createDocument",
+        "enableTrackChanges",
+        "findInDocument",
+        "findReplace",
+        "generateTOC",
+        "getActiveDocument",
+        "getBookmarks",
+        "getComments",
+        "getDocumentParagraphs",
+        "getDocumentStats",
+        "getDocumentText",
+        "getOpenDocuments",
+        "getTrackChangesStatus",
+        "insertBookmark",
+        "insertFooter",
+        "insertHeader",
+        "insertHyperlink",
+        "insertImage",
+        "insertPageBreak",
+        "insertSectionBreak",
+        "insertTable",
+        "insertText",
+        "openDocument",
+        "replaceBookmarkContent",
+        "replaceRange",
+        "setFont",
+        "setLineSpacing",
+        "setPageSetup",
+        "setParagraph",
+        "setTextColor",
+        "smartFillField",
+        "switchDocument"
+      ]
     }
   },
   "actions": [
@@ -5746,13 +5786,13 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "comment": {
-            "description": "Value passed as the 'comment' Action parameter.",
-            "type": "string"
-          },
           "text": {
-            "description": "Value passed as the 'text' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Comment text."
+          },
+          "comment": {
+            "type": "string",
+            "description": "Legacy alias for comment text."
           }
         },
         "required": [],
@@ -5775,7 +5815,7 @@
         "properties": {},
         "required": [],
         "additionalProperties": false,
-        "description": "Result payload returned by the addComment WPS Action."
+        "description": "Structured data returned by the addComment WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -5790,26 +5830,30 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "styleName": {
+            "type": "string",
+            "description": "WPS style name to apply."
+          },
           "range": {
-            "description": "Value passed as the 'range' Action parameter.",
             "type": "object",
             "properties": {
               "start": {
-                "type": "number"
+                "type": "number",
+                "description": "Zero-based start character position.",
+                "minimum": 0
               },
               "end": {
-                "type": "number"
+                "type": "number",
+                "description": "Exclusive end character position.",
+                "minimum": 0
               }
             },
             "required": [
               "start",
               "end"
             ],
-            "additionalProperties": false
-          },
-          "styleName": {
-            "description": "Value passed as the 'styleName' Action parameter.",
-            "type": "string"
+            "additionalProperties": false,
+            "description": "Optional explicit character range; the selection is used when omitted."
           }
         },
         "required": [
@@ -5822,14 +5866,14 @@
         "properties": {
           "affectedText": {
             "type": "string",
-            "description": "Value returned as the 'affectedText' result field."
+            "description": "Text covered by the styled range."
           }
         },
         "required": [
           "affectedText"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the applyStyle WPS Action."
+        "description": "Structured data returned by the applyStyle WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -5845,12 +5889,12 @@
         "type": "object",
         "properties": {
           "name": {
-            "description": "Value passed as the 'name' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Open document name; the active document is used when omitted."
           },
           "saveChanges": {
-            "description": "Value passed as the 'saveChanges' Action parameter.",
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether WPS saves pending changes before closing."
           }
         },
         "required": [],
@@ -5861,14 +5905,14 @@
         "properties": {
           "closed": {
             "type": "string",
-            "description": "Value returned as the 'closed' result field."
+            "description": "Name of the closed document."
           }
         },
         "required": [
           "closed"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the closeDocument WPS Action."
+        "description": "Structured data returned by the closeDocument WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -5888,10 +5932,22 @@
       },
       "result": {
         "type": "object",
-        "properties": {},
-        "required": [],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "New document name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Document path, empty until first save."
+          }
+        },
+        "required": [
+          "name",
+          "path"
+        ],
         "additionalProperties": false,
-        "description": "Result payload returned by the createDocument WPS Action."
+        "description": "Structured data returned by the createDocument WPS Action."
       },
       "prerequisites": [
         "wps_running"
@@ -5906,8 +5962,8 @@
         "type": "object",
         "properties": {
           "enable": {
-            "description": "Value passed as the 'enable' Action parameter.",
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether revision tracking should be enabled."
           }
         },
         "required": [],
@@ -5916,21 +5972,21 @@
       "result": {
         "type": "object",
         "properties": {
-          "active": {
-            "type": "string",
-            "description": "Value returned as the 'active' result field."
-          },
           "trackChanges": {
-            "type": "string",
-            "description": "Value returned as the 'trackChanges' result field."
+            "type": "boolean",
+            "description": "Requested revision tracking state."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Revision tracking state reported by WPS."
           }
         },
         "required": [
-          "active",
-          "trackChanges"
+          "trackChanges",
+          "active"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the enableTrackChanges WPS Action."
+        "description": "Structured data returned by the enableTrackChanges WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -5946,20 +6002,23 @@
         "type": "object",
         "properties": {
           "findText": {
-            "description": "Value passed as the 'findText' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Text to locate without modifying the document.",
+            "pattern": ".+"
           },
           "matchCase": {
-            "description": "Value passed as the 'matchCase' Action parameter.",
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether matching is case-sensitive."
           },
           "matchWholeWord": {
-            "description": "Value passed as the 'matchWholeWord' Action parameter.",
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether matching requires whole words."
           },
           "maxResults": {
-            "description": "Value passed as the 'maxResults' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Maximum matches to return.",
+            "minimum": 1,
+            "maximum": 100
           }
         },
         "required": [
@@ -5970,34 +6029,30 @@
       "result": {
         "type": "object",
         "properties": {
-          "count": {
-            "type": "number",
-            "description": "Value returned as the 'count' result field."
-          },
-          "findText": {
-            "type": "string",
-            "description": "Value returned as the 'findText' result field."
-          },
           "results": {
             "type": "array",
-            "description": "Value returned as the 'results' result field.",
             "items": {
               "type": "object",
               "properties": {
                 "text": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Matched text."
                 },
                 "start": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "Zero-based match start."
                 },
                 "end": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "Exclusive match end."
                 },
                 "paragraphIndex": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "One-based containing paragraph index."
                 },
                 "context": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Nearby document text."
                 }
               },
               "required": [
@@ -6007,17 +6062,27 @@
                 "paragraphIndex",
                 "context"
               ],
-              "additionalProperties": false
-            }
+              "additionalProperties": false,
+              "description": "One match and its location."
+            },
+            "description": "Located matches."
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of returned matches."
+          },
+          "findText": {
+            "type": "string",
+            "description": "Search text."
           }
         },
         "required": [
+          "results",
           "count",
-          "findText",
-          "results"
+          "findText"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the findInDocument WPS Action."
+        "description": "Structured data returned by the findInDocument WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6033,28 +6098,30 @@
         "type": "object",
         "properties": {
           "findText": {
-            "description": "Value passed as the 'findText' Action parameter.",
-            "type": "string"
-          },
-          "matchCase": {
-            "description": "Value passed as the 'matchCase' Action parameter.",
-            "type": "boolean"
-          },
-          "matchWholeWord": {
-            "description": "Value passed as the 'matchWholeWord' Action parameter.",
-            "type": "boolean"
-          },
-          "replaceAll": {
-            "description": "Value passed as the 'replaceAll' Action parameter.",
-            "type": "boolean"
+            "type": "string",
+            "description": "Text to replace.",
+            "pattern": ".+"
           },
           "replaceText": {
-            "description": "Value passed as the 'replaceText' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Replacement text; an empty string deletes matches."
+          },
+          "matchCase": {
+            "type": "boolean",
+            "description": "Whether matching is case-sensitive."
+          },
+          "matchWholeWord": {
+            "type": "boolean",
+            "description": "Whether matching requires whole words."
+          },
+          "replaceAll": {
+            "type": "boolean",
+            "description": "Whether all matches are replaced."
           }
         },
         "required": [
-          "findText"
+          "findText",
+          "replaceText"
         ],
         "additionalProperties": false
       },
@@ -6063,14 +6130,14 @@
         "properties": {
           "replaced": {
             "type": "boolean",
-            "description": "Value returned as the 'replaced' result field."
+            "description": "Whether WPS found and replaced text."
           }
         },
         "required": [
           "replaced"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the findReplace WPS Action."
+        "description": "Structured data returned by the findReplace WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6085,17 +6152,23 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "includePageNumbers": {
-            "description": "Value passed as the 'includePageNumbers' Action parameter.",
-            "type": "boolean"
+          "position": {
+            "type": "string",
+            "description": "TOC insertion position.",
+            "enum": [
+              "start",
+              "selection"
+            ]
           },
           "levels": {
-            "description": "Value passed as the 'levels' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Heading levels included in the TOC.",
+            "minimum": 1,
+            "maximum": 9
           },
-          "position": {
-            "description": "Value passed as the 'position' Action parameter.",
-            "type": "string"
+          "includePageNumbers": {
+            "type": "boolean",
+            "description": "Whether the TOC includes page numbers."
           }
         },
         "required": [],
@@ -6104,26 +6177,26 @@
       "result": {
         "type": "object",
         "properties": {
-          "includePageNumbers": {
-            "type": "boolean",
-            "description": "Value returned as the 'includePageNumbers' result field."
+          "position": {
+            "type": "string",
+            "description": "TOC insertion position."
           },
           "levels": {
             "type": "number",
-            "description": "Value returned as the 'levels' result field."
+            "description": "Heading levels included."
           },
-          "position": {
-            "type": "string",
-            "description": "Value returned as the 'position' result field."
+          "includePageNumbers": {
+            "type": "boolean",
+            "description": "Whether page numbers were included."
           }
         },
         "required": [
-          "includePageNumbers",
+          "position",
           "levels",
-          "position"
+          "includePageNumbers"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the generateTOC WPS Action."
+        "description": "Structured data returned by the generateTOC WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6144,36 +6217,36 @@
       "result": {
         "type": "object",
         "properties": {
-          "characterCount": {
-            "type": "number",
-            "description": "Value returned as the 'characterCount' result field."
-          },
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
-          },
-          "paragraphCount": {
-            "type": "number",
-            "description": "Value returned as the 'paragraphCount' result field."
+            "description": "Active document name."
           },
           "path": {
             "type": "string",
-            "description": "Value returned as the 'path' result field."
+            "description": "Active document path."
+          },
+          "paragraphCount": {
+            "type": "number",
+            "description": "Paragraph count."
           },
           "wordCount": {
             "type": "number",
-            "description": "Value returned as the 'wordCount' result field."
+            "description": "Word count."
+          },
+          "characterCount": {
+            "type": "number",
+            "description": "Character count."
           }
         },
         "required": [
-          "characterCount",
           "name",
-          "paragraphCount",
           "path",
-          "wordCount"
+          "paragraphCount",
+          "wordCount",
+          "characterCount"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the getActiveDocument WPS Action."
+        "description": "Structured data returned by the getActiveDocument WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6196,18 +6269,20 @@
         "properties": {
           "bookmarks": {
             "type": "array",
-            "description": "Value returned as the 'bookmarks' result field.",
             "items": {
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Bookmark name."
                 },
                 "start": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "Bookmark start character position."
                 },
                 "end": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "Bookmark end character position."
                 }
               },
               "required": [
@@ -6215,12 +6290,14 @@
                 "start",
                 "end"
               ],
-              "additionalProperties": false
-            }
+              "additionalProperties": false,
+              "description": "Bookmark location."
+            },
+            "description": "Bookmarks in the active document."
           },
           "count": {
             "type": "number",
-            "description": "Value returned as the 'count' result field."
+            "description": "Bookmark count."
           }
         },
         "required": [
@@ -6228,7 +6305,7 @@
           "count"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the getBookmarks WPS Action."
+        "description": "Structured data returned by the getBookmarks WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6254,32 +6331,37 @@
             "items": {
               "type": "object",
               "properties": {
-                "author": {
-                  "type": "string"
-                },
-                "date": {
-                  "type": "string"
-                },
                 "index": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "One-based comment index."
                 },
                 "text": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Comment text."
+                },
+                "author": {
+                  "type": "string",
+                  "description": "Comment author."
+                },
+                "date": {
+                  "type": "string",
+                  "description": "Comment date as reported by WPS."
                 }
               },
               "required": [
-                "author",
-                "date",
                 "index",
-                "text"
+                "text",
+                "author",
+                "date"
               ],
-              "additionalProperties": false
+              "additionalProperties": false,
+              "description": "Document comment."
             },
-            "description": "Value returned as the 'comments' result field."
+            "description": "Comments in the active document."
           },
           "count": {
             "type": "number",
-            "description": "Value returned as the 'count' result field."
+            "description": "Comment count."
           }
         },
         "required": [
@@ -6287,7 +6369,7 @@
           "count"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the getComments WPS Action."
+        "description": "Structured data returned by the getComments WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6302,13 +6384,15 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "endParagraph": {
-            "description": "Value passed as the 'endParagraph' Action parameter.",
-            "type": "number"
-          },
           "startParagraph": {
-            "description": "Value passed as the 'startParagraph' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "One-based first paragraph index.",
+            "minimum": 1
+          },
+          "endParagraph": {
+            "type": "number",
+            "description": "One-based last paragraph index.",
+            "minimum": 1
           }
         },
         "required": [],
@@ -6319,24 +6403,28 @@
         "properties": {
           "paragraphs": {
             "type": "array",
-            "description": "Value returned as the 'paragraphs' result field.",
             "items": {
               "type": "object",
               "properties": {
                 "index": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "One-based paragraph index."
                 },
                 "text": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Paragraph text, capped at 200 characters."
                 },
                 "style": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Local paragraph style name."
                 },
                 "start": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "Paragraph start character position."
                 },
                 "end": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "Paragraph end character position."
                 }
               },
               "required": [
@@ -6346,25 +6434,27 @@
                 "start",
                 "end"
               ],
-              "additionalProperties": false
-            }
-          },
-          "returnedCount": {
-            "type": "number",
-            "description": "Value returned as the 'returnedCount' result field."
+              "additionalProperties": false,
+              "description": "Paragraph summary."
+            },
+            "description": "Requested paragraph summaries."
           },
           "totalCount": {
             "type": "number",
-            "description": "Value returned as the 'totalCount' result field."
+            "description": "Total paragraphs in the document."
+          },
+          "returnedCount": {
+            "type": "number",
+            "description": "Number of returned paragraph summaries."
           }
         },
         "required": [
           "paragraphs",
-          "returnedCount",
-          "totalCount"
+          "totalCount",
+          "returnedCount"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the getDocumentParagraphs WPS Action."
+        "description": "Structured data returned by the getDocumentParagraphs WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6386,25 +6476,32 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Document name."
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "description": "Document path."
           },
           "pages": {
-            "type": "number"
+            "type": "number",
+            "description": "Page count."
           },
           "words": {
-            "type": "number"
+            "type": "number",
+            "description": "Word count."
           },
           "characters": {
-            "type": "number"
+            "type": "number",
+            "description": "Character count."
           },
           "paragraphs": {
-            "type": "number"
+            "type": "number",
+            "description": "Paragraph count."
           },
           "lines": {
-            "type": "number"
+            "type": "number",
+            "description": "Line count."
           }
         },
         "required": [
@@ -6417,7 +6514,7 @@
           "lines"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the getDocumentStats WPS Action."
+        "description": "Structured data returned by the getDocumentStats WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6438,21 +6535,21 @@
       "result": {
         "type": "object",
         "properties": {
-          "length": {
-            "type": "number",
-            "description": "Value returned as the 'length' result field."
-          },
           "text": {
             "type": "string",
-            "description": "Value returned as the 'text' result field."
+            "description": "Complete document text."
+          },
+          "length": {
+            "type": "number",
+            "description": "Returned character count."
           }
         },
         "required": [
-          "length",
-          "text"
+          "text",
+          "length"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the getDocumentText WPS Action."
+        "description": "Structured data returned by the getDocumentText WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6473,27 +6570,26 @@
       "result": {
         "type": "object",
         "properties": {
-          "count": {
-            "type": "number",
-            "description": "Value returned as the 'count' result field."
-          },
           "documents": {
             "type": "array",
-            "description": "Value returned as the 'documents' result field.",
             "items": {
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Document name."
                 },
                 "path": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Document path."
                 },
                 "paragraphs": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "Paragraph count."
                 },
                 "active": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "Whether this is the active document."
                 }
               },
               "required": [
@@ -6502,16 +6598,22 @@
                 "paragraphs",
                 "active"
               ],
-              "additionalProperties": false
-            }
+              "additionalProperties": false,
+              "description": "Open document summary."
+            },
+            "description": "Open Word documents."
+          },
+          "count": {
+            "type": "number",
+            "description": "Open document count."
           }
         },
         "required": [
-          "count",
-          "documents"
+          "documents",
+          "count"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the getOpenDocuments WPS Action."
+        "description": "Structured data returned by the getOpenDocuments WPS Action."
       },
       "prerequisites": [
         "wps_running"
@@ -6531,21 +6633,21 @@
       "result": {
         "type": "object",
         "properties": {
+          "trackChanges": {
+            "type": "boolean",
+            "description": "Whether revision tracking is active."
+          },
           "revisionCount": {
             "type": "number",
-            "description": "Value returned as the 'revisionCount' result field."
-          },
-          "trackChanges": {
-            "type": "string",
-            "description": "Value returned as the 'trackChanges' result field."
+            "description": "Current revision count."
           }
         },
         "required": [
-          "revisionCount",
-          "trackChanges"
+          "trackChanges",
+          "revisionCount"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the getTrackChangesStatus WPS Action."
+        "description": "Structured data returned by the getTrackChangesStatus WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6561,8 +6663,9 @@
         "type": "object",
         "properties": {
           "name": {
-            "description": "Value passed as the 'name' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Bookmark name.",
+            "pattern": ".+"
           }
         },
         "required": [
@@ -6575,14 +6678,14 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
+            "description": "Created bookmark name."
           }
         },
         "required": [
           "name"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the insertBookmark WPS Action."
+        "description": "Structured data returned by the insertBookmark WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6597,17 +6700,22 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "text": {
+            "type": "string",
+            "description": "Footer text."
+          },
           "alignment": {
-            "description": "Value passed as the 'alignment' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Footer alignment.",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ]
           },
           "includePageNumber": {
-            "description": "Value passed as the 'includePageNumber' Action parameter.",
-            "type": "boolean"
-          },
-          "text": {
-            "description": "Value passed as the 'text' Action parameter.",
-            "type": "string"
+            "type": "boolean",
+            "description": "Whether to append a PAGE field."
           }
         },
         "required": [
@@ -6620,7 +6728,7 @@
         "properties": {},
         "required": [],
         "additionalProperties": false,
-        "description": "Result payload returned by the insertFooter WPS Action."
+        "description": "Structured data returned by the insertFooter WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6635,13 +6743,18 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "alignment": {
-            "description": "Value passed as the 'alignment' Action parameter.",
-            "type": "string"
-          },
           "text": {
-            "description": "Value passed as the 'text' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Header text."
+          },
+          "alignment": {
+            "type": "string",
+            "description": "Header alignment.",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ]
           }
         },
         "required": [
@@ -6654,7 +6767,7 @@
         "properties": {},
         "required": [],
         "additionalProperties": false,
-        "description": "Result payload returned by the insertHeader WPS Action."
+        "description": "Structured data returned by the insertHeader WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6669,44 +6782,56 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "address": {
-            "description": "Value passed as the 'address' Action parameter.",
-            "type": "string"
+          "url": {
+            "type": "string",
+            "description": "Hyperlink URL."
           },
-          "displayText": {
-            "description": "Value passed as the 'displayText' Action parameter.",
-            "type": "string"
+          "address": {
+            "type": "string",
+            "description": "Legacy alias for the hyperlink URL."
           },
           "text": {
-            "description": "Value passed as the 'text' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Displayed link text."
           },
-          "url": {
-            "description": "Value passed as the 'url' Action parameter.",
-            "type": "string"
+          "displayText": {
+            "type": "string",
+            "description": "Legacy alias for displayed link text."
           }
         },
         "required": [],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "url"
+            ]
+          },
+          {
+            "required": [
+              "address"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
-          "text": {
-            "type": "string",
-            "description": "Value returned as the 'text' result field."
-          },
           "url": {
             "type": "string",
-            "description": "Value returned as the 'url' result field."
+            "description": "Inserted URL."
+          },
+          "text": {
+            "type": "string",
+            "description": "Displayed link text."
           }
         },
         "required": [
-          "text",
-          "url"
+          "url",
+          "text"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the insertHyperlink WPS Action."
+        "description": "Structured data returned by the insertHyperlink WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6721,25 +6846,28 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "filePath": {
-            "description": "Value passed as the 'filePath' Action parameter.",
-            "type": "string"
-          },
-          "height": {
-            "description": "Value passed as the 'height' Action parameter.",
-            "type": "number"
-          },
           "path": {
-            "description": "Value passed as the 'path' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Image path."
           },
-          "scale": {
-            "description": "Value passed as the 'scale' Action parameter.",
-            "type": "number"
+          "filePath": {
+            "type": "string",
+            "description": "Legacy alias for the image path."
           },
           "width": {
-            "description": "Value passed as the 'width' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Image width in points.",
+            "minimum": 0
+          },
+          "height": {
+            "type": "number",
+            "description": "Image height in points.",
+            "minimum": 0
+          },
+          "scale": {
+            "type": "number",
+            "description": "WPS image scale percentage.",
+            "minimum": 0
           }
         },
         "required": [],
@@ -6760,21 +6888,21 @@
       "result": {
         "type": "object",
         "properties": {
-          "height": {
-            "type": "number",
-            "description": "Value returned as the 'height' result field."
-          },
           "width": {
             "type": "number",
-            "description": "Value returned as the 'width' result field."
+            "description": "Final image width."
+          },
+          "height": {
+            "type": "number",
+            "description": "Final image height."
           }
         },
         "required": [
-          "height",
-          "width"
+          "width",
+          "height"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the insertImage WPS Action."
+        "description": "Structured data returned by the insertImage WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6790,8 +6918,14 @@
         "type": "object",
         "properties": {
           "type": {
-            "description": "Value passed as the 'type' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Break kind.",
+            "enum": [
+              "page",
+              "column",
+              "section",
+              "sectionContinuous"
+            ]
           }
         },
         "required": [],
@@ -6802,14 +6936,14 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "Value returned as the 'type' result field."
+            "description": "Inserted break kind."
           }
         },
         "required": [
           "type"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the insertPageBreak WPS Action."
+        "description": "Structured data returned by the insertPageBreak WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6826,7 +6960,13 @@
         "properties": {
           "breakType": {
             "type": "string",
-            "description": "Section break type."
+            "description": "Section break kind.",
+            "enum": [
+              "nextPage",
+              "continuous",
+              "evenPage",
+              "oddPage"
+            ]
           }
         },
         "required": [],
@@ -6835,21 +6975,16 @@
       "result": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "description": "Value returned as the 'success' result field."
-          },
-          "message": {
+          "breakType": {
             "type": "string",
-            "description": "Value returned as the 'message' result field."
+            "description": "Inserted section break kind."
           }
         },
         "required": [
-          "success",
-          "message"
+          "breakType"
         ],
         "additionalProperties": false,
-        "description": "Result payload declared by the legacy handler for the insertSectionBreak WPS Action."
+        "description": "Structured data returned by the insertSectionBreak WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6864,12 +6999,17 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "rows": {
+            "type": "number",
+            "description": "Table row count.",
+            "minimum": 1
+          },
           "cols": {
-            "description": "Value passed as the 'cols' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Table column count.",
+            "minimum": 1
           },
           "data": {
-            "description": "Value passed as the 'data' Action parameter.",
             "type": "array",
             "items": {
               "type": "array",
@@ -6879,18 +7019,17 @@
                   "number",
                   "boolean",
                   "null"
-                ]
-              }
-            }
-          },
-          "rows": {
-            "description": "Value passed as the 'rows' Action parameter.",
-            "type": "number"
+                ],
+                "description": "Cell value."
+              },
+              "description": "Table row."
+            },
+            "description": "Optional initial table values."
           }
         },
         "required": [
-          "cols",
-          "rows"
+          "rows",
+          "cols"
         ],
         "additionalProperties": false
       },
@@ -6899,7 +7038,7 @@
         "properties": {},
         "required": [],
         "additionalProperties": false,
-        "description": "Result payload returned by the insertTable WPS Action."
+        "description": "Structured data returned by the insertTable WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6920,11 +7059,16 @@
           },
           "position": {
             "type": "string",
-            "description": "Named or numeric insertion position."
+            "description": "Insertion position.",
+            "enum": [
+              "start",
+              "end",
+              "selection"
+            ]
           },
           "style": {
             "type": "string",
-            "description": "Optional WPS paragraph or character style name."
+            "description": "Optional WPS style name."
           }
         },
         "required": [
@@ -6937,11 +7081,11 @@
         "properties": {
           "position": {
             "type": "string",
-            "description": "Value returned as the 'position' result field."
+            "description": "Resolved insertion position."
           },
           "textLength": {
             "type": "number",
-            "description": "Value returned as the 'textLength' result field."
+            "description": "Inserted character count."
           }
         },
         "required": [
@@ -6949,7 +7093,7 @@
           "textLength"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the insertText WPS Action."
+        "description": "Structured data returned by the insertText WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -6978,8 +7122,9 @@
         "type": "object",
         "properties": {
           "path": {
-            "description": "Value passed as the 'path' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Document path to open.",
+            "pattern": ".+"
           }
         },
         "required": [
@@ -6992,24 +7137,24 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
-          },
-          "paragraphs": {
-            "type": "number",
-            "description": "Value returned as the 'paragraphs' result field."
+            "description": "Opened document name."
           },
           "path": {
             "type": "string",
-            "description": "Value returned as the 'path' result field."
+            "description": "Opened document path."
+          },
+          "paragraphs": {
+            "type": "number",
+            "description": "Paragraph count."
           }
         },
         "required": [
           "name",
-          "paragraphs",
-          "path"
+          "path",
+          "paragraphs"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the openDocument WPS Action."
+        "description": "Structured data returned by the openDocument WPS Action."
       },
       "prerequisites": [
         "wps_running"
@@ -7024,12 +7169,12 @@
         "type": "object",
         "properties": {
           "name": {
-            "description": "Value passed as the 'name' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Bookmark name."
           },
           "text": {
-            "description": "Value passed as the 'text' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Replacement text."
           }
         },
         "required": [
@@ -7041,31 +7186,31 @@
       "result": {
         "type": "object",
         "properties": {
-          "end": {
-            "type": "string",
-            "description": "Value returned as the 'end' result field."
-          },
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
-          },
-          "start": {
-            "type": "string",
-            "description": "Value returned as the 'start' result field."
+            "description": "Bookmark name."
           },
           "text": {
             "type": "string",
-            "description": "Value returned as the 'text' result field."
+            "description": "Replacement text."
+          },
+          "start": {
+            "type": "number",
+            "description": "Bookmark start character position."
+          },
+          "end": {
+            "type": "number",
+            "description": "Bookmark end character position."
           }
         },
         "required": [
-          "end",
           "name",
+          "text",
           "start",
-          "text"
+          "end"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the replaceBookmarkContent WPS Action."
+        "description": "Structured data returned by the replaceBookmarkContent WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -7080,22 +7225,24 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "endPos": {
-            "description": "Value passed as the 'endPos' Action parameter.",
-            "type": "number"
-          },
           "startPos": {
-            "description": "Value passed as the 'startPos' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Zero-based replacement start.",
+            "minimum": 0
+          },
+          "endPos": {
+            "type": "number",
+            "description": "Exclusive replacement end.",
+            "minimum": 1
           },
           "text": {
-            "description": "Value passed as the 'text' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Replacement text."
           }
         },
         "required": [
-          "endPos",
           "startPos",
+          "endPos",
           "text"
         ],
         "additionalProperties": false
@@ -7103,36 +7250,36 @@
       "result": {
         "type": "object",
         "properties": {
-          "endPos": {
-            "type": "string",
-            "description": "Value returned as the 'endPos' result field."
-          },
-          "newText": {
-            "type": "string",
-            "description": "Value returned as the 'newText' result field."
+          "startPos": {
+            "type": "number",
+            "description": "Replacement start."
           },
           "originalEndPos": {
             "type": "number",
-            "description": "Value returned as the 'originalEndPos' result field."
+            "description": "Original exclusive end."
+          },
+          "endPos": {
+            "type": "number",
+            "description": "New exclusive end."
           },
           "originalText": {
             "type": "string",
-            "description": "Value returned as the 'originalText' result field."
+            "description": "Replaced text."
           },
-          "startPos": {
+          "newText": {
             "type": "string",
-            "description": "Value returned as the 'startPos' result field."
+            "description": "Replacement text."
           }
         },
         "required": [
-          "endPos",
-          "newText",
+          "startPos",
           "originalEndPos",
+          "endPos",
           "originalText",
-          "startPos"
+          "newText"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the replaceRange WPS Action."
+        "description": "Structured data returned by the replaceRange WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -7147,33 +7294,39 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "bold": {
-            "description": "Value passed as the 'bold' Action parameter.",
-            "type": "boolean"
-          },
-          "color": {
-            "description": "Value passed as the 'color' Action parameter.",
-            "type": "string"
+          "range": {
+            "type": "string",
+            "description": "Target range.",
+            "enum": [
+              "selection",
+              "all"
+            ]
           },
           "fontName": {
-            "description": "Value passed as the 'fontName' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Font family."
           },
           "fontSize": {
-            "description": "Value passed as the 'fontSize' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Font size in points.",
+            "minimum": 1
+          },
+          "bold": {
+            "type": "boolean",
+            "description": "Bold state."
           },
           "italic": {
-            "description": "Value passed as the 'italic' Action parameter.",
-            "type": "boolean"
-          },
-          "range": {
-            "description": "Value passed as the 'range' Action parameter.",
-            "type": "string"
+            "type": "boolean",
+            "description": "Italic state."
           },
           "underline": {
-            "description": "Value passed as the 'underline' Action parameter.",
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Underline state."
+          },
+          "color": {
+            "type": "string",
+            "description": "Named color or #RRGGBB value.",
+            "pattern": "^(#[0-9A-Fa-f]{6}|red|green|blue|black|white)$"
           }
         },
         "required": [],
@@ -7183,15 +7336,68 @@
         "type": "object",
         "properties": {
           "settings": {
-            "type": "string",
-            "description": "Value returned as the 'settings' result field."
+            "type": "object",
+            "properties": {
+              "fontName": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Applied font family when supplied."
+              },
+              "fontSize": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Applied font size when supplied."
+              },
+              "bold": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Applied bold state when supplied."
+              },
+              "italic": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Applied italic state when supplied."
+              },
+              "underline": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Applied underline state when supplied."
+              },
+              "color": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Applied color when supplied."
+              }
+            },
+            "required": [
+              "fontName",
+              "fontSize",
+              "bold",
+              "italic",
+              "underline",
+              "color"
+            ],
+            "additionalProperties": false,
+            "description": "Applied font settings."
           }
         },
         "required": [
           "settings"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the setFont WPS Action."
+        "description": "Structured data returned by the setFont WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -7208,11 +7414,13 @@
         "properties": {
           "lineSpacing": {
             "type": "number",
-            "description": "Positive line-spacing multiplier."
+            "description": "Positive line-spacing multiplier.",
+            "minimum": 0.1
           },
           "paragraphIndex": {
             "type": "number",
-            "description": "Optional zero-based paragraph index."
+            "description": "Optional one-based paragraph index.",
+            "minimum": 1
           }
         },
         "required": [
@@ -7223,21 +7431,16 @@
       "result": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "description": "Value returned as the 'success' result field."
-          },
-          "message": {
-            "type": "string",
-            "description": "Value returned as the 'message' result field."
+          "lineSpacing": {
+            "type": "number",
+            "description": "Applied line-spacing multiplier."
           }
         },
         "required": [
-          "success",
-          "message"
+          "lineSpacing"
         ],
         "additionalProperties": false,
-        "description": "Result payload declared by the legacy handler for the setLineSpacing WPS Action."
+        "description": "Structured data returned by the setLineSpacing WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -7252,29 +7455,43 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "topMargin": {
+            "type": "number",
+            "description": "Top margin in centimetres.",
+            "minimum": 0
+          },
           "bottomMargin": {
-            "description": "Value passed as the 'bottomMargin' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Bottom margin in centimetres.",
+            "minimum": 0
           },
           "leftMargin": {
-            "description": "Value passed as the 'leftMargin' Action parameter.",
-            "type": "number"
-          },
-          "orientation": {
-            "description": "Value passed as the 'orientation' Action parameter.",
-            "type": "string"
-          },
-          "paperSize": {
-            "description": "Value passed as the 'paperSize' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Left margin in centimetres.",
+            "minimum": 0
           },
           "rightMargin": {
-            "description": "Value passed as the 'rightMargin' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "description": "Right margin in centimetres.",
+            "minimum": 0
           },
-          "topMargin": {
-            "description": "Value passed as the 'topMargin' Action parameter.",
-            "type": "number"
+          "orientation": {
+            "type": "string",
+            "description": "Page orientation.",
+            "enum": [
+              "portrait",
+              "landscape"
+            ]
+          },
+          "paperSize": {
+            "type": "string",
+            "description": "Paper size.",
+            "enum": [
+              "A4",
+              "A3",
+              "Letter",
+              "Legal"
+            ]
           }
         },
         "required": [],
@@ -7285,7 +7502,7 @@
         "properties": {},
         "required": [],
         "additionalProperties": false,
-        "description": "Result payload returned by the setPageSetup WPS Action."
+        "description": "Structured data returned by the setPageSetup WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -7300,37 +7517,50 @@
       "parameters": {
         "type": "object",
         "properties": {
+          "range": {
+            "type": "string",
+            "description": "Target range.",
+            "enum": [
+              "selection",
+              "all"
+            ]
+          },
           "alignment": {
-            "description": "Value passed as the 'alignment' Action parameter.",
-            "type": "string"
-          },
-          "firstLineIndent": {
-            "description": "Value passed as the 'firstLineIndent' Action parameter.",
-            "type": "number"
-          },
-          "leftIndent": {
-            "description": "Value passed as the 'leftIndent' Action parameter.",
-            "type": "number"
+            "type": "string",
+            "description": "Paragraph alignment.",
+            "enum": [
+              "left",
+              "center",
+              "right",
+              "justify"
+            ]
           },
           "lineSpacing": {
-            "description": "Value passed as the 'lineSpacing' Action parameter.",
-            "type": "number"
-          },
-          "range": {
-            "description": "Value passed as the 'range' Action parameter.",
-            "type": "string"
-          },
-          "rightIndent": {
-            "description": "Value passed as the 'rightIndent' Action parameter.",
-            "type": "number"
-          },
-          "spaceAfter": {
-            "description": "Value passed as the 'spaceAfter' Action parameter.",
-            "type": "string"
+            "type": "number",
+            "description": "Line-spacing multiplier.",
+            "minimum": 0.1
           },
           "spaceBefore": {
-            "description": "Value passed as the 'spaceBefore' Action parameter.",
-            "type": "string"
+            "type": "number",
+            "description": "Space before in points.",
+            "minimum": 0
+          },
+          "spaceAfter": {
+            "type": "number",
+            "description": "Space after in points.",
+            "minimum": 0
+          },
+          "firstLineIndent": {
+            "type": "number",
+            "description": "First-line indent in centimetres."
+          },
+          "leftIndent": {
+            "type": "number",
+            "description": "Left indent in centimetres."
+          },
+          "rightIndent": {
+            "type": "number",
+            "description": "Right indent in centimetres."
           }
         },
         "required": [],
@@ -7341,7 +7571,7 @@
         "properties": {},
         "required": [],
         "additionalProperties": false,
-        "description": "Result payload returned by the setParagraph WPS Action."
+        "description": "Structured data returned by the setParagraph WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -7358,7 +7588,8 @@
         "properties": {
           "color": {
             "type": "string",
-            "description": "Selected text color."
+            "description": "Named color or #RRGGBB value.",
+            "pattern": "^(#[0-9A-Fa-f]{6}|red|green|blue|black|white)$"
           }
         },
         "required": [
@@ -7369,21 +7600,16 @@
       "result": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "description": "Value returned as the 'success' result field."
-          },
-          "message": {
+          "color": {
             "type": "string",
-            "description": "Value returned as the 'message' result field."
+            "description": "Applied text color."
           }
         },
         "required": [
-          "success",
-          "message"
+          "color"
         ],
         "additionalProperties": false,
-        "description": "Result payload declared by the legacy handler for the setTextColor WPS Action."
+        "description": "Structured data returned by the setTextColor WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -7398,17 +7624,25 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "fillMode": {
-            "description": "Value passed as the 'fillMode' Action parameter.",
-            "type": "string"
-          },
           "keyword": {
-            "description": "Value passed as the 'keyword' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Template label or placeholder keyword.",
+            "pattern": ".+"
           },
           "value": {
-            "description": "Value passed as the 'value' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Value to place in the field."
+          },
+          "fillMode": {
+            "type": "string",
+            "description": "Field placement strategy.",
+            "enum": [
+              "auto",
+              "underline",
+              "afterColon",
+              "afterLabel",
+              "placeholder"
+            ]
           }
         },
         "required": [
@@ -7420,37 +7654,37 @@
       "result": {
         "type": "object",
         "properties": {
-          "fillMode": {
-            "type": "string",
-            "description": "Value returned as the 'fillMode' result field."
-          },
           "keyword": {
             "type": "string",
-            "description": "Value returned as the 'keyword' result field."
-          },
-          "result": {
-            "type": "string",
-            "description": "Value returned as the 'result' result field."
+            "description": "Matched keyword."
           },
           "value": {
             "type": "string",
-            "description": "Value returned as the 'value' result field."
+            "description": "Inserted value."
+          },
+          "fillMode": {
+            "type": "string",
+            "description": "Resolved placement strategy."
+          },
+          "result": {
+            "type": "string",
+            "description": "Human-readable placement summary."
           }
         },
         "required": [
-          "fillMode",
           "keyword",
-          "result",
-          "value"
+          "value",
+          "fillMode",
+          "result"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the smartFillField WPS Action."
+        "description": "Structured data returned by the smartFillField WPS Action."
       },
       "prerequisites": [
         "wps_running",
         "active_document"
       ],
-      "risk": "write"
+      "risk": "destructive"
     },
     {
       "action": "switchDocument",
@@ -7459,30 +7693,41 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "index": {
-            "description": "Value passed as the 'index' Action parameter.",
-            "type": "number"
-          },
           "name": {
-            "description": "Value passed as the 'name' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "description": "Open document name."
+          },
+          "index": {
+            "type": "number",
+            "description": "One-based document index.",
+            "minimum": 1
           }
         },
-        "required": [
-          "name"
-        ],
-        "additionalProperties": false
+        "required": [],
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "index"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
+            "description": "Activated document name."
           },
           "path": {
             "type": "string",
-            "description": "Value returned as the 'path' result field."
+            "description": "Activated document path."
           }
         },
         "required": [
@@ -7490,7 +7735,7 @@
           "path"
         ],
         "additionalProperties": false,
-        "description": "Result payload returned by the switchDocument WPS Action."
+        "description": "Structured data returned by the switchDocument WPS Action."
       },
       "prerequisites": [
         "wps_running"

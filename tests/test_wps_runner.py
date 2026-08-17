@@ -351,6 +351,22 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             raise addin.error
         return completed, addin
 
+    def _assert_rejected_before_addin(self, request, expected_code):
+        addin = FakeAddin({"success": True, "data": {}})
+        addin.start()
+        completed = invoke_runner(request)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout)["error"]["code"], expected_code
+        )
+        self.assertFalse(addin.action_received.wait(0.1))
+        addin.stop()
+        self.assertTrue(addin.finished.wait(1))
+        if addin.error:
+            raise addin.error
+        return completed
+
     def test_skill_documents_the_python_runner_process_contract(self):
         instructions = SKILL.read_text(encoding="utf-8")
 
@@ -1104,6 +1120,178 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertTrue(addin.finished.wait(1))
         if addin.error:
             raise addin.error
+
+    def test_word_document_workflow_round_trips_through_real_loopback_http(self):
+        steps = (
+            (
+                {"action": "createDocument", "params": {}, "timeout_ms": 2000},
+                {"name": "Document1", "path": ""},
+            ),
+            (
+                {
+                    "action": "insertText",
+                    "params": {"text": "Quarterly report", "position": "end"},
+                    "timeout_ms": 2000,
+                },
+                {"position": "end", "textLength": 16},
+            ),
+            (
+                {
+                    "action": "getDocumentParagraphs",
+                    "params": {"startParagraph": 1, "endParagraph": 2},
+                    "timeout_ms": 2000,
+                },
+                {
+                    "paragraphs": [
+                        {
+                            "index": 1,
+                            "text": "Quarterly report",
+                            "style": "Normal",
+                            "start": 0,
+                            "end": 17,
+                        }
+                    ],
+                    "totalCount": 1,
+                    "returnedCount": 1,
+                },
+            ),
+            (
+                {
+                    "action": "findInDocument",
+                    "params": {"findText": "Quarterly"},
+                    "timeout_ms": 2000,
+                },
+                {
+                    "results": [
+                        {
+                            "text": "Quarterly",
+                            "start": 0,
+                            "end": 9,
+                            "paragraphIndex": 1,
+                            "context": "Quarterly report",
+                        }
+                    ],
+                    "count": 1,
+                    "findText": "Quarterly",
+                },
+            ),
+            (
+                {
+                    "action": "enableTrackChanges",
+                    "params": {"enable": True},
+                    "timeout_ms": 2000,
+                },
+                {"trackChanges": True, "active": True},
+            ),
+            (
+                {
+                    "action": "replaceRange",
+                    "params": {"startPos": 0, "endPos": 9, "text": "Monthly"},
+                    "confirmed": True,
+                    "timeout_ms": 2000,
+                },
+                {
+                    "startPos": 0,
+                    "originalEndPos": 9,
+                    "endPos": 7,
+                    "originalText": "Quarterly",
+                    "newText": "Monthly",
+                },
+            ),
+            (
+                {
+                    "action": "getTrackChangesStatus",
+                    "params": {},
+                    "timeout_ms": 2000,
+                },
+                {"trackChanges": True, "revisionCount": 0},
+            ),
+            (
+                {"action": "save", "params": {}, "timeout_ms": 2000},
+                {},
+            ),
+            (
+                {
+                    "action": "closeDocument",
+                    "params": {"saveChanges": True},
+                    "confirmed": True,
+                    "timeout_ms": 2000,
+                },
+                {"closed": "Document1"},
+            ),
+        )
+
+        for request, data in steps:
+            with self.subTest(action=request["action"]):
+                completed, addin = self._invoke_with_fake_addin(
+                    request, {"success": True, "data": data}
+                )
+
+                self.assertEqual(completed.returncode, 0, completed.stdout)
+                self.assertEqual(
+                    json.loads(completed.stdout),
+                    {"ok": True, "action": request["action"], "data": data},
+                )
+                self.assertEqual(addin.action_request["params"], request["params"])
+
+    def test_destructive_word_replacements_require_confirmation_before_the_addin(self):
+        requests = (
+            {
+                "action": "replaceRange",
+                "params": {"startPos": 0, "endPos": 9, "text": "Monthly"},
+                "timeout_ms": 1000,
+            },
+            {
+                "action": "replaceBookmarkContent",
+                "params": {"name": "project_name", "text": "Apollo"},
+                "timeout_ms": 1000,
+            },
+            {
+                "action": "smartFillField",
+                "params": {"keyword": "Project", "value": "Apollo"},
+                "timeout_ms": 1000,
+            },
+        )
+
+        for request in requests:
+            with self.subTest(action=request["action"]):
+                self._assert_rejected_before_addin(
+                    request, "CONFIRMATION_REQUIRED"
+                )
+
+    def test_invalid_word_paragraph_range_never_reaches_the_addin(self):
+        self._assert_rejected_before_addin(
+            {
+                "action": "getDocumentParagraphs",
+                "params": {"startParagraph": 0},
+                "timeout_ms": 1000,
+            },
+            "INVALID_PARAMS",
+        )
+
+    def test_word_wps_failure_returns_a_structured_error(self):
+        completed, _addin = self._invoke_with_fake_addin(
+            {
+                "action": "findInDocument",
+                "params": {"findText": "missing"},
+                "timeout_ms": 1000,
+            },
+            {"success": False, "error": "No active Word document"},
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "findInDocument",
+                "error": {
+                    "code": "WPS_ACTION_FAILED",
+                    "message": "No active Word document",
+                    "retryable": False,
+                },
+            },
+        )
 
     def test_process_exit_releases_the_lock_even_when_the_lock_file_remains(self):
         result_gate = threading.Event()

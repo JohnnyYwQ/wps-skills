@@ -19,6 +19,7 @@ REPRESENTATIVE_FIXTURES = (
 )
 UNIFIED_ADDIN = REPOSITORY_ROOT / "skills/wps-office/assets/wps-addin/main.js"
 EXCEL_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/excel.md"
+WORD_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/word.md"
 
 
 class ActionManifestValidatorTests(unittest.TestCase):
@@ -920,6 +921,149 @@ class ExcelAdvancedContractTests(unittest.TestCase):
         )
 
         self.assertEqual(documented, self.advanced_actions)
+
+
+class WordContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.manifest = json.loads(
+            (
+                REPOSITORY_ROOT
+                / "skills/wps-office/references/action-manifest.json"
+            ).read_text(encoding="utf-8")
+        )
+        cls.actions = {entry["action"]: entry for entry in cls.manifest["actions"]}
+        cls.word_actions = {
+            entry["action"]
+            for entry in cls.manifest["actions"]
+            if entry["application"] == "word"
+        }
+        cls.word_group = cls.manifest["reference_groups"].get(
+            "word_workflows", {"actions": []}
+        )
+        cls.group_actions = set(cls.word_group["actions"])
+        cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
+        cls.reference_source = (
+            WORD_REFERENCE.read_text(encoding="utf-8")
+            if WORD_REFERENCE.is_file()
+            else ""
+        )
+
+    def test_word_group_covers_every_word_action_and_addin_dispatch(self) -> None:
+        dispatch_actions = set(
+            re.findall(
+                r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
+                self.addin_source,
+                re.MULTILINE,
+            )
+        )
+
+        self.assertEqual(self.group_actions, self.word_actions)
+        self.assertEqual(self.word_group.get("reference"), "word.md")
+        self.assertEqual(self.word_actions - dispatch_actions, set())
+
+        for action_name in sorted(self.word_actions):
+            with self.subTest(action=action_name):
+                action = self.actions[action_name]
+                self.assertEqual(action["parameters"]["type"], "object")
+                self.assertEqual(action["result"]["type"], "object")
+                self.assertFalse(action["parameters"]["additionalProperties"])
+                self.assertFalse(action["result"]["additionalProperties"])
+                self.assertIn(action["risk"], {"read", "write", "destructive"})
+
+    def test_word_inputs_match_the_addin_requirements(self) -> None:
+        required_inputs = {
+            "findInDocument": {"findText"},
+            "findReplace": {"findText", "replaceText"},
+            "insertBookmark": {"name"},
+            "insertHeader": {"text"},
+            "insertFooter": {"text"},
+            "insertTable": {"rows", "cols"},
+            "insertText": {"text"},
+            "openDocument": {"path"},
+            "replaceBookmarkContent": {"name", "text"},
+            "replaceRange": {"startPos", "endPos", "text"},
+            "setLineSpacing": {"lineSpacing"},
+            "setTextColor": {"color"},
+            "smartFillField": {"keyword", "value"},
+        }
+
+        for action_name, expected in required_inputs.items():
+            with self.subTest(action=action_name):
+                self.assertEqual(
+                    set(self.actions[action_name]["parameters"]["required"]),
+                    expected,
+                )
+
+        self.assertEqual(
+            self.actions["switchDocument"]["parameters"].get("anyOf"),
+            [{"required": ["name"]}, {"required": ["index"]}],
+        )
+        self.assertEqual(
+            self.actions["insertHyperlink"]["parameters"].get("anyOf"),
+            [{"required": ["url"]}, {"required": ["address"]}],
+        )
+
+    def test_word_range_and_revision_results_use_runtime_types(self) -> None:
+        replace_result = self.actions["replaceRange"]["result"]["properties"]
+        for field in ("startPos", "originalEndPos", "endPos"):
+            self.assertEqual(replace_result[field]["type"], "number")
+
+        paragraph_item = self.actions["getDocumentParagraphs"]["result"][
+            "properties"
+        ]["paragraphs"]["items"]
+        self.assertEqual(
+            set(paragraph_item["required"]),
+            {"index", "text", "style", "start", "end"},
+        )
+        self.assertEqual(
+            self.actions["getTrackChangesStatus"]["result"]["required"],
+            ["trackChanges", "revisionCount"],
+        )
+        self.assertEqual(
+            self.actions["setFont"]["result"]["properties"]["settings"]["type"],
+            "object",
+        )
+
+    def test_destructive_word_actions_are_gated(self) -> None:
+        for action_name in (
+            "closeDocument",
+            "findReplace",
+            "replaceBookmarkContent",
+            "replaceRange",
+            "smartFillField",
+        ):
+            with self.subTest(action=action_name):
+                self.assertEqual(self.actions[action_name]["risk"], "destructive")
+
+    def test_word_reference_documents_workflow_and_complete_catalog(self) -> None:
+        self.assertTrue(WORD_REFERENCE.is_file())
+        self.assertIn("scripts/wps.py invoke", self.reference_source)
+        self.assertNotIn("MCP", self.reference_source)
+        self.assertNotIn("Node.js", self.reference_source)
+        self.assertNotIn("PowerShell", self.reference_source)
+
+        workflow_actions = (
+            "createDocument",
+            "insertText",
+            "getDocumentParagraphs",
+            "findInDocument",
+            "replaceRange",
+            "getTrackChangesStatus",
+            "save",
+        )
+        positions = [
+            self.reference_source.find(f"`{action}`") for action in workflow_actions
+        ]
+        self.assertTrue(all(position >= 0 for position in positions))
+        self.assertEqual(positions, sorted(positions))
+
+        start = self.reference_source.index("<!-- word-actions:start -->")
+        end = self.reference_source.index("<!-- word-actions:end -->")
+        documented = set(
+            re.findall(r"`([a-z][A-Za-z0-9]*)`", self.reference_source[start:end])
+        )
+        self.assertEqual(documented, self.word_actions)
 
 
 if __name__ == "__main__":
