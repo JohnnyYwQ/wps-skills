@@ -85,6 +85,12 @@ class LoopbackBindError(Exception):
         self.error_number = error_number
 
 
+class LoopbackHTTPServer(HTTPServer):
+    """Permit rapid sequential one-Action processes to reuse the loopback port."""
+
+    allow_reuse_address = True
+
+
 def transport_error_details(code):
     message, retryable = TRANSPORT_ERROR_DETAILS[code]
     return {"code": code, "message": message, "retryable": retryable}
@@ -473,7 +479,9 @@ def exchange_with_addin(action_request, auth_token, timeout_ms):
         "action_delivered": False,
     }
     try:
-        server = HTTPServer((HOST, PORT), make_handler(exchange_state, auth_token))
+        server = LoopbackHTTPServer(
+            (HOST, PORT), make_handler(exchange_state, auth_token)
+        )
     except OSError as error:
         raise LoopbackBindError(error.errno)
     try:
