@@ -850,6 +850,12 @@ class RetirementContractTests(unittest.TestCase):
         powerpoint_source = (
             REPOSITORY_ROOT / "wps-office-mcp/src/tools/ppt/presentation.ts"
         ).read_text(encoding="utf-8")
+        javascript_image_handler = LEGACY_MAC_MAIN.read_text(encoding="utf-8").split(
+            "function handleInsertPptImage(params)", 1
+        )[1].split("// 删除图片", 1)[0]
+        powershell_image_dispatch = WINDOWS_BRIDGE.read_text(encoding="utf-8").split(
+            '    "insertPptImage" {', 1
+        )[1].split('\n    "', 1)[0]
 
         self.assertEqual(
             mappings["wps_excel_add_comment"],
@@ -878,6 +884,8 @@ class RetirementContractTests(unittest.TestCase):
         self.assertNotIn("'addComment'", excel_source)
         self.assertIn("'insertPptImage'", powerpoint_source)
         self.assertNotIn("'insertImage'", powerpoint_source)
+        self.assertIn("slideIndex: index", javascript_image_handler)
+        self.assertIn("slideIndex = $slideIndex", powershell_image_dispatch)
 
 
 class ExcelCoreContractTests(unittest.TestCase):

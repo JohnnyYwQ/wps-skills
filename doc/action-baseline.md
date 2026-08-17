@@ -25,9 +25,9 @@ Issue #3 冻结了迁移开始时的能力事实。机器可读文件是唯一�
 
 PowerShell 重复分支是 `create3DText`、`set3DDepth`、`set3DMaterial`、`set3DRotation`。manifest 对每个名称只保留一个规范 Action；迁移加载项时必须合并并验证重复实现，不能把重复名称公开成两个接口。
 
-两个 Bridge 对 `addArrow` 使用同一名称却保留了不同语义：JavaScript 以起止坐标绘制线箭头，PowerShell 以边界框插入块箭头。manifest 暂时接受两组参数，迁移对照把该差异记录为 `contract_conflicts`；统一 Add-in 必须选择一种行为并移除例外。
+`addArrow` 统一采用起止坐标绘制线箭头；PowerShell 的边界框块箭头形式已按 ADR-0014 退役。manifest 只接受 `startX`、`startY`、`endX` 和 `endY`，迁移对照不再保留契约冲突例外。
 
-另有三个旧 Tool 把应用专属能力错误地发送到另一个应用已占用的 Action 名称：Excel 批注使用了 Word 的 `addComment`，Excel 查找替换使用了 Word 的 `findReplace`，PowerPoint 插图使用了 Word 的 `insertImage`。迁移对照将它们标记为 `conflict`，而不是伪装成已完成映射；PowerPoint 已有不冲突的原始 Action `insertPptImage`，另两个能力需要在后续统一 Add-in 工作中解决原始命名冲突。
+旧 Tool 中曾有应用专属能力错误发送到另一个应用已占用的 Action 名称。迁移对照现在将 Excel 批注修正为 `addCellComment`，将 PowerPoint 插图修正为 `insertPptImage`；错误复用 Word `findReplace` 的 Excel 查找替换则按 ADR-0014 明确退役。不存在未决的 `conflict` 映射。
 
 ## Schema 约定
 

@@ -3047,7 +3047,7 @@ switch ($Action) {
         $width = if ($null -ne $p.width) { $p.width } else { -1 }
         $height = if ($null -ne $p.height) { $p.height } else { -1 }
         $pic = $slide.Shapes.AddPicture($p.path, $false, $true, $left, $top, $width, $height)
-        Output-Json @{ success = $true; data = @{ name = $pic.Name; path = $p.path } }
+        Output-Json @{ success = $true; data = @{ name = $pic.Name; path = $p.path; slideIndex = $slideIndex } }
     }
 
     "deletePptImage" {

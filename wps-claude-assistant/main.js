@@ -1912,7 +1912,7 @@ function handleInsertPptImage(params) {
         var width = params.width || -1;
         var height = params.height || -1;
         var pic = slide.Shapes.AddPicture(params.path, false, true, left, top, width, height);
-        return { success: true, data: { name: pic.Name, path: params.path } };
+        return { success: true, data: { name: pic.Name, path: params.path, slideIndex: index } };
     } catch (e) {
         return { success: false, error: e.message };
     }
