@@ -88,7 +88,14 @@ class LoopbackBindError(Exception):
 class LoopbackHTTPServer(HTTPServer):
     """Permit rapid sequential one-Action processes to reuse the loopback port."""
 
-    allow_reuse_address = True
+    allow_reuse_address = os.name != "nt"
+
+    def server_bind(self):
+        if os.name == "nt" and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(
+                socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1
+            )
+        super().server_bind()
 
 
 def transport_error_details(code):
