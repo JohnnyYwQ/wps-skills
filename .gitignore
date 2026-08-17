@@ -6,6 +6,12 @@
 # 私有文档 (不同步到GitHub)
 # ============================================
 docs/
+!docs/
+docs/*
+!docs/adr/
+!docs/adr/*.md
+!docs/agents/
+!docs/agents/*.md
 WPS接口API/
 /scripts/
 /logs/
