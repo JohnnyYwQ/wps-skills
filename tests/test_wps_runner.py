@@ -19,6 +19,7 @@ RUNNER = REPOSITORY_ROOT / "skills" / "wps-office" / "scripts" / "wps.py"
 SKILL = REPOSITORY_ROOT / "skills" / "wps-office" / "SKILL.md"
 POLL_URL = "http://127.0.0.1:58891/poll"
 RESULT_URL = "http://127.0.0.1:58891/result"
+UNKNOWN_URL = "http://127.0.0.1:58891/not-a-protocol-route"
 RUNNER_ENV = None
 AUTH_TOKEN = None
 
@@ -34,6 +35,16 @@ def invoke_runner(request):
         timeout=5,
         check=False,
     )
+
+
+def loopback_port_is_available():
+    with socket.socket() as candidate:
+        candidate.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            candidate.bind(("127.0.0.1", 58891))
+        except OSError:
+            return False
+    return True
 
 
 class PollingAddin:
@@ -133,18 +144,19 @@ class FakeAddin(PollingAddin):
             json.load(response)
 
 
-class MalformedJsonAddin(PollingAddin):
-    """Submit malformed JSON through the authenticated result endpoint."""
+class InvalidJsonPayloadAddin(PollingAddin):
+    """Submit a configured invalid payload to the authenticated result endpoint."""
 
-    def __init__(self):
+    def __init__(self, request_body=b"{bad json"):
         super().__init__()
+        self.request_body = request_body
         self.error_response = None
 
     def handle_action(self, action_request):
         del action_request
         try:
             urlopen(
-                self.authorized_request(RESULT_URL, b"{bad json", "POST"),
+                self.authorized_request(RESULT_URL, self.request_body, "POST"),
                 timeout=1,
             )
         except HTTPError as error:
@@ -180,6 +192,36 @@ class MismatchedRequestAddin(PollingAddin):
             self.error_response = (error.code, json.load(error))
             return
         raise AssertionError("Mismatched requestId was accepted")
+
+
+class UnauthorizedResultAddin(PollingAddin):
+    """Try an unauthenticated result before submitting the trusted result."""
+
+    def __init__(self, result):
+        super().__init__()
+        self.result = result
+        self.unauthorized_response = None
+
+    def handle_action(self, action_request):
+        body = json.dumps(
+            {"requestId": action_request["requestId"], "result": self.result}
+        ).encode("utf-8")
+        request = Request(
+            RESULT_URL,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            urlopen(request, timeout=1)
+        except HTTPError as error:
+            self.unauthorized_response = (error.code, json.load(error))
+        else:
+            raise AssertionError("Unauthenticated result was accepted")
+        with urlopen(
+            self.authorized_request(RESULT_URL, body, "POST"), timeout=1
+        ) as response:
+            json.load(response)
 
 
 class DisconnectingAddin(PollingAddin):
@@ -434,9 +476,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(addin.action_request["action"], "ping")
         self.assertEqual(addin.action_request["params"], {})
 
-        with socket.socket() as released_port:
-            released_port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            released_port.bind(("127.0.0.1", 58891))
+        self.assertTrue(loopback_port_is_available())
 
     def test_concurrent_action_and_check_return_busy_without_interrupting_owner(self):
         result_gate = threading.Event()
@@ -517,6 +557,51 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(first.returncode, 0, first_stderr)
         self.assertTrue(json.loads(first_stdout)["ok"])
 
+    def test_process_exit_releases_the_lock_even_when_the_lock_file_remains(self):
+        result_gate = threading.Event()
+        addin = FakeAddin(
+            {"success": True, "message": "pong", "timestamp": 1723852800000},
+            result_gate=result_gate,
+        )
+        addin.start()
+        owner = subprocess.Popen(
+            [
+                sys.executable,
+                str(RUNNER),
+                "invoke",
+                json.dumps(
+                    {"action": "ping", "params": {}, "timeout_ms": 2000}
+                ),
+            ],
+            cwd=REPOSITORY_ROOT,
+            env=RUNNER_ENV,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertTrue(
+            addin.action_received.wait(1), "Owner invocation was not published"
+        )
+
+        owner.terminate()
+        owner.communicate(timeout=3)
+        result_gate.set()
+        self.assertTrue(addin.finished.wait(1), "Fake Add-in did not finish")
+        lock_file = (
+            Path(RUNNER_ENV["XDG_CONFIG_HOME"])
+            / "wps-office-skill"
+            / "action.lock"
+        )
+        self.assertTrue(lock_file.is_file())
+
+        after_exit = invoke_runner(
+            {"action": "ping", "params": {}, "timeout_ms": 20}
+        )
+
+        self.assertEqual(
+            json.loads(after_exit.stdout)["error"]["code"], "ADDIN_NOT_READY"
+        )
+
     def test_addin_failure_returns_structured_error_and_nonzero_exit(self):
         addin = FakeAddin(
             {"success": False, "error": "Fake Add-in refused the Action"}
@@ -546,7 +631,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(completed.stderr, "")
 
     def test_malformed_addin_json_returns_a_stable_error_and_releases_port(self):
-        addin = MalformedJsonAddin()
+        addin = InvalidJsonPayloadAddin()
         addin.start()
 
         completed = invoke_runner(
@@ -583,9 +668,37 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             },
         )
         self.assertEqual(completed.stderr, "")
-        with socket.socket() as released_port:
-            released_port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            released_port.bind(("127.0.0.1", 58891))
+        self.assertTrue(loopback_port_is_available())
+
+    def test_non_object_addin_json_returns_a_stable_protocol_error(self):
+        addin = InvalidJsonPayloadAddin(b"[]")
+        addin.start()
+
+        completed = invoke_runner(
+            {"action": "ping", "params": {}, "timeout_ms": 2000}
+        )
+
+        self.assertTrue(addin.finished.wait(1), "Faulting Add-in did not finish")
+        if addin.error:
+            raise addin.error
+        expected_error = {
+            "code": "INVALID_ADDIN_RESPONSE",
+            "message": "WPS Add-in result payload must be a JSON object",
+        }
+        self.assertEqual(
+            addin.error_response,
+            (400, {"ok": False, "error": expected_error}),
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "ping",
+                "error": dict(expected_error, retryable=False),
+            },
+        )
+        self.assertEqual(completed.stderr, "")
 
     def test_mismatched_request_id_is_rejected_and_never_used_as_the_result(self):
         addin = MismatchedRequestAddin()
@@ -643,9 +756,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         )
         self.assertEqual(completed.stderr, "")
         self.assertNotIn(AUTH_TOKEN, completed.stdout + completed.stderr)
-        with socket.socket() as released_port:
-            released_port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            released_port.bind(("127.0.0.1", 58891))
+        self.assertTrue(loopback_port_is_available())
 
         after_failure = invoke_runner(
             {"action": "ping", "params": {}, "timeout_ms": 20}
@@ -673,9 +784,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         )
         self.assertEqual(completed.stderr, "")
 
-        with socket.socket() as released_port:
-            released_port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            released_port.bind(("127.0.0.1", 58891))
+        self.assertTrue(loopback_port_is_available())
 
     def test_stalled_action_is_distinct_from_an_addin_that_never_polled(self):
         addin = StallingAddin()
@@ -809,6 +918,62 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(runner.returncode, 0, stderr)
         self.assertTrue(json.loads(stdout)["ok"])
         self.assertNotIn(AUTH_TOKEN, stdout + stderr)
+
+    def test_all_protected_routes_authenticate_and_preflight_exposes_no_action(self):
+        runner = subprocess.Popen(
+            [
+                sys.executable,
+                str(RUNNER),
+                "invoke",
+                json.dumps(
+                    {"action": "ping", "params": {}, "timeout_ms": 2000}
+                ),
+            ],
+            cwd=REPOSITORY_ROOT,
+            env=RUNNER_ENV,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        preflight_payload = None
+        deadline = time.monotonic() + 1
+        while time.monotonic() < deadline:
+            try:
+                request = Request(POLL_URL, method="OPTIONS")
+                with urlopen(request, timeout=0.25) as response:
+                    preflight_payload = json.load(response)
+                break
+            except (OSError, URLError):
+                time.sleep(0.02)
+        self.assertEqual(preflight_payload, {})
+
+        try:
+            urlopen(Request(UNKNOWN_URL), timeout=0.25)
+        except HTTPError as error:
+            unknown_response = (error.code, json.load(error))
+        else:
+            self.fail("Unauthenticated unknown route was accepted")
+        expected_auth_error = {
+            "ok": False,
+            "error": {
+                "code": "AUTHENTICATION_FAILED",
+                "message": "Loopback request authentication failed",
+            },
+        }
+        self.assertEqual(unknown_response, (401, expected_auth_error))
+
+        addin = UnauthorizedResultAddin(
+            {"success": True, "message": "pong", "timestamp": 1723852800000}
+        )
+        addin.start()
+        stdout, stderr = runner.communicate(timeout=3)
+
+        self.assertTrue(addin.finished.wait(1), "Fake Add-in did not finish")
+        if addin.error:
+            raise addin.error
+        self.assertEqual(addin.unauthorized_response, (401, expected_auth_error))
+        self.assertEqual(runner.returncode, 0, stderr)
+        self.assertTrue(json.loads(stdout)["ok"])
 
     def test_unknown_action_is_rejected_before_contacting_the_addin(self):
         with socket.socket() as occupied_port:

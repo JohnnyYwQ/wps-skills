@@ -257,11 +257,11 @@ def parse_request(raw_request):
     return request
 
 
-def make_handler(state, auth_token):
+def make_handler(exchange_state, auth_token):
     class PollingHandler(BaseHTTPRequestHandler):
         def setup(self):
             BaseHTTPRequestHandler.setup(self)
-            deadline = state.get("deadline")
+            deadline = exchange_state.get("deadline")
             if deadline is not None:
                 self.connection.settimeout(
                     max(0.001, deadline - time.monotonic())
@@ -285,55 +285,55 @@ def make_handler(state, auth_token):
             )
 
         def do_GET(self):
+            if not self._is_authorized():
+                self._reject_unauthorized()
+                return
             if self.path != "/poll":
                 self._send_json(404, {"error": "Not found"})
                 return
-            if not self._is_authorized():
-                self._reject_unauthorized()
-                return
             if self._send_json(
-                200, {"actionRequest": state["action_request"]}
+                200, {"actionRequest": exchange_state["action_request"]}
             ):
-                state["action_delivered"] = True
+                exchange_state["action_delivered"] = True
 
         def do_POST(self):
-            if self.path != "/result":
-                self._send_json(404, {"error": "Not found"})
-                return
             if not self._is_authorized():
                 self._reject_unauthorized()
+                return
+            if self.path != "/result":
+                self._send_json(404, {"error": "Not found"})
                 return
             try:
                 content_length = int(self.headers.get("Content-Length", "0"))
                 request_body = self.rfile.read(content_length)
             except socket.timeout:
-                state["protocol_error"] = RunnerError(
+                exchange_state["protocol_error"] = RunnerError(
                     "ACTION_TIMEOUT",
                     "WPS Action did not return a result before the timeout",
                     True,
-                    state["action_request"]["action"],
+                    exchange_state["action_request"]["action"],
                 )
                 return
             except (TypeError, ValueError):
                 request_body = b""
                 content_length = 0
             if len(request_body) != content_length:
-                state["protocol_error"] = RunnerError(
+                exchange_state["protocol_error"] = RunnerError(
                     "ADDIN_DISCONNECTED",
                     "WPS Add-in disconnected while sending its result",
                     False,
-                    state["action_request"]["action"],
+                    exchange_state["action_request"]["action"],
                 )
                 return
             try:
                 payload = json.loads(request_body.decode("utf-8"))
             except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
                 message = "WPS Add-in result must be valid JSON"
-                state["protocol_error"] = RunnerError(
+                exchange_state["protocol_error"] = RunnerError(
                     "INVALID_ADDIN_JSON",
                     message,
                     False,
-                    state["action_request"]["action"],
+                    exchange_state["action_request"]["action"],
                 )
                 self._send_json(
                     400,
@@ -346,15 +346,36 @@ def make_handler(state, auth_token):
                     },
                 )
                 return
-            if payload.get("requestId") != state["action_request"]["requestId"]:
+            if not isinstance(payload, dict):
+                message = "WPS Add-in result payload must be a JSON object"
+                exchange_state["protocol_error"] = RunnerError(
+                    "INVALID_ADDIN_RESPONSE",
+                    message,
+                    False,
+                    exchange_state["action_request"]["action"],
+                )
+                self._send_json(
+                    400,
+                    {
+                        "ok": False,
+                        "error": {
+                            "code": "INVALID_ADDIN_RESPONSE",
+                            "message": message,
+                        },
+                    },
+                )
+                return
+            if payload.get("requestId") != exchange_state["action_request"][
+                "requestId"
+            ]:
                 message = (
                     "WPS Add-in result does not match the pending WPS Action"
                 )
-                state["protocol_error"] = RunnerError(
+                exchange_state["protocol_error"] = RunnerError(
                     "REQUEST_ID_MISMATCH",
                     message,
                     False,
-                    state["action_request"]["action"],
+                    exchange_state["action_request"]["action"],
                 )
                 self._send_json(
                     409,
@@ -367,11 +388,13 @@ def make_handler(state, auth_token):
                     },
                 )
                 return
-            state["result"] = payload.get("result")
-            state["result_received"] = True
+            exchange_state["result"] = payload.get("result")
+            exchange_state["result_received"] = True
             self._send_json(200, {"ok": True})
 
         def do_OPTIONS(self):
+            # Browser CORS preflights cannot carry Authorization. They expose
+            # no WPS Action or result and mutate no exchange state.
             self._send_json(200, {})
 
         def _send_json(self, status, payload):
@@ -398,25 +421,25 @@ def make_handler(state, auth_token):
 
 
 def exchange_with_addin(action_request, auth_token, timeout_ms):
-    state = {
+    exchange_state = {
         "action_request": action_request,
         "result": None,
         "result_received": False,
         "protocol_error": None,
         "action_delivered": False,
     }
-    server = HTTPServer((HOST, PORT), make_handler(state, auth_token))
+    server = HTTPServer((HOST, PORT), make_handler(exchange_state, auth_token))
     try:
         deadline = time.monotonic() + (timeout_ms / 1000.0)
-        state["deadline"] = deadline
+        exchange_state["deadline"] = deadline
         while (
-            not state["result_received"]
-            and state["protocol_error"] is None
+            not exchange_state["result_received"]
+            and exchange_state["protocol_error"] is None
             and time.monotonic() < deadline
         ):
             server.timeout = min(0.25, max(0.0, deadline - time.monotonic()))
             server.handle_request()
-        return state
+        return exchange_state
     finally:
         server.server_close()
 
@@ -463,8 +486,11 @@ def check_options(raw_options):
 
 
 def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
+    failure_status = (
+        "restart_required" if restart_pending else "addin_unavailable"
+    )
     try:
-        state = exchange_with_addin(
+        exchange_state = exchange_with_addin(
             {
                 "action": "ping",
                 "params": {},
@@ -475,13 +501,34 @@ def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
         )
     except OSError as error:
         if error.errno == errno.EADDRINUSE:
-            return "restart_required" if restart_pending else "addin_unavailable"
-        raise
-    result = state["result"]
-    if state["protocol_error"] is not None:
-        return "restart_required" if restart_pending else "addin_unavailable"
-    if not state["result_received"]:
-        return "restart_required" if restart_pending else "addin_unavailable"
+            return failure_status, {
+                "code": "PORT_IN_USE",
+                "message": "Loopback port {0} is already in use".format(PORT),
+                "retryable": True,
+            }
+        return failure_status, {
+            "code": "PORT_UNAVAILABLE",
+            "message": "The loopback port could not be opened",
+            "retryable": True,
+        }
+    result = exchange_state["result"]
+    if exchange_state["protocol_error"] is not None:
+        protocol_error = exchange_state["protocol_error"].as_result()["error"]
+        return failure_status, protocol_error
+    if not exchange_state["result_received"]:
+        if exchange_state["action_delivered"]:
+            error = {
+                "code": "ACTION_TIMEOUT",
+                "message": "WPS Action did not return a result before the timeout",
+                "retryable": True,
+            }
+        else:
+            error = {
+                "code": "ADDIN_NOT_READY",
+                "message": "WPS Add-in did not poll before the timeout",
+                "retryable": True,
+            }
+        return failure_status, error
     if (
         isinstance(result, dict)
         and result.get("success") is True
@@ -489,10 +536,14 @@ def ping_addin(auth_token, timeout_ms, expected_digest, restart_pending):
     ):
         loaded_digest = result.get("installDigest")
         if loaded_digest == expected_digest:
-            return "ready"
+            return "ready", None
         if isinstance(loaded_digest, str) and loaded_digest:
-            return "restart_required"
-    return "restart_required" if restart_pending else "addin_unavailable"
+            return "restart_required", None
+    return failure_status, {
+        "code": "INVALID_RESULT",
+        "message": "WPS Add-in returned an invalid readiness result",
+        "retryable": False,
+    }
 
 
 def readiness_context(action=None, operation=None):
@@ -563,7 +614,7 @@ def invoke_locked(action, action_name, params, request):
     auth_token = readiness["auth_token"]
     timeout_ms = request.get("timeout_ms", 30000)
     try:
-        state = exchange_with_addin(
+        exchange_state = exchange_with_addin(
             {
                 "action": action_name,
                 "params": params,
@@ -573,19 +624,24 @@ def invoke_locked(action, action_name, params, request):
             timeout_ms,
         )
     except OSError as error:
-        if error.errno != errno.EADDRINUSE:
-            raise
+        if error.errno == errno.EADDRINUSE:
+            raise RunnerError(
+                "PORT_IN_USE",
+                "Loopback port {0} is already in use".format(PORT),
+                True,
+                action_name,
+            )
         raise RunnerError(
-            "PORT_IN_USE",
-            "Loopback port {0} is already in use".format(PORT),
+            "PORT_UNAVAILABLE",
+            "The loopback port could not be opened",
             True,
             action_name,
         )
 
-    if state["protocol_error"] is not None:
-        raise state["protocol_error"]
-    if not state["result_received"]:
-        if state["action_delivered"]:
+    if exchange_state["protocol_error"] is not None:
+        raise exchange_state["protocol_error"]
+    if not exchange_state["result_received"]:
+        if exchange_state["action_delivered"]:
             raise RunnerError(
                 "ACTION_TIMEOUT",
                 "WPS Action did not return a result before the timeout",
@@ -599,7 +655,7 @@ def invoke_locked(action, action_name, params, request):
             action_name,
         )
 
-    result = state["result"]
+    result = exchange_state["result"]
     if not isinstance(result, dict):
         raise RunnerError(
             "INVALID_RESULT",
@@ -658,7 +714,7 @@ def check_addin(options):
         }
     platform_name = install_result["platform"]
     expected_digest = readiness["source_digest"]
-    status = ping_addin(
+    status, transport_error = ping_addin(
         readiness["auth_token"],
         options["timeout_ms"],
         expected_digest,
@@ -667,13 +723,16 @@ def check_addin(options):
     ready = status == "ready"
     if ready:
         addon_installer.acknowledge_loaded_digest(platform_name, expected_digest)
-    return {
+    result = {
         "status": status,
         "ready": ready,
         "restart_required": status == "restart_required",
         "platform": install_result["platform"],
         "architecture": install_result["architecture"],
     }
+    if transport_error is not None:
+        result["error"] = transport_error
+    return result
 
 
 def main(argv):

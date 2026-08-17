@@ -680,6 +680,14 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
                 json.loads(completed.stdout)["data"]["status"],
                 "addin_unavailable",
             )
+            self.assertEqual(
+                json.loads(completed.stdout)["data"]["error"],
+                {
+                    "code": "PORT_IN_USE",
+                    "message": "Loopback port 58891 is already in use",
+                    "retryable": True,
+                },
+            )
 
     def test_invalid_ping_is_not_misclassified_as_restart_required(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -721,6 +729,10 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             self.assertEqual(
                 json.loads(completed.stdout)["data"]["status"],
                 "addin_unavailable",
+            )
+            self.assertEqual(
+                json.loads(completed.stdout)["data"]["error"]["code"],
+                "INVALID_RESULT",
             )
 
 
