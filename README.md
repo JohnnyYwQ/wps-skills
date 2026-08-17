@@ -4,6 +4,12 @@
 
 AI编程助手通过自然语言操控WPS Office的MCP工具集。
 
+## Python Skill Package 迁移状态
+
+Issue #4 已在 `skills/wps-office/` 交付首个可加载的 WPS Skill Package 链路。智能体读取 `SKILL.md` 后，通过 Python 3.9+ 标准库 Runner、机器可读 Action 清单和临时 loopback HTTP 服务执行单个只读 WPS Action；Runner 完成后退出并释放端口。
+
+当前里程碑只开放清单中 `risk: read` 的 WPS Action。写入与破坏性操作、安全认证、并发锁、Add-in 首次安装和完整能力迁移由后续迁移 Issue 继续交付。下方 Node.js、MCP 和旧平台桥说明仍记录尚未删除的旧运行时，在替代路径通过完整验收前继续保留。
+
 ## 项目定位
 
 本项目是MCP Server + Skills框架，让AI助手（Claude Code/Cursor/Augment等）能操控WPS Office。
