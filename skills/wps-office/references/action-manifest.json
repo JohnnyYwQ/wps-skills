@@ -12583,19 +12583,32 @@
         "required": [
           "slideIndex",
           "row",
-          "col",
-          "text"
+          "col"
         ],
         "additionalProperties": false,
         "anyOf": [
           {
             "required": [
-              "tableName"
+              "tableName",
+              "text"
             ]
           },
           {
             "required": [
-              "tableIndex"
+              "tableName",
+              "value"
+            ]
+          },
+          {
+            "required": [
+              "tableIndex",
+              "text"
+            ]
+          },
+          {
+            "required": [
+              "tableIndex",
+              "value"
             ]
           }
         ]
@@ -12642,7 +12655,7 @@
             "type": "string"
           },
           "alignment": {
-            "description": "Horizontal alignment applied to each cell in the row.",
+            "description": "Horizontal alignment applied to the selected cell.",
             "type": "string",
             "enum": [
               "left",

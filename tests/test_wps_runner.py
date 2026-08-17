@@ -1367,6 +1367,30 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         )
         self.assertEqual(addin.action_request["params"]["alignment"], "center")
 
+    def test_powerpoint_table_cell_accepts_the_value_alias(self):
+        data = {"row": 1, "col": 1, "text": "Revenue"}
+        completed, addin = self._invoke_with_fake_addin(
+            {
+                "action": "setPptTableCell",
+                "params": {
+                    "slideIndex": 1,
+                    "tableName": "Table 1",
+                    "row": 1,
+                    "col": 1,
+                    "value": "Revenue",
+                },
+                "timeout_ms": 1000,
+            },
+            {"success": True, "data": data},
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stdout)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {"ok": True, "action": "setPptTableCell", "data": data},
+        )
+        self.assertEqual(addin.action_request["params"]["value"], "Revenue")
+
     def test_powerpoint_wps_failure_returns_a_structured_error(self):
         completed, _addin = self._invoke_with_fake_addin(
             {

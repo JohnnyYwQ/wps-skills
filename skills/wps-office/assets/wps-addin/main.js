@@ -1728,6 +1728,18 @@ function resolvePptGeometry(params, defaults) {
     };
 }
 
+var PPT_LAYOUTS = {
+    'title': 1,
+    'title_content': 2,
+    'titleContent': 2,
+    'blank': 12,
+    'two_column': 3,
+    'twoColumn': 3,
+    'comparison': 34,
+    'title_only': 11,
+    'titleOnly': 11
+};
+
 function handleGetActivePresentation() {
     try {
         var ppt = Application.ActivePresentation;
@@ -1751,18 +1763,9 @@ function handleAddSlide(params) {
         var ppt = Application.ActivePresentation;
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
 
-        // WPS PPT布局常量映射
-        var layoutMap = {
-            'title': 1,           // ppLayoutTitle
-            'title_content': 2,   // ppLayoutText
-            'blank': 12,          // ppLayoutBlank
-            'two_column': 3,      // ppLayoutTwoColumnText
-            'comparison': 34      // ppLayoutComparison
-        };
-
         var index = params.index || params.position || ppt.Slides.Count + 1;
         var layoutInput = params.layout || 'title_content';
-        var layout = typeof layoutInput === 'string' ? (layoutMap[layoutInput] || 2) : layoutInput;
+        var layout = typeof layoutInput === 'string' ? (PPT_LAYOUTS[layoutInput] || 2) : layoutInput;
         var slide = ppt.Slides.Add(index, layout);
 
         // 设置标题（带防护）
@@ -2050,18 +2053,7 @@ function handleSetSlideLayout(params) {
         var ppt = Application.ActivePresentation;
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.index || params.slideIndex || 1;
-        var layoutMap = {
-            'title': 1,
-            'title_content': 2,
-            'titleContent': 2,
-            'blank': 12,
-            'two_column': 3,
-            'twoColumn': 3,
-            'comparison': 34,
-            'title_only': 11,
-            'titleOnly': 11
-        };
-        var layout = layoutMap[params.layout] || params.layout || 2;
+        var layout = PPT_LAYOUTS[params.layout] || params.layout || 2;
         ppt.Slides.Item(index).Layout = layout;
         return { success: true, data: { slideIndex: index, layout: params.layout } };
     } catch (e) {

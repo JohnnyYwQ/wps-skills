@@ -999,24 +999,6 @@ class WordContractTests(unittest.TestCase):
                 )
 
         self.assertEqual(
-            self.actions["addSlide"]["parameters"]["properties"]["layout"]["enum"],
-            ["title", "title_content", "blank", "two_column", "comparison"],
-        )
-        self.assertEqual(
-            self.actions["setSlideLayout"]["parameters"]["properties"]["layout"][
-                "enum"
-            ],
-            [
-                "title",
-                "title_content",
-                "blank",
-                "two_column",
-                "comparison",
-                "title_only",
-            ],
-        )
-
-        self.assertEqual(
             self.actions["switchDocument"]["parameters"].get("anyOf"),
             [{"required": ["name"]}, {"required": ["index"]}],
         )
@@ -1193,12 +1175,29 @@ class PowerPointCoreContractTests(unittest.TestCase):
                     expected,
                 )
 
+        self.assertEqual(
+            self.actions["addSlide"]["parameters"]["properties"]["layout"]["enum"],
+            ["title", "title_content", "blank", "two_column", "comparison"],
+        )
+        self.assertEqual(
+            self.actions["setSlideLayout"]["parameters"]["properties"]["layout"][
+                "enum"
+            ],
+            [
+                "title",
+                "title_content",
+                "blank",
+                "two_column",
+                "comparison",
+                "title_only",
+            ],
+        )
+
         for action_name in (
             "deletePptImage",
             "deleteTextBox",
             "getPptTableCell",
             "setImageStyle",
-            "setPptTableCell",
             "setPptTableCellStyle",
             "setPptTableStyle",
             "setTextBoxStyle",
@@ -1221,6 +1220,16 @@ class PowerPointCoreContractTests(unittest.TestCase):
                         {"required": ["tableIndex"]},
                     ],
                 )
+
+        self.assertEqual(
+            self.actions["setPptTableCell"]["parameters"].get("anyOf"),
+            [
+                {"required": ["tableName", "text"]},
+                {"required": ["tableName", "value"]},
+                {"required": ["tableIndex", "text"]},
+                {"required": ["tableIndex", "value"]},
+            ],
+        )
 
     def test_context_results_describe_observable_presentation_state(self) -> None:
         presentation_result = self.actions["getActivePresentation"]["result"]
