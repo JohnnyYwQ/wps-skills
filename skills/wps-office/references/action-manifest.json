@@ -145,6 +145,50 @@
         "smartFillField",
         "switchDocument"
       ]
+    },
+    "powerpoint_core": {
+      "reference": "powerpoint.md",
+      "actions": [
+        "createPresentation",
+        "openPresentation",
+        "closePresentation",
+        "getActivePresentation",
+        "getOpenPresentations",
+        "switchPresentation",
+        "addSlide",
+        "deleteSlide",
+        "duplicateSlide",
+        "moveSlide",
+        "getSlideCount",
+        "getSlideInfo",
+        "switchSlide",
+        "setSlideLayout",
+        "setSlideSize",
+        "getSlideNotes",
+        "setSlideNotes",
+        "addTextBox",
+        "deleteTextBox",
+        "getTextBoxes",
+        "setTextBoxText",
+        "setTextBoxStyle",
+        "setSlideTitle",
+        "getSlideTitle",
+        "setSlideSubtitle",
+        "setSlideContent",
+        "insertPptImage",
+        "deletePptImage",
+        "setImageStyle",
+        "exportSlideAsImage",
+        "insertPptTable",
+        "setPptTableCell",
+        "getPptTableCell",
+        "setPptTableStyle",
+        "setPptTableCellStyle",
+        "setPptTableRowStyle",
+        "setSlideBackground",
+        "setBackgroundColor",
+        "setBackgroundImage"
+      ]
     }
   },
   "actions": [
@@ -8286,11 +8330,17 @@
           },
           "position": {
             "description": "Value passed as the 'position' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "title": {
             "description": "Value passed as the 'title' Action parameter.",
             "type": "string"
+          },
+          "index": {
+            "type": "number",
+            "description": "Alias for the one-based insertion position.",
+            "minimum": 1
           }
         },
         "required": [],
@@ -8299,18 +8349,18 @@
       "result": {
         "type": "object",
         "properties": {
-          "layout": {
-            "type": "string",
-            "description": "Value returned as the 'layout' result field."
-          },
           "slideIndex": {
             "type": "number",
-            "description": "Value returned as the 'slideIndex' result field."
+            "description": "One-based index of the created slide."
+          },
+          "layout": {
+            "type": "string",
+            "description": "Requested layout name used for the slide."
           }
         },
         "required": [
-          "layout",
-          "slideIndex"
+          "slideIndex",
+          "layout"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the addSlide WPS Action."
@@ -8346,7 +8396,8 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "text": {
             "description": "Value passed as the 'text' Action parameter.",
@@ -8367,13 +8418,18 @@
       "result": {
         "type": "object",
         "properties": {
-          "shapeName": {
+          "name": {
             "type": "string",
-            "description": "Value returned as the 'shapeName' result field."
+            "description": "Created text box shape name."
+          },
+          "slideIndex": {
+            "type": "number",
+            "description": "One-based slide index."
           }
         },
         "required": [
-          "shapeName"
+          "name",
+          "slideIndex"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the addTextBox WPS Action."
@@ -9467,8 +9523,25 @@
       },
       "result": {
         "type": "object",
-        "properties": {},
-        "required": [],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Created presentation name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Created presentation path, empty until first save."
+          },
+          "slideCount": {
+            "type": "number",
+            "description": "Number of slides in the new presentation."
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "slideCount"
+        ],
         "additionalProperties": false,
         "description": "Result payload returned by the createPresentation WPS Action."
       },
@@ -9743,28 +9816,47 @@
           },
           "shapeIndex": {
             "description": "Value passed as the 'shapeIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
           "slideIndex"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "shapeIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
-          "deleted": {
+          "name": {
             "type": "string",
-            "description": "Value returned as the 'deleted' result field."
+            "description": "Deleted picture shape name."
+          },
+          "slideIndex": {
+            "type": "number",
+            "description": "One-based slide index."
           }
         },
         "required": [
-          "deleted"
+          "name",
+          "slideIndex"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the deletePptImage WPS Action."
@@ -9830,11 +9922,13 @@
         "properties": {
           "slideIndex": {
             "type": "number",
-            "description": "One-based slide index."
+            "description": "One-based slide index.",
+            "minimum": 1
           },
           "index": {
             "type": "number",
-            "description": "Alias for the one-based slide index."
+            "description": "Alias for the one-based slide index.",
+            "minimum": 1
           }
         },
         "required": [],
@@ -9896,28 +9990,47 @@
           },
           "shapeIndex": {
             "description": "Value passed as the 'shapeIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
           "slideIndex"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "shapeIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
-          "deleted": {
+          "name": {
             "type": "string",
-            "description": "Value returned as the 'deleted' result field."
+            "description": "Deleted text box shape name."
+          },
+          "slideIndex": {
+            "type": "number",
+            "description": "One-based slide index."
           }
         },
         "required": [
-          "deleted"
+          "name",
+          "slideIndex"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the deleteTextBox WPS Action."
@@ -10032,17 +10145,29 @@
         "properties": {
           "index": {
             "description": "Value passed as the 'index' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
-        "required": [
-          "slideIndex"
-        ],
-        "additionalProperties": false
+        "required": [],
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "slideIndex"
+            ]
+          },
+          {
+            "required": [
+              "index"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
@@ -10117,7 +10242,8 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "width": {
             "description": "Value passed as the 'width' Action parameter.",
@@ -10125,51 +10251,52 @@
           }
         },
         "required": [
-          "outputPath",
           "slideIndex"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "outputPath"
+            ]
+          },
+          {
+            "required": [
+              "path"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
-          "bytes": {
+          "slideIndex": {
             "type": "number",
-            "description": "Value returned as the 'bytes' result field."
-          },
-          "format": {
-            "type": "string",
-            "description": "Value returned as the 'format' result field."
-          },
-          "height": {
-            "type": "number",
-            "description": "Value returned as the 'height' result field."
+            "description": "One-based exported slide index."
           },
           "outputPath": {
             "type": "string",
-            "description": "Value returned as the 'outputPath' result field."
+            "description": "Image output path."
           },
-          "presentation": {
+          "format": {
             "type": "string",
-            "description": "Value returned as the 'presentation' result field."
-          },
-          "slideIndex": {
-            "type": "number",
-            "description": "Value returned as the 'slideIndex' result field."
+            "description": "WPS image filter name."
           },
           "width": {
             "type": "number",
-            "description": "Value returned as the 'width' result field."
+            "description": "Export width in pixels."
+          },
+          "height": {
+            "type": "number",
+            "description": "Export height in pixels."
           }
         },
         "required": [
-          "bytes",
-          "format",
-          "height",
-          "outputPath",
-          "presentation",
           "slideIndex",
-          "width"
+          "outputPath",
+          "format",
+          "width",
+          "height"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the exportSlideAsImage WPS Action."
@@ -10262,49 +10389,21 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
+            "description": "Active presentation name."
           },
           "path": {
             "type": "string",
-            "description": "Value returned as the 'path' result field."
+            "description": "Active presentation path."
           },
           "slideCount": {
             "type": "number",
-            "description": "Value returned as the 'slideCount' result field."
-          },
-          "slides": {
-            "type": "array",
-            "description": "Value returned as the 'slides' result field.",
-            "items": {
-              "type": "object",
-              "properties": {
-                "index": {
-                  "type": "number"
-                },
-                "shapeCount": {
-                  "type": "number"
-                },
-                "shapes": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              },
-              "required": [
-                "index",
-                "shapeCount",
-                "shapes"
-              ],
-              "additionalProperties": false
-            }
+            "description": "Number of slides."
           }
         },
         "required": [
           "name",
           "path",
-          "slideCount",
-          "slides"
+          "slideCount"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the getActivePresentation WPS Action."
@@ -10449,19 +10548,23 @@
         "properties": {
           "col": {
             "description": "Value passed as the 'col' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "row": {
             "description": "Value passed as the 'row' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableIndex": {
             "description": "Value passed as the 'tableIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableName": {
             "description": "Value passed as the 'tableName' Action parameter.",
@@ -10469,42 +10572,43 @@
           }
         },
         "required": [
-          "col",
-          "row",
           "slideIndex",
-          "tableIndex"
+          "row",
+          "col"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "tableName"
+            ]
+          },
+          {
+            "required": [
+              "tableIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
-          "col": {
-            "type": "number",
-            "description": "Value returned as the 'col' result field."
-          },
-          "colCount": {
-            "type": "number",
-            "description": "Value returned as the 'colCount' result field."
-          },
           "row": {
             "type": "number",
-            "description": "Value returned as the 'row' result field."
+            "description": "One-based row index."
           },
-          "rowCount": {
+          "col": {
             "type": "number",
-            "description": "Value returned as the 'rowCount' result field."
+            "description": "One-based column index."
           },
           "value": {
             "type": "string",
-            "description": "Value returned as the 'value' result field."
+            "description": "Cell text."
           }
         },
         "required": [
-          "col",
-          "colCount",
           "row",
-          "rowCount",
+          "col",
           "value"
         ],
         "additionalProperties": false,
@@ -10641,11 +10745,13 @@
         "properties": {
           "index": {
             "description": "Value passed as the 'index' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -10656,38 +10762,47 @@
       "result": {
         "type": "object",
         "properties": {
-          "index": {
+          "slideIndex": {
             "type": "number",
-            "description": "Value returned as the 'index' result field."
+            "description": "One-based slide index."
           },
           "layout": {
-            "type": "string",
-            "description": "Value returned as the 'layout' result field."
+            "type": "number",
+            "description": "WPS slide layout identifier."
           },
           "shapeCount": {
             "type": "number",
-            "description": "Value returned as the 'shapeCount' result field."
+            "description": "Number of shapes on the slide."
           },
           "shapes": {
             "type": "array",
-            "description": "Value returned as the 'shapes' result field.",
+            "description": "Observable shape summaries.",
             "items": {
               "type": "object",
               "properties": {
+                "index": {
+                  "type": "number",
+                  "description": "One-based shape index."
+                },
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Shape name."
                 },
                 "type": {
-                  "type": "string"
+                  "type": "number",
+                  "description": "WPS shape type identifier."
                 },
                 "hasText": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "Whether the shape exposes text."
                 },
                 "text": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Shape text, empty when unavailable."
                 }
               },
               "required": [
+                "index",
                 "name",
                 "type",
                 "hasText",
@@ -10695,23 +10810,13 @@
               ],
               "additionalProperties": false
             }
-          },
-          "shapesCount": {
-            "type": "number",
-            "description": "Value returned as the 'shapesCount' result field."
-          },
-          "slideIndex": {
-            "type": "number",
-            "description": "Value returned as the 'slideIndex' result field."
           }
         },
         "required": [
-          "index",
+          "slideIndex",
           "layout",
           "shapeCount",
-          "shapes",
-          "shapesCount",
-          "slideIndex"
+          "shapes"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the getSlideInfo WPS Action."
@@ -10798,11 +10903,13 @@
         "properties": {
           "index": {
             "description": "Value passed as the 'index' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -10844,7 +10951,8 @@
         "properties": {
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -10886,7 +10994,8 @@
         "properties": {
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -11082,7 +11191,8 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "top": {
             "description": "Value passed as the 'top' Action parameter.",
@@ -11104,16 +11214,21 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
+            "description": "Created picture shape name."
           },
           "path": {
             "type": "string",
-            "description": "Value returned as the 'path' result field."
+            "description": "Inserted image path."
+          },
+          "slideIndex": {
+            "type": "number",
+            "description": "One-based slide index."
           }
         },
         "required": [
           "name",
-          "path"
+          "path",
+          "slideIndex"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the insertPptImage WPS Action."
@@ -11133,7 +11248,8 @@
         "properties": {
           "cols": {
             "description": "Value passed as the 'cols' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "height": {
             "description": "Value passed as the 'height' Action parameter.",
@@ -11145,11 +11261,13 @@
           },
           "rows": {
             "description": "Value passed as the 'rows' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "top": {
             "description": "Value passed as the 'top' Action parameter.",
@@ -11170,23 +11288,28 @@
       "result": {
         "type": "object",
         "properties": {
-          "cols": {
-            "type": "number",
-            "description": "Value returned as the 'cols' result field."
-          },
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
+            "description": "Created table shape name."
           },
           "rows": {
             "type": "number",
-            "description": "Value returned as the 'rows' result field."
+            "description": "Table row count."
+          },
+          "cols": {
+            "type": "number",
+            "description": "Table column count."
+          },
+          "slideIndex": {
+            "type": "number",
+            "description": "One-based slide index."
           }
         },
         "required": [
-          "cols",
           "name",
-          "rows"
+          "rows",
+          "cols",
+          "slideIndex"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the insertPptTable WPS Action."
@@ -11278,7 +11401,8 @@
           },
           "fromIndex": {
             "description": "Value passed as the 'fromIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "to": {
             "description": "Value passed as the 'to' Action parameter.",
@@ -11286,7 +11410,8 @@
           },
           "toIndex": {
             "description": "Value passed as the 'toIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -11299,12 +11424,12 @@
         "type": "object",
         "properties": {
           "from": {
-            "type": "string",
-            "description": "Value returned as the 'from' result field."
+            "type": "number",
+            "description": "Original one-based slide index."
           },
           "to": {
-            "type": "string",
-            "description": "Value returned as the 'to' result field."
+            "type": "number",
+            "description": "Destination one-based slide index."
           }
         },
         "required": [
@@ -11892,29 +12017,41 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
-          "color",
-          "slideIndex"
+          "color"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "slideIndex"
+            ]
+          },
+          {
+            "required": [
+              "applyToAll"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
-          "appliedTo": {
-            "type": "number",
-            "description": "Value returned as the 'appliedTo' result field."
-          },
           "color": {
-            "type": "number",
-            "description": "Value returned as the 'color' result field."
+            "type": "string",
+            "description": "Applied hexadecimal background color."
           },
           "slideIndex": {
             "type": "number",
-            "description": "Value returned as the 'slideIndex' result field."
+            "description": "One-based slide index when one slide was changed."
+          },
+          "appliedTo": {
+            "type": "number",
+            "description": "Slide count when all slides were changed."
           }
         },
         "required": [
@@ -11987,29 +12124,31 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
-          "slideIndex"
+          "slideIndex",
+          "path"
         ],
         "additionalProperties": false
       },
       "result": {
         "type": "object",
         "properties": {
-          "path": {
-            "type": "string",
-            "description": "Value returned as the 'path' result field."
-          },
           "slideIndex": {
             "type": "number",
-            "description": "Value returned as the 'slideIndex' result field."
+            "description": "One-based slide index."
+          },
+          "path": {
+            "type": "string",
+            "description": "Applied background image path."
           }
         },
         "required": [
-          "path",
-          "slideIndex"
+          "slideIndex",
+          "path"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the setBackgroundImage WPS Action."
@@ -12097,11 +12236,13 @@
           },
           "shapeIndex": {
             "description": "Value passed as the 'shapeIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "top": {
             "description": "Value passed as the 'top' Action parameter.",
@@ -12115,7 +12256,19 @@
         "required": [
           "slideIndex"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "shapeIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
@@ -12389,19 +12542,23 @@
         "properties": {
           "col": {
             "description": "Value passed as the 'col' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "row": {
             "description": "Value passed as the 'row' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableIndex": {
             "description": "Value passed as the 'tableIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableName": {
             "description": "Value passed as the 'tableName' Action parameter.",
@@ -12417,13 +12574,24 @@
           }
         },
         "required": [
-          "col",
-          "row",
           "slideIndex",
-          "tableIndex",
+          "row",
+          "col",
           "text"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "tableName"
+            ]
+          },
+          {
+            "required": [
+              "tableIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
@@ -12472,7 +12640,8 @@
           },
           "col": {
             "description": "Value passed as the 'col' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "fontColor": {
             "description": "Value passed as the 'fontColor' Action parameter.",
@@ -12484,15 +12653,18 @@
           },
           "row": {
             "description": "Value passed as the 'row' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableIndex": {
             "description": "Value passed as the 'tableIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableName": {
             "description": "Value passed as the 'tableName' Action parameter.",
@@ -12500,12 +12672,23 @@
           }
         },
         "required": [
-          "col",
-          "row",
           "slideIndex",
-          "tableIndex"
+          "row",
+          "col"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "tableName"
+            ]
+          },
+          {
+            "required": [
+              "tableIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
@@ -12557,15 +12740,18 @@
           },
           "row": {
             "description": "Value passed as the 'row' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableIndex": {
             "description": "Value passed as the 'tableIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableName": {
             "description": "Value passed as the 'tableName' Action parameter.",
@@ -12573,11 +12759,22 @@
           }
         },
         "required": [
-          "row",
           "slideIndex",
-          "tableIndex"
+          "row"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "tableName"
+            ]
+          },
+          {
+            "required": [
+              "tableIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
@@ -12616,11 +12813,13 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableIndex": {
             "description": "Value passed as the 'tableIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "tableName": {
             "description": "Value passed as the 'tableName' Action parameter.",
@@ -12636,10 +12835,21 @@
           }
         },
         "required": [
-          "slideIndex",
-          "tableIndex"
+          "slideIndex"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "tableName"
+            ]
+          },
+          {
+            "required": [
+              "tableIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
@@ -13316,20 +13526,59 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
+          },
+          "path": {
+            "type": "string",
+            "description": "Alias for the background image path."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "Alias for the background image path."
           }
         },
         "required": [
           "slideIndex"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "color"
+            ]
+          },
+          {
+            "required": [
+              "imagePath"
+            ]
+          },
+          {
+            "required": [
+              "path"
+            ]
+          },
+          {
+            "required": [
+              "filePath"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
           "slideIndex": {
             "type": "number",
-            "description": "Value returned as the 'slideIndex' result field."
+            "description": "One-based slide index."
+          },
+          "color": {
+            "type": "string",
+            "description": "Applied color when provided."
+          },
+          "imagePath": {
+            "type": "string",
+            "description": "Applied image path when provided."
           }
         },
         "required": [
@@ -13357,7 +13606,8 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -13371,11 +13621,16 @@
         "properties": {
           "slideIndex": {
             "type": "number",
-            "description": "Value returned as the 'slideIndex' result field."
+            "description": "One-based slide index."
+          },
+          "content": {
+            "type": "string",
+            "description": "Resulting content placeholder text."
           }
         },
         "required": [
-          "slideIndex"
+          "slideIndex",
+          "content"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the setSlideContent WPS Action."
@@ -13395,7 +13650,8 @@
         "properties": {
           "index": {
             "description": "Value passed as the 'index' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "layout": {
             "description": "Value passed as the 'layout' Action parameter.",
@@ -13403,7 +13659,8 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -13446,7 +13703,8 @@
         "properties": {
           "index": {
             "description": "Value passed as the 'index' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "notes": {
             "description": "Value passed as the 'notes' Action parameter.",
@@ -13454,7 +13712,8 @@
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -13468,11 +13727,16 @@
         "properties": {
           "slideIndex": {
             "type": "number",
-            "description": "Value returned as the 'slideIndex' result field."
+            "description": "One-based slide index."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Resulting speaker notes."
           }
         },
         "required": [
-          "slideIndex"
+          "slideIndex",
+          "notes"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the setSlideNotes WPS Action."
@@ -13543,21 +13807,21 @@
       "result": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "description": "Value returned as the 'success' result field."
+          "width": {
+            "type": "number",
+            "description": "Presentation slide width in points."
           },
-          "message": {
-            "type": "string",
-            "description": "Value returned as the 'message' result field."
+          "height": {
+            "type": "number",
+            "description": "Presentation slide height in points."
           }
         },
         "required": [
-          "success",
-          "message"
+          "width",
+          "height"
         ],
         "additionalProperties": false,
-        "description": "Result payload declared by the legacy handler for the setSlideSize WPS Action."
+        "description": "Result payload returned by the setSlideSize WPS Action."
       },
       "prerequisites": [
         "wps_running",
@@ -13574,7 +13838,8 @@
         "properties": {
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "subtitle": {
             "description": "Value passed as the 'subtitle' Action parameter.",
@@ -13663,7 +13928,8 @@
         "properties": {
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "title": {
             "description": "Value passed as the 'title' Action parameter.",
@@ -13671,6 +13937,7 @@
           }
         },
         "required": [
+          "slideIndex",
           "title"
         ],
         "additionalProperties": false
@@ -13784,17 +14051,31 @@
           },
           "shapeIndex": {
             "description": "Value passed as the 'shapeIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
           "slideIndex"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "shapeIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
@@ -13829,11 +14110,13 @@
           },
           "shapeIndex": {
             "description": "Value passed as the 'shapeIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "text": {
             "description": "Value passed as the 'text' Action parameter.",
@@ -13844,23 +14127,40 @@
           "slideIndex",
           "text"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "shapeIndex"
+            ]
+          }
+        ]
       },
       "result": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
-            "description": "Value returned as the 'name' result field."
+            "description": "Updated text box shape name."
           },
           "text": {
             "type": "string",
-            "description": "Value returned as the 'text' result field."
+            "description": "Resulting text."
+          },
+          "slideIndex": {
+            "type": "number",
+            "description": "One-based slide index."
           }
         },
         "required": [
           "name",
-          "text"
+          "text",
+          "slideIndex"
         ],
         "additionalProperties": false,
         "description": "Result payload returned by the setTextBoxText WPS Action."
@@ -13959,7 +14259,8 @@
         "properties": {
           "index": {
             "description": "Value passed as the 'index' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "name": {
             "description": "Value passed as the 'name' Action parameter.",
@@ -13999,11 +14300,13 @@
         "properties": {
           "index": {
             "description": "Value passed as the 'index' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           }
         },
         "required": [
@@ -14015,8 +14318,8 @@
         "type": "object",
         "properties": {
           "currentSlide": {
-            "type": "string",
-            "description": "Value returned as the 'currentSlide' result field."
+            "type": "number",
+            "description": "Current one-based slide index."
           }
         },
         "required": [

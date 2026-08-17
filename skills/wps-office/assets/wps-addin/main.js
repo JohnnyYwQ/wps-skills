@@ -307,6 +307,9 @@ function handleAction(actionRequest) {
             case 'setSlideLayout':
                 result = handleSetSlideLayout(actionRequest.params);
                 break;
+            case 'setSlideSize':
+                result = handleSetSlideSize(actionRequest.params);
+                break;
             case 'getSlideNotes':
                 result = handleGetSlideNotes(actionRequest.params);
                 break;
@@ -1772,7 +1775,7 @@ function handleAddSlide(params) {
                     var shape = slide.Shapes.Item(i);
                     if (shape.Type === 14 && shape.PlaceholderFormat) { // msoPlaceholder
                         var phType = shape.PlaceholderFormat.Type;
-                        if (phType === 2 || phType === 15) { // ppPlaceholderBody or ppPlaceholderObject
+                        if (phType === 2 || phType === 7 || phType === 15) {
                             shape.TextFrame.TextRange.Text = params.content;
                             break;
                         }
@@ -1783,7 +1786,10 @@ function handleAddSlide(params) {
             }
         }
 
-        return { success: true, data: { slideIndex: slide.SlideIndex } };
+        return {
+            success: true,
+            data: { slideIndex: slide.SlideIndex, layout: layoutInput }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -1862,7 +1868,14 @@ function handleBeautifySlide(params) {
 function handleCreatePresentation(params) {
     try {
         var ppt = Application.Presentations.Add();
-        return { success: true, data: { name: ppt.Name, slideCount: ppt.Slides.Count } };
+        return {
+            success: true,
+            data: {
+                name: ppt.Name,
+                path: ppt.FullName || '',
+                slideCount: ppt.Slides.Count
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -1981,9 +1994,29 @@ function handleGetSlideInfo(params) {
         var shapes = [];
         for (var i = 1; i <= slide.Shapes.Count; i++) {
             var shape = slide.Shapes.Item(i);
-            shapes.push({ name: shape.Name, type: shape.Type, hasText: shape.HasTextFrame ? true : false });
+            var hasText = false;
+            var text = '';
+            try {
+                hasText = !!(shape.HasTextFrame && shape.TextFrame.HasText);
+                if (hasText) text = shape.TextFrame.TextRange.Text || '';
+            } catch (ignored) {}
+            shapes.push({
+                index: i,
+                name: shape.Name,
+                type: shape.Type,
+                hasText: hasText,
+                text: text
+            });
         }
-        return { success: true, data: { index: index, shapeCount: slide.Shapes.Count, shapes: shapes, layout: slide.Layout } };
+        return {
+            success: true,
+            data: {
+                slideIndex: index,
+                shapeCount: slide.Shapes.Count,
+                shapes: shapes,
+                layout: slide.Layout
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -2008,10 +2041,39 @@ function handleSetSlideLayout(params) {
         var ppt = Application.ActivePresentation;
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.index || params.slideIndex || 1;
-        var layoutMap = { 'title': 1, 'titleContent': 2, 'blank': 12, 'twoColumn': 4, 'comparison': 5, 'titleOnly': 11 };
+        var layoutMap = {
+            'title': 1,
+            'title_content': 2,
+            'titleContent': 2,
+            'blank': 12,
+            'two_column': 3,
+            'twoColumn': 3,
+            'comparison': 4,
+            'title_only': 11,
+            'titleOnly': 11
+        };
         var layout = layoutMap[params.layout] || params.layout || 2;
         ppt.Slides.Item(index).Layout = layout;
-        return { success: true, data: { slideIndex: index, layout: layout } };
+        return { success: true, data: { slideIndex: index, layout: params.layout } };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+// 设置演示文稿页面尺寸
+function handleSetSlideSize(params) {
+    try {
+        var ppt = Application.ActivePresentation;
+        if (!ppt) return { success: false, error: '没有打开的演示文稿' };
+        ppt.PageSetup.SlideWidth = params.width;
+        ppt.PageSetup.SlideHeight = params.height;
+        return {
+            success: true,
+            data: {
+                width: ppt.PageSetup.SlideWidth,
+                height: ppt.PageSetup.SlideHeight
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -2042,7 +2104,10 @@ function handleSetSlideNotes(params) {
         var index = params.index || params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
         slide.NotesPage.Shapes.Item(2).TextFrame.TextRange.Text = params.notes || '';
-        return { success: true, data: { slideIndex: index } };
+        return {
+            success: true,
+            data: { slideIndex: index, notes: params.notes }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -2057,10 +2122,10 @@ function handleAddTextBox(params) {
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
-        var left = params.left || 100;
-        var top = params.top || 100;
-        var width = params.width || 200;
-        var height = params.height || 50;
+        var left = params.left !== undefined ? params.left : 100;
+        var top = params.top !== undefined ? params.top : 100;
+        var width = params.width !== undefined ? params.width : 200;
+        var height = params.height !== undefined ? params.height : 50;
         var textBox = slide.Shapes.AddTextbox(1, left, top, width, height);
         if (params.text) {
             textBox.TextFrame.TextRange.Text = params.text;
@@ -2085,8 +2150,9 @@ function handleDeleteTextBox(params) {
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
         var shape = slide.Shapes.Item(params.name || params.shapeIndex);
+        var shapeName = shape.Name;
         shape.Delete();
-        return { success: true, data: { deleted: params.name || params.shapeIndex } };
+        return { success: true, data: { name: shapeName, slideIndex: index } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -2123,7 +2189,10 @@ function handleSetTextBoxText(params) {
         var slide = ppt.Slides.Item(index);
         var shape = slide.Shapes.Item(params.name || params.shapeIndex);
         shape.TextFrame.TextRange.Text = params.text || '';
-        return { success: true, data: { name: shape.Name, text: params.text } };
+        return {
+            success: true,
+            data: { name: shape.Name, text: params.text, slideIndex: index }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -2200,7 +2269,7 @@ function handleSetSlideSubtitle(params) {
         var slide = ppt.Slides.Item(index);
         for (var i = 1; i <= slide.Shapes.Count; i++) {
             var shape = slide.Shapes.Item(i);
-            if (shape.PlaceholderFormat && shape.PlaceholderFormat.Type === 2) {
+            if (shape.PlaceholderFormat && shape.PlaceholderFormat.Type === 4) {
                 shape.TextFrame.TextRange.Text = params.subtitle || '';
                 return { success: true, data: { slideIndex: index, subtitle: params.subtitle } };
             }
@@ -2220,9 +2289,16 @@ function handleSetSlideContent(params) {
         var slide = ppt.Slides.Item(index);
         for (var i = 1; i <= slide.Shapes.Count; i++) {
             var shape = slide.Shapes.Item(i);
-            if (shape.PlaceholderFormat && shape.PlaceholderFormat.Type === 7) {
+            if (shape.PlaceholderFormat) {
+                var placeholderType = shape.PlaceholderFormat.Type;
+                if (placeholderType !== 2 && placeholderType !== 7 && placeholderType !== 15) {
+                    continue;
+                }
                 shape.TextFrame.TextRange.Text = params.content || '';
-                return { success: true, data: { slideIndex: index } };
+                return {
+                    success: true,
+                    data: { slideIndex: index, content: params.content }
+                };
             }
         }
         return { success: false, error: '未找到内容占位符' };
@@ -2360,12 +2436,15 @@ function handleInsertPptImage(params) {
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
-        var left = params.left || 100;
-        var top = params.top || 100;
-        var width = params.width || -1;
-        var height = params.height || -1;
+        var left = params.left !== undefined ? params.left : 100;
+        var top = params.top !== undefined ? params.top : 100;
+        var width = params.width !== undefined ? params.width : -1;
+        var height = params.height !== undefined ? params.height : -1;
         var pic = slide.Shapes.AddPicture(params.path, false, true, left, top, width, height);
-        return { success: true, data: { name: pic.Name, path: params.path } };
+        return {
+            success: true,
+            data: { name: pic.Name, path: params.path, slideIndex: index }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -2379,8 +2458,9 @@ function handleDeletePptImage(params) {
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
         var shape = slide.Shapes.Item(params.name || params.shapeIndex);
+        var shapeName = shape.Name;
         shape.Delete();
-        return { success: true, data: { deleted: params.name || params.shapeIndex } };
+        return { success: true, data: { name: shapeName, slideIndex: index } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -2439,6 +2519,24 @@ function handleExportSlideAsImage(params) {
 
 // ==================== PPT 表格操作 Handlers ====================
 
+function findPptTableShape(slide, params) {
+    if (params.tableName) {
+        var namedShape = slide.Shapes.Item(params.tableName);
+        return namedShape && namedShape.HasTable ? namedShape : null;
+    }
+
+    var targetTableIndex = params.tableIndex || 1;
+    var tableCount = 0;
+    for (var i = 1; i <= slide.Shapes.Count; i++) {
+        var shape = slide.Shapes.Item(i);
+        if (shape.HasTable) {
+            tableCount++;
+            if (tableCount === targetTableIndex) return shape;
+        }
+    }
+    return null;
+}
+
 // 插入表格
 function handleInsertPptTable(params) {
     try {
@@ -2446,14 +2544,17 @@ function handleInsertPptTable(params) {
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
-        var rows = params.rows || 3;
-        var cols = params.cols || 3;
-        var left = params.left || 100;
-        var top = params.top || 100;
-        var width = params.width || 400;
-        var height = params.height || 200;
+        var rows = params.rows;
+        var cols = params.cols;
+        var left = params.left !== undefined ? params.left : 100;
+        var top = params.top !== undefined ? params.top : 100;
+        var width = params.width !== undefined ? params.width : 400;
+        var height = params.height !== undefined ? params.height : 200;
         var table = slide.Shapes.AddTable(rows, cols, left, top, width, height);
-        return { success: true, data: { name: table.Name, rows: rows, cols: cols } };
+        return {
+            success: true,
+            data: { name: table.Name, rows: rows, cols: cols, slideIndex: index }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -2467,30 +2568,10 @@ function handleSetPptTableCell(params) {
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
 
-        // 修复：遍历所有shapes找到表格，而不是直接用tableIndex
-        var shape = null;
-        var tableCount = 0;
-        var targetTableIndex = params.tableIndex || 1;
-
-        if (params.tableName) {
-            // 用名称查找
-            shape = slide.Shapes.Item(params.tableName);
-        } else {
-            // 遍历找第N个表格
-            for (var i = 1; i <= slide.Shapes.Count; i++) {
-                var s = slide.Shapes.Item(i);
-                if (s.HasTable) {
-                    tableCount++;
-                    if (tableCount === targetTableIndex) {
-                        shape = s;
-                        break;
-                    }
-                }
-            }
-        }
+        var shape = findPptTableShape(slide, params);
 
         if (!shape || !shape.HasTable) {
-            return { success: false, error: '找不到表格，slideIndex=' + index + ', tableIndex=' + targetTableIndex + ', 共找到' + tableCount + '个表格' };
+            return { success: false, error: '找不到表格' };
         }
 
         var cell = shape.Table.Cell(params.row, params.col);
@@ -2510,7 +2591,8 @@ function handleGetPptTableCell(params) {
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
-        var shape = slide.Shapes.Item(params.tableName || params.tableIndex);
+        var shape = findPptTableShape(slide, params);
+        if (!shape) return { success: false, error: '找不到表格' };
         var cell = shape.Table.Cell(params.row, params.col);
         var value = cell.Shape.TextFrame.TextRange.Text;
         return { success: true, data: { row: params.row, col: params.col, value: value } };
@@ -2526,7 +2608,8 @@ function handleSetPptTableStyle(params) {
         if (!ppt) return { success: false, error: '没有打开的演示文稿' };
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
-        var shape = slide.Shapes.Item(params.tableName || params.tableIndex);
+        var shape = findPptTableShape(slide, params);
+        if (!shape) return { success: false, error: '找不到表格' };
         if (params.left !== undefined) shape.Left = params.left;
         if (params.top !== undefined) shape.Top = params.top;
         if (params.width !== undefined) shape.Width = params.width;
@@ -2545,25 +2628,7 @@ function handleSetPptTableCellStyle(params) {
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
 
-        // 遍历找表格
-        var shape = null;
-        var tableCount = 0;
-        var targetTableIndex = params.tableIndex || 1;
-
-        if (params.tableName) {
-            shape = slide.Shapes.Item(params.tableName);
-        } else {
-            for (var i = 1; i <= slide.Shapes.Count; i++) {
-                var s = slide.Shapes.Item(i);
-                if (s.HasTable) {
-                    tableCount++;
-                    if (tableCount === targetTableIndex) {
-                        shape = s;
-                        break;
-                    }
-                }
-            }
-        }
+        var shape = findPptTableShape(slide, params);
 
         if (!shape || !shape.HasTable) {
             return { success: false, error: '找不到表格' };
@@ -2622,21 +2687,7 @@ function handleSetPptTableRowStyle(params) {
         var index = params.slideIndex || 1;
         var slide = ppt.Slides.Item(index);
 
-        // 遍历找表格
-        var shape = null;
-        var tableCount = 0;
-        var targetTableIndex = params.tableIndex || 1;
-
-        for (var i = 1; i <= slide.Shapes.Count; i++) {
-            var s = slide.Shapes.Item(i);
-            if (s.HasTable) {
-                tableCount++;
-                if (tableCount === targetTableIndex) {
-                    shape = s;
-                    break;
-                }
-            }
-        }
+        var shape = findPptTableShape(slide, params);
 
         if (!shape || !shape.HasTable) {
             return { success: false, error: '找不到表格' };
@@ -3648,7 +3699,14 @@ function handleSetSlideBackground(params) {
             slide.FollowMasterBackground = false;
             slide.Background.Fill.UserPicture(imagePath);
         }
-        return { success: true, data: { slideIndex: index } };
+        return {
+            success: true,
+            data: {
+                slideIndex: index,
+                color: params.color,
+                imagePath: imagePath
+            }
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }

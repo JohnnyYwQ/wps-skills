@@ -20,6 +20,9 @@ REPRESENTATIVE_FIXTURES = (
 UNIFIED_ADDIN = REPOSITORY_ROOT / "skills/wps-office/assets/wps-addin/main.js"
 EXCEL_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/excel.md"
 WORD_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/word.md"
+POWERPOINT_REFERENCE = (
+    REPOSITORY_ROOT / "skills/wps-office/references/powerpoint.md"
+)
 
 
 class ActionManifestValidatorTests(unittest.TestCase):
@@ -1064,6 +1067,203 @@ class WordContractTests(unittest.TestCase):
             re.findall(r"`([a-z][A-Za-z0-9]*)`", self.reference_source[start:end])
         )
         self.assertEqual(documented, self.word_actions)
+
+
+class PowerPointCoreContractTests(unittest.TestCase):
+    CORE_ACTIONS = {
+        "addSlide",
+        "addTextBox",
+        "closePresentation",
+        "createPresentation",
+        "deletePptImage",
+        "deleteSlide",
+        "deleteTextBox",
+        "duplicateSlide",
+        "exportSlideAsImage",
+        "getActivePresentation",
+        "getOpenPresentations",
+        "getPptTableCell",
+        "getSlideCount",
+        "getSlideInfo",
+        "getSlideNotes",
+        "getSlideTitle",
+        "getTextBoxes",
+        "insertPptImage",
+        "insertPptTable",
+        "moveSlide",
+        "openPresentation",
+        "setBackgroundColor",
+        "setBackgroundImage",
+        "setImageStyle",
+        "setPptTableCell",
+        "setPptTableCellStyle",
+        "setPptTableRowStyle",
+        "setPptTableStyle",
+        "setSlideBackground",
+        "setSlideContent",
+        "setSlideLayout",
+        "setSlideNotes",
+        "setSlideSize",
+        "setSlideSubtitle",
+        "setSlideTitle",
+        "setTextBoxStyle",
+        "setTextBoxText",
+        "switchPresentation",
+        "switchSlide",
+    }
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.manifest = json.loads(
+            (
+                REPOSITORY_ROOT
+                / "skills/wps-office/references/action-manifest.json"
+            ).read_text(encoding="utf-8")
+        )
+        cls.actions = {entry["action"]: entry for entry in cls.manifest["actions"]}
+        cls.powerpoint_group = cls.manifest["reference_groups"].get(
+            "powerpoint_core", {"actions": []}
+        )
+        cls.group_actions = set(cls.powerpoint_group["actions"])
+        cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
+        cls.reference_source = (
+            POWERPOINT_REFERENCE.read_text(encoding="utf-8")
+            if POWERPOINT_REFERENCE.is_file()
+            else ""
+        )
+
+    def test_core_group_matches_scope_and_addin_dispatch(self) -> None:
+        dispatch_actions = set(
+            re.findall(
+                r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
+                self.addin_source,
+                re.MULTILINE,
+            )
+        )
+
+        self.assertEqual(self.group_actions, self.CORE_ACTIONS)
+        self.assertEqual(self.powerpoint_group.get("reference"), "powerpoint.md")
+        self.assertEqual(self.CORE_ACTIONS - dispatch_actions, set())
+
+        for action_name in sorted(self.CORE_ACTIONS):
+            with self.subTest(action=action_name):
+                action = self.actions[action_name]
+                self.assertEqual(action["application"], "powerpoint")
+                self.assertEqual(action["parameters"]["type"], "object")
+                self.assertEqual(action["result"]["type"], "object")
+                self.assertFalse(action["parameters"]["additionalProperties"])
+                self.assertFalse(action["result"]["additionalProperties"])
+                self.assertIn(action["risk"], {"read", "write", "destructive"})
+
+    def test_core_inputs_match_the_addin_requirements(self) -> None:
+        required_inputs = {
+            "openPresentation": {"path"},
+            "setSlideContent": {"slideIndex", "content"},
+            "setSlideLayout": {"slideIndex", "layout"},
+            "setSlideNotes": {"slideIndex", "notes"},
+            "setSlideSize": {"width", "height"},
+            "setSlideSubtitle": {"slideIndex", "subtitle"},
+            "setSlideTitle": {"slideIndex", "title"},
+            "insertPptImage": {"slideIndex", "path"},
+            "insertPptTable": {"slideIndex", "rows", "cols"},
+        }
+
+        for action_name, expected in required_inputs.items():
+            with self.subTest(action=action_name):
+                self.assertEqual(
+                    set(self.actions[action_name]["parameters"]["required"]),
+                    expected,
+                )
+
+        for action_name in (
+            "deletePptImage",
+            "deleteTextBox",
+            "getPptTableCell",
+            "setImageStyle",
+            "setPptTableCell",
+            "setPptTableCellStyle",
+            "setPptTableStyle",
+            "setTextBoxStyle",
+            "setTextBoxText",
+        ):
+            with self.subTest(action=action_name):
+                self.assertEqual(
+                    self.actions[action_name]["parameters"].get("anyOf"),
+                    [{"required": ["name"]}, {"required": ["shapeIndex"]}]
+                    if action_name
+                    in {
+                        "deletePptImage",
+                        "deleteTextBox",
+                        "setImageStyle",
+                        "setTextBoxStyle",
+                        "setTextBoxText",
+                    }
+                    else [
+                        {"required": ["tableName"]},
+                        {"required": ["tableIndex"]},
+                    ],
+                )
+
+    def test_context_results_describe_observable_presentation_state(self) -> None:
+        presentation_result = self.actions["getActivePresentation"]["result"]
+        self.assertEqual(
+            presentation_result["required"], ["name", "path", "slideCount"]
+        )
+
+        slide_result = self.actions["getSlideInfo"]["result"]
+        self.assertEqual(
+            set(slide_result["required"]),
+            {"slideIndex", "layout", "shapeCount", "shapes"},
+        )
+        shape_item = slide_result["properties"]["shapes"]["items"]
+        self.assertEqual(
+            set(shape_item["required"]), {"index", "name", "type", "hasText", "text"}
+        )
+
+        table_result = self.actions["getPptTableCell"]["result"]
+        self.assertEqual(
+            set(table_result["required"]), {"row", "col", "value"}
+        )
+
+    def test_destructive_core_actions_are_gated(self) -> None:
+        for action_name in (
+            "closePresentation",
+            "deletePptImage",
+            "deleteSlide",
+            "deleteTextBox",
+            "exportSlideAsImage",
+        ):
+            with self.subTest(action=action_name):
+                self.assertEqual(self.actions[action_name]["risk"], "destructive")
+
+    def test_powerpoint_reference_documents_workflow_and_core_catalog(self) -> None:
+        self.assertTrue(POWERPOINT_REFERENCE.is_file())
+        self.assertIn("scripts/wps.py invoke", self.reference_source)
+        self.assertNotIn("MCP", self.reference_source)
+        self.assertNotIn("Node.js", self.reference_source)
+        self.assertNotIn("PowerShell", self.reference_source)
+
+        workflow_actions = (
+            "createPresentation",
+            "addSlide",
+            "setSlideContent",
+            "insertPptImage",
+            "insertPptTable",
+            "getSlideInfo",
+            "save",
+        )
+        positions = [
+            self.reference_source.find(f"`{action}`") for action in workflow_actions
+        ]
+        self.assertTrue(all(position >= 0 for position in positions))
+        self.assertEqual(positions, sorted(positions))
+
+        start = self.reference_source.index("<!-- powerpoint-core-actions:start -->")
+        end = self.reference_source.index("<!-- powerpoint-core-actions:end -->")
+        documented = set(
+            re.findall(r"`([a-z][A-Za-z0-9]*)`", self.reference_source[start:end])
+        )
+        self.assertEqual(documented, self.CORE_ACTIONS)
 
 
 if __name__ == "__main__":

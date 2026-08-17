@@ -1234,6 +1234,140 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
                 )
                 self.assertEqual(addin.action_request["params"], request["params"])
 
+    def test_powerpoint_core_authoring_workflow_round_trips_through_real_http(self):
+        steps = (
+            (
+                {"action": "createPresentation", "params": {}, "timeout_ms": 2000},
+                {"name": "Presentation1", "path": "", "slideCount": 0},
+            ),
+            (
+                {
+                    "action": "addSlide",
+                    "params": {
+                        "layout": "title_content",
+                        "title": "Quarterly review",
+                        "content": "Highlights",
+                    },
+                    "timeout_ms": 2000,
+                },
+                {"slideIndex": 1, "layout": "title_content"},
+            ),
+            (
+                {
+                    "action": "setSlideContent",
+                    "params": {"slideIndex": 1, "content": "Revenue grew 18%."},
+                    "timeout_ms": 2000,
+                },
+                {"slideIndex": 1, "content": "Revenue grew 18%."},
+            ),
+            (
+                {
+                    "action": "insertPptImage",
+                    "params": {"slideIndex": 1, "path": "/tmp/chart.png"},
+                    "timeout_ms": 2000,
+                },
+                {"name": "Picture 1", "path": "/tmp/chart.png", "slideIndex": 1},
+            ),
+            (
+                {
+                    "action": "insertPptTable",
+                    "params": {"slideIndex": 1, "rows": 2, "cols": 2},
+                    "timeout_ms": 2000,
+                },
+                {
+                    "name": "Table 1",
+                    "rows": 2,
+                    "cols": 2,
+                    "slideIndex": 1,
+                },
+            ),
+            (
+                {
+                    "action": "getSlideInfo",
+                    "params": {"slideIndex": 1},
+                    "timeout_ms": 2000,
+                },
+                {
+                    "slideIndex": 1,
+                    "layout": 2,
+                    "shapeCount": 4,
+                    "shapes": [
+                        {
+                            "index": 1,
+                            "name": "Title 1",
+                            "type": 14,
+                            "hasText": True,
+                            "text": "Quarterly review",
+                        }
+                    ],
+                },
+            ),
+            (
+                {"action": "save", "params": {}, "timeout_ms": 2000},
+                {},
+            ),
+        )
+
+        for request, data in steps:
+            with self.subTest(action=request["action"]):
+                completed, addin = self._invoke_with_fake_addin(
+                    request, {"success": True, "data": data}
+                )
+
+                self.assertEqual(completed.returncode, 0, completed.stdout)
+                self.assertEqual(
+                    json.loads(completed.stdout),
+                    {"ok": True, "action": request["action"], "data": data},
+                )
+                self.assertEqual(addin.action_request["params"], request["params"])
+
+    def test_destructive_powerpoint_edits_require_confirmation_before_addin(self):
+        for request in (
+            {
+                "action": "deleteSlide",
+                "params": {"slideIndex": 2},
+                "timeout_ms": 1000,
+            },
+        ):
+            with self.subTest(action=request["action"]):
+                self._assert_rejected_before_addin(
+                    request, "CONFIRMATION_REQUIRED"
+                )
+
+    def test_invalid_powerpoint_slide_index_never_reaches_the_addin(self):
+        self._assert_rejected_before_addin(
+            {
+                "action": "getSlideInfo",
+                "params": {"slideIndex": 0},
+                "timeout_ms": 1000,
+            },
+            "INVALID_PARAMS",
+        )
+
+    def test_powerpoint_wps_failure_returns_a_structured_error(self):
+        completed, _addin = self._invoke_with_fake_addin(
+            {
+                "action": "getSlideInfo",
+                "params": {"slideIndex": 1},
+                "timeout_ms": 1000,
+            },
+            {"success": False, "error": "No active presentation"},
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "getSlideInfo",
+                "error": {
+                    "code": "WPS_ACTION_FAILED",
+                    "message": "No active presentation",
+                    "retryable": False,
+                },
+            },
+        )
+
     def test_destructive_word_replacements_require_confirmation_before_the_addin(self):
         requests = (
             {
