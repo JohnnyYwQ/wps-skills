@@ -34,7 +34,12 @@ ACTION_FIELDS = {
 REFERENCE_GROUP_FIELDS = {"actions", "reference"}
 REQUIRED_ACTION_FIELDS = ACTION_FIELDS - {"examples"}
 MAPPING_FIELDS = {"tool", "actions", "status", "reason", "decision"}
-MAPPING_STATUSES = {"mapped", "workflow", "retired", "conflict"}
+MAPPING_STATUSES = {"mapped", "workflow", "retired"}
+BRIDGE_EXCEPTION_CATEGORIES = {
+    "javascript_missing",
+    "powershell_missing",
+    "powershell_duplicate_dispatches",
+}
 RETIRED_ACTION_FIELDS = {"action", "decision", "reason", "replacements"}
 RETIRED_CONTRACT_FIELDS = {"action", "decision", "reason", "retired_parameters"}
 REVIEWED_RETIREMENT_DECISION = "ADR-0014"
@@ -85,6 +90,14 @@ def exception_actions(migration_map: Dict[str, Any], key: str) -> set:
     bridge_exceptions = migration_map.get("bridge_exceptions")
     if not isinstance(bridge_exceptions, dict):
         raise ValueError("legacy-tool-action-map.json requires bridge_exceptions")
+    unknown_categories = set(bridge_exceptions) - BRIDGE_EXCEPTION_CATEGORIES
+    if unknown_categories:
+        category = sorted(unknown_categories)[0]
+        raise ValueError(f"unknown bridge exception category '{category}'")
+    missing_categories = BRIDGE_EXCEPTION_CATEGORIES - set(bridge_exceptions)
+    if missing_categories:
+        category = sorted(missing_categories)[0]
+        raise ValueError(f"missing bridge exception category '{category}'")
     exceptions = bridge_exceptions.get(key)
     if not isinstance(exceptions, list):
         raise ValueError(f"bridge_exceptions.{key} must be an array")
@@ -640,15 +653,6 @@ def validate(root: Path) -> int:
     if stale_powershell_exceptions:
         action_name = sorted(stale_powershell_exceptions)[0]
         raise ValueError(f"stale PowerShell bridge exception for '{action_name}'")
-    contract_conflicts = exception_actions(migration_map, "contract_conflicts")
-    invalid_contract_conflicts = contract_conflicts - (
-        action_names & javascript_actions & powershell_actions
-    )
-    if invalid_contract_conflicts:
-        action_name = sorted(invalid_contract_conflicts)[0]
-        raise ValueError(
-            f"contract conflict '{action_name}' must exist in both legacy bridges"
-        )
     legacy_tool_sources = list((root / "wps-office-mcp/src/tools").rglob("*.ts"))
     legacy_tool_sources.append(root / "wps-office-mcp/src/server/mcp-server.ts")
     legacy_tools = set()
@@ -693,14 +697,14 @@ def validate(root: Path) -> int:
             raise ValueError(
                 f"legacy WPS Tool '{tool_name}' status 'workflow' requires WPS Actions"
             )
-        if status in {"retired", "conflict"}:
+        if status == "retired":
             if mapped_actions:
                 raise ValueError(
-                    f"legacy WPS Tool '{tool_name}' status '{status}' cannot map WPS Actions"
+                    f"legacy WPS Tool '{tool_name}' status 'retired' cannot map WPS Actions"
                 )
             if not isinstance(mapping.get("reason"), str) or not mapping["reason"].strip():
                 raise ValueError(
-                    f"legacy WPS Tool '{tool_name}' status '{status}' requires a reason"
+                    f"legacy WPS Tool '{tool_name}' status 'retired' requires a reason"
                 )
         if status == "retired" and mapping.get("decision") != REVIEWED_RETIREMENT_DECISION:
             raise ValueError(

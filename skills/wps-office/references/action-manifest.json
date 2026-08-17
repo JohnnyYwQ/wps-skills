@@ -7888,7 +7888,12 @@
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "startX",
+          "startY",
+          "endX",
+          "endY"
+        ],
         "additionalProperties": false
       },
       "result": {

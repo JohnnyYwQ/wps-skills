@@ -480,7 +480,7 @@ class ActionManifestValidatorTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 1)
         self.assertIn("maps to unknown WPS Action 'notAnAction'", completed.stderr)
 
-    def test_cross_application_mapping_requires_conflict_status(self) -> None:
+    def test_cross_application_mapping_is_rejected(self) -> None:
         with self._minimal_baseline() as root:
             self._write_text(
                 root / "wps-office-mcp/src/tools/common/general.ts",
@@ -495,6 +495,36 @@ class ActionManifestValidatorTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 1)
         self.assertIn("owned by excel maps to common WPS Action 'ping'", completed.stderr)
+
+    def test_conflict_status_is_not_an_available_mapping_escape_hatch(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["legacy_tools"][0].update(
+                {
+                    "actions": [],
+                    "status": "conflict",
+                    "reason": "Temporary conflict exceptions are not permitted.",
+                }
+            )
+            self._write_json(mapping_path, mapping)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("has invalid status 'conflict'", completed.stderr)
+
+    def test_stale_contract_conflict_exceptions_are_rejected(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["bridge_exceptions"]["contract_conflicts"] = []
+            self._write_json(mapping_path, mapping)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("unknown bridge exception category 'contract_conflicts'", completed.stderr)
 
     def test_mapped_tool_without_an_action_is_rejected(self) -> None:
         with self._minimal_baseline() as root:
@@ -677,7 +707,6 @@ class ActionManifestValidatorTests(unittest.TestCase):
                     "javascript_missing": [],
                     "powershell_missing": [],
                     "powershell_duplicate_dispatches": [],
-                    "contract_conflicts": [],
                 },
             },
         )
@@ -804,6 +833,33 @@ class RetirementContractTests(unittest.TestCase):
         )
         self.assertTrue({"startX", "startY", "endX", "endY"}.issubset(parameters))
         self.assertFalse(set(retirement["retired_parameters"]) & set(parameters))
+
+    def test_corrected_cross_application_mappings_are_canonical(self) -> None:
+        mappings = {entry["tool"]: entry for entry in self.ledger["legacy_tools"]}
+
+        self.assertEqual(
+            mappings["wps_excel_add_comment"],
+            {
+                "tool": "wps_excel_add_comment",
+                "actions": ["addCellComment"],
+                "status": "mapped",
+            },
+        )
+        self.assertEqual(
+            mappings["wps_ppt_insert_slide_image"],
+            {
+                "tool": "wps_ppt_insert_slide_image",
+                "actions": ["insertPptImage"],
+                "status": "mapped",
+            },
+        )
+        self.assertFalse(
+            any(entry["status"] == "conflict" for entry in mappings.values())
+        )
+        self.assertEqual(
+            set(self.actions["addArrow"]["parameters"]["required"]),
+            {"startX", "startY", "endX", "endY"},
+        )
 
 
 class ExcelCoreContractTests(unittest.TestCase):

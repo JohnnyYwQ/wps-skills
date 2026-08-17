@@ -122,9 +122,10 @@
     },
     {
       "tool": "wps_excel_add_comment",
-      "actions": [],
-      "status": "conflict",
-      "reason": "The Tool dispatches addComment, but both legacy bridges assign that Action name to Word comments; the Excel capability has no distinct canonical Action."
+      "actions": [
+        "addCellComment"
+      ],
+      "status": "mapped"
     },
     {
       "tool": "wps_excel_auto_fill",
@@ -1150,9 +1151,10 @@
     },
     {
       "tool": "wps_ppt_insert_slide_image",
-      "actions": [],
-      "status": "conflict",
-      "reason": "The Tool dispatches insertImage, but both legacy bridges assign that Action name to Word images; PowerPoint uses insertPptImage for its canonical image Action."
+      "actions": [
+        "insertPptImage"
+      ],
+      "status": "mapped"
     },
     {
       "tool": "wps_ppt_insert_slides_from_file",
@@ -1923,7 +1925,6 @@
         "occurrences": 2,
         "reason": "The legacy switch contains repeated implementations; the manifest records one canonical WPS Action and migration must reconcile them."
       }
-    ],
-    "contract_conflicts": []
+    ]
   }
 }

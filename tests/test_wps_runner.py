@@ -1159,6 +1159,63 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         if addin.error:
             raise addin.error
 
+    def test_canonical_cross_application_actions_round_trip_through_the_addin(self):
+        steps = (
+            (
+                {
+                    "action": "addCellComment",
+                    "params": {"cell": "B4", "text": "Owner: finance"},
+                    "confirmed": True,
+                    "timeout_ms": 1000,
+                },
+                {"cell": "B4", "text": "Owner: finance"},
+            ),
+            (
+                {
+                    "action": "insertPptImage",
+                    "params": {"slideIndex": 1, "path": "/tmp/chart.png"},
+                    "timeout_ms": 1000,
+                },
+                {"name": "Picture 1", "path": "/tmp/chart.png", "slideIndex": 1},
+            ),
+            (
+                {
+                    "action": "addArrow",
+                    "params": {
+                        "startX": 10,
+                        "startY": 20,
+                        "endX": 110,
+                        "endY": 120,
+                    },
+                    "timeout_ms": 1000,
+                },
+                {"name": "Arrow 1"},
+            ),
+        )
+
+        for request, data in steps:
+            with self.subTest(action=request["action"]):
+                completed, addin = self._invoke_with_fake_addin(
+                    request, {"success": True, "data": data}
+                )
+
+                self.assertEqual(completed.returncode, 0, completed.stdout)
+                self.assertEqual(
+                    json.loads(completed.stdout),
+                    {"ok": True, "action": request["action"], "data": data},
+                )
+                self.assertEqual(addin.action_request["params"], request["params"])
+
+    def test_legacy_arrow_bounding_box_is_rejected_before_the_addin(self):
+        self._assert_rejected_before_addin(
+            {
+                "action": "addArrow",
+                "params": {"left": 10, "top": 20, "width": 100, "height": 80},
+                "timeout_ms": 1000,
+            },
+            "INVALID_PARAMS",
+        )
+
     def test_advanced_overwrite_requires_confirmation_before_the_addin(self):
         addin = FakeAddin(
             {"success": True, "data": {"cell": "A1", "text": "replacement"}}
