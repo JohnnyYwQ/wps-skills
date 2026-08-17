@@ -338,6 +338,19 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         RUNNER_ENV = None
         cls.profile_directory.cleanup()
 
+    def _invoke_with_fake_addin(self, request, result):
+        addin = FakeAddin(result)
+        addin.start()
+        completed = invoke_runner(request)
+        addin_finished = addin.finished.wait(1)
+        if not addin_finished:
+            addin.stop()
+            addin.finished.wait(1)
+        self.assertTrue(addin_finished, "Fake Add-in did not finish")
+        if addin.error:
+            raise addin.error
+        return completed, addin
+
     def test_skill_documents_the_python_runner_process_contract(self):
         instructions = SKILL.read_text(encoding="utf-8")
 
@@ -389,24 +402,15 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
 
     def test_write_action_round_trips_without_a_confirmation_marker(self):
         fixture = representative_action("insertText")
-        addin = FakeAddin({"success": True, **fixture["result"]})
-        addin.start()
-
-        completed = invoke_runner(
+        completed, addin = self._invoke_with_fake_addin(
             {
                 "action": fixture["action"],
                 "params": fixture["params"],
                 "timeout_ms": 2000,
-            }
+            },
+            {"success": True, **fixture["result"]},
         )
 
-        addin_finished = addin.finished.wait(1)
-        if not addin_finished:
-            addin.stop()
-            addin.finished.wait(1)
-        self.assertTrue(addin_finished, "Fake Add-in did not finish")
-        if addin.error:
-            raise addin.error
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(
             json.loads(completed.stdout),
@@ -459,25 +463,16 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
 
     def test_confirmed_destructive_action_returns_a_structured_result(self):
         fixture = representative_action("deleteSlide")
-        addin = FakeAddin({"success": True, **fixture["result"]})
-        addin.start()
-
-        completed = invoke_runner(
+        completed, addin = self._invoke_with_fake_addin(
             {
                 "action": fixture["action"],
                 "params": fixture["params"],
                 "confirmed": True,
                 "timeout_ms": 2000,
-            }
+            },
+            {"success": True, **fixture["result"]},
         )
 
-        addin_finished = addin.finished.wait(1)
-        if not addin_finished:
-            addin.stop()
-            addin.finished.wait(1)
-        self.assertTrue(addin_finished, "Fake Add-in did not finish")
-        if addin.error:
-            raise addin.error
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(
             json.loads(completed.stdout),
@@ -592,20 +587,15 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
 
     def test_read_action_round_trips_through_real_loopback_http(self):
         fixture = representative_action("getCellValue")
-        addin = FakeAddin({"success": True, **fixture["result"]})
-        addin.start()
-
-        completed = invoke_runner(
+        completed, addin = self._invoke_with_fake_addin(
             {
                 "action": fixture["action"],
                 "params": fixture["params"],
                 "timeout_ms": 2000,
-            }
+            },
+            {"success": True, **fixture["result"]},
         )
 
-        self.assertTrue(addin.finished.wait(1), "Fake Add-in did not finish")
-        if addin.error:
-            raise addin.error
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(
             json.loads(completed.stdout),
