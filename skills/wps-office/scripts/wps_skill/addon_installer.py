@@ -38,6 +38,8 @@ def _platform_name():
         return "linux"
     if detected in ("win32", "windows"):
         return "windows"
+    if detected == "darwin":
+        return "macos"
     raise AddinInstallError(
         "UNSUPPORTED_PLATFORM", "Unsupported platform: {0}".format(detected)
     )
@@ -60,6 +62,12 @@ def _architecture():
 def _addons_directory(platform_name):
     if platform_name == "windows":
         return Path(os.environ["APPDATA"]) / "kingsoft" / "wps" / "jsaddons"
+    if platform_name == "macos":
+        return (
+            Path.home()
+            / "Library/Containers/com.kingsoft.wpsoffice.mac/Data/.kingsoft/wps"
+            / "jsaddons"
+        )
     data_home = Path(
         os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share"))
     )
@@ -73,6 +81,8 @@ def _addons_directory(platform_name):
 def _config_path(platform_name):
     if platform_name == "windows":
         config_root = Path(os.environ["APPDATA"])
+    elif platform_name == "macos":
+        config_root = Path.home() / "Library" / "Application Support"
     else:
         config_root = Path(
             os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
@@ -210,6 +220,21 @@ def wps_is_running(platform_name):
             if command in process_names:
                 return True
         return False
+    if platform_name == "macos":
+        for process_pattern in ("wpsoffice", "WPS Office"):
+            try:
+                completed = subprocess.run(
+                    ["pgrep", "-f", process_pattern],
+                    text=True,
+                    capture_output=True,
+                    timeout=5,
+                    check=False,
+                )
+            except (OSError, subprocess.SubprocessError):
+                return False
+            if completed.returncode == 0:
+                return True
+        return False
     try:
         completed = subprocess.run(
             ["tasklist", "/FO", "CSV", "/NH"],
@@ -308,6 +333,37 @@ def _stage_addon(addons_directory, source_digest, runtime_config):
     except BaseException:
         shutil.rmtree(str(staging_root), ignore_errors=True)
         raise
+
+
+def _clear_macos_quarantine(platform_name, addon_path):
+    """Clear Gatekeeper quarantine copied into WPS's macOS Add-in profile."""
+    if platform_name != "macos":
+        return
+    try:
+        completed = subprocess.run(
+            ["xattr", "-dr", "com.apple.quarantine", str(addon_path)],
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise AddinInstallError(
+            "MACOS_QUARANTINE_CLEAR_FAILED",
+            "The WPS Add-in quarantine attribute could not be cleared: {0}".format(
+                error
+            ),
+        )
+    if completed.returncode != 0:
+        details = completed.stderr.strip() or completed.stdout.strip()
+        if "No such xattr" in details:
+            return
+        raise AddinInstallError(
+            "MACOS_QUARANTINE_CLEAR_FAILED",
+            "The WPS Add-in quarantine attribute could not be cleared: {0}".format(
+                details
+            ),
+        )
 
 
 def _remove_path(path):
@@ -533,6 +589,8 @@ def _install():
                 registry_path,
                 staged_registry,
             )
+        if platform_name == "macos":
+            _clear_macos_quarantine(platform_name, addon_path)
     finally:
         if staging_root is not None:
             shutil.rmtree(str(staging_root), ignore_errors=True)

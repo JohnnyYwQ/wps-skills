@@ -28,6 +28,7 @@ def run_runner(
     architecture="x86_64",
     options=None,
     wps_running=None,
+    environment_overrides=None,
 ):
     environment = os.environ.copy()
     environment.update(
@@ -44,6 +45,8 @@ def run_runner(
         environment["WPS_SKILL_TEST_WPS_RUNNING"] = (
             "1" if wps_running else "0"
         )
+    if environment_overrides is not None:
+        environment.update(environment_overrides)
     runner_argv = [sys.executable, str(RUNNER), operation]
     if options is not None:
         runner_argv.append(json.dumps(options))
@@ -176,6 +179,99 @@ class AddinInstallerBlackBoxTests(unittest.TestCase):
             self.assertEqual(result["data"]["architecture"], "arm64")
             self.assertEqual(result["data"]["addon_path"], str(addon))
             self.assertTrue((addon / "main.js").is_file())
+
+    def test_macos_arm64_uses_the_wps_container_profile(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            profile = Path(temporary_directory)
+            commands = profile / "commands"
+            commands.mkdir()
+            xattr_log = profile / "xattr.log"
+            xattr = commands / "xattr"
+            xattr.write_text(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$WPS_SKILL_XATTR_LOG\"\n",
+                encoding="utf-8",
+            )
+            xattr.chmod(0o755)
+
+            completed = run_runner(
+                "install",
+                profile,
+                platform_name="darwin",
+                architecture="arm64",
+                environment_overrides={
+                    "PATH": str(commands) + os.pathsep + os.environ["PATH"],
+                    "WPS_SKILL_XATTR_LOG": str(xattr_log),
+                },
+            )
+
+            addon = (
+                profile
+                / "Library/Containers/com.kingsoft.wpsoffice.mac/Data/.kingsoft/wps"
+                / "jsaddons/wps-office-skill_"
+            )
+            result = json.loads(completed.stdout)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(result["data"]["platform"], "macos")
+            self.assertEqual(result["data"]["architecture"], "arm64")
+            self.assertEqual(result["data"]["addon_path"], str(addon))
+            self.assertTrue((addon / "main.js").is_file())
+            self.assertTrue((addon.parent / "publish.xml").is_file())
+            self.assertEqual(
+                xattr_log.read_text(encoding="utf-8").splitlines(),
+                ["-dr", "com.apple.quarantine", str(addon)],
+            )
+
+    def test_macos_install_fails_when_quarantine_cannot_be_cleared(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            profile = Path(temporary_directory)
+            commands = profile / "commands"
+            commands.mkdir()
+            xattr = commands / "xattr"
+            xattr.write_text("#!/bin/sh\nexit 23\n", encoding="utf-8")
+            xattr.chmod(0o755)
+
+            completed = run_runner(
+                "install",
+                profile,
+                platform_name="darwin",
+                architecture="arm64",
+                environment_overrides={
+                    "PATH": str(commands) + os.pathsep + os.environ["PATH"],
+                },
+            )
+
+            self.assertEqual(completed.returncode, 1)
+            result = json.loads(completed.stdout)
+            self.assertEqual(
+                result["error"]["code"], "MACOS_QUARANTINE_CLEAR_FAILED"
+            )
+
+    def test_macos_install_accepts_an_already_clear_quarantine_attribute(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            profile = Path(temporary_directory)
+            commands = profile / "commands"
+            commands.mkdir()
+            xattr = commands / "xattr"
+            xattr.write_text(
+                "#!/bin/sh\necho 'No such xattr' >&2\nexit 1\n",
+                encoding="utf-8",
+            )
+            xattr.chmod(0o755)
+
+            completed = run_runner(
+                "install",
+                profile,
+                platform_name="darwin",
+                architecture="arm64",
+                environment_overrides={
+                    "PATH": str(commands) + os.pathsep + os.environ["PATH"],
+                },
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(
+                json.loads(completed.stdout)["data"]["status"], "installed"
+            )
 
     def test_installer_recognizes_linux_arm64_and_windows_x86_64(self):
         cases = (

@@ -15,7 +15,7 @@ Before every Action workflow, run:
 python3 scripts/wps.py check
 ```
 
-The first check installs or updates the bundled WPS Add-in in the current user's profile on Linux or Windows. Handle `data.status` as follows:
+The first check installs or updates the bundled WPS Add-in in the current user's profile on Linux, macOS, or Windows. On macOS it uses WPS's container profile and clears the copied Add-in's Gatekeeper quarantine attribute. Handle `data.status` as follows:
 
 - `ready`: continue to the Action.
 - `restart_required`: ask the user to fully exit and restart WPS Office, then check again.
@@ -24,7 +24,7 @@ The first check installs or updates the bundled WPS Add-in in the current user's
 
 When a non-ready check includes `data.error`, use its stable transport code to explain the cause; the readiness `status` remains the recovery state for compatibility.
 
-Do not run the Action unless `data.ready` is `true`. The installer recognizes Linux x86_64, Linux ARM64, Windows x86_64, and Windows ARM64; do not claim platform support until the matching real-WPS acceptance suite passes. Setup failures return a stable structured error on stdout and a nonzero exit status.
+Do not run the Action unless `data.ready` is `true`. The installer recognizes Linux x86_64, Linux ARM64, macOS x86_64, macOS ARM64, Windows x86_64, and Windows ARM64. macOS installation is experimental and outside the supported-target matrix until its matching real-WPS acceptance suite passes. Setup failures return a stable structured error on stdout and a nonzero exit status.
 
 ## Choose an Action
 

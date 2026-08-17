@@ -368,7 +368,12 @@ cat ~/Library/Containers/com.kingsoft.wpsoffice.mac/Data/.kingsoft/wps/jsaddons/
 # 应包含 <jsplugin name="claude-assistant" .../> 条目
 ```
 
-3. 强制退出并重启 WPS：
+3. 清理 WPS 实际加载目录的 Gatekeeper 隔离属性：
+```bash
+xattr -dr com.apple.quarantine ~/Library/Containers/com.kingsoft.wpsoffice.mac/Data/.kingsoft/wps/jsaddons/claude-assistant_/
+```
+
+4. 强制退出并重启 WPS：
 ```bash
 # macOS
 pkill -f wpsoffice

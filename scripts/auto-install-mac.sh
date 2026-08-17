@@ -108,6 +108,16 @@ install_addon() {
     # 复制新版本
     cp -r "$ADDON_SOURCE" "$ADDON_TARGET"
 
+    # Gatekeeper 属性必须在 WPS 容器内的实际加载目录清理。
+    XATTR_OUTPUT=""
+    if ! XATTR_OUTPUT=$(xattr -dr com.apple.quarantine "$ADDON_TARGET" 2>&1); then
+        if [[ "$XATTR_OUTPUT" != *"No such xattr"* ]]; then
+            echo -e "${RED}❌ 无法清理加载项目录的 Gatekeeper 隔离属性${NC}"
+            echo "$XATTR_OUTPUT"
+            exit 1
+        fi
+    fi
+
     # 确保脚本可执行
     chmod +x "$ADDON_TARGET/wps-auto.sh" 2>/dev/null || true
 
