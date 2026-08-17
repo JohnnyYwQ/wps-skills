@@ -101,6 +101,14 @@ export {
   insertTextHandler,
   findReplaceDefinition,
   findReplaceHandler,
+  getParagraphsDefinition,
+  getParagraphsHandler,
+  findInDocumentDefinition,
+  findInDocumentHandler,
+  smartFillFieldDefinition,
+  smartFillFieldHandler,
+  replaceBookmarkContentDefinition,
+  replaceBookmarkContentHandler,
 } from './word';
 
 // PPT相关导出

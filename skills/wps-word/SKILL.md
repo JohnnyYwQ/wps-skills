@@ -64,7 +64,7 @@ description: WPS 文字智能助手，通过自然语言操控 Word 文档，解
 
 ### Step 4: 执行操作
 
-调用相应MCP工具完成操作（共24个已注册工具）：
+调用相应MCP工具完成操作（共32个已注册工具）：
 
 **文档管理：**
 - `wps_word_get_open_documents`：获取打开的文档列表
@@ -82,7 +82,7 @@ description: WPS 文字智能助手，通过自然语言操控 Word 文档，解
 - `wps_word_insert_page_break`：插入分页符
 - `wps_word_insert_bookmark`：插入书签（name）
 
-**模板填写与文档分析（v2 新增，目前 Windows 优先支持）：**
+**模板填写与文档分析（v2 新增，Windows/macOS 代码路径已覆盖，实际能力以 WPS 验收为准）：**
 - `wps_word_get_paragraphs`：获取段落结构（start_paragraph, end_paragraph）— 了解模板结构、识别填写位置
 - `wps_word_find_in_document`：查找文本位置（find_text, match_case, match_whole_word, max_results）— 仅返回位置不替换
 - `wps_word_smart_fill_field`：智能填写模板字段（keyword, value, fill_mode）— 自动识别下划线/冒号/标签/占位符等填写模式
@@ -105,6 +105,12 @@ description: WPS 文字智能助手，通过自然语言操控 Word 文档，解
 - `wps_word_insert_footer`：设置页脚（text, section）
 - `wps_word_generate_doc_toc`：生成文档目录（基于文档结构自动生成）
 - `wps_word_insert_section_break`：插入分节符（breakType）
+
+**校对与修订：**
+- `wps_word_enable_track_changes`：开启或关闭修订模式（enable）
+- `wps_word_get_track_changes_status`：获取修订模式和修订数量
+- `wps_word_replace_range`：按字符范围精确替换文本（start_pos, end_pos, text）
+- `wps_word_proofread_basic`：检测常见中文错别字、标点和格式问题
 
 ### Step 5: 反馈结果
 
@@ -264,7 +270,7 @@ description: WPS 文字智能助手，通过自然语言操控 Word 文档，解
 
 ## 可用MCP工具
 
-本Skill通过以下MCP工具与WPS Office交互（共24个已注册工具）：
+本Skill通过以下MCP工具与WPS Office交互（共32个已注册工具）：
 
 ### 格式化工具（5个）
 
@@ -276,7 +282,7 @@ description: WPS 文字智能助手，通过自然语言操控 Word 文档，解
 | `wps_word_set_text_color` | 设置Word文档中选中文字的颜色 |
 | `wps_word_set_line_spacing` | 设置段落行距 |
 
-### 内容工具（10个）
+### 内容工具（14个）
 
 | MCP工具名称 | 功能描述 |
 |------------|---------|
@@ -290,6 +296,10 @@ description: WPS 文字智能助手，通过自然语言操控 Word 文档，解
 | `wps_word_insert_section_break` | 插入分节符（用于将文档分为不同的节） |
 | `wps_word_set_paragraph` | 设置当前段落格式（对齐方式、行间距等） |
 | `wps_word_set_page_setup` | 设置文档页面布局（页面方向和边距） |
+| `wps_word_get_paragraphs` | 获取文档段落结构和字符范围 |
+| `wps_word_find_in_document` | 查找文本并返回位置，不执行替换 |
+| `wps_word_smart_fill_field` | 按模板字段形态智能填写内容 |
+| `wps_word_replace_bookmark_content` | 替换书签内容并重建书签范围 |
 
 ### 文档管理工具（9个）
 
@@ -304,6 +314,15 @@ description: WPS 文字智能助手，通过自然语言操控 Word 文档，解
 | `wps_word_insert_footer` | 设置页脚内容 |
 | `wps_word_generate_toc` | 根据文档中的标题样式自动生成目录 |
 | `wps_word_generate_doc_toc` | 自动生成文档目录（根据文档结构自动生成） |
+
+### 校对与修订工具（4个）
+
+| MCP工具名称 | 功能描述 |
+|------------|---------|
+| `wps_word_enable_track_changes` | 开启或关闭修订模式 |
+| `wps_word_get_track_changes_status` | 获取修订模式和修订数量 |
+| `wps_word_replace_range` | 按字符范围精确替换文本 |
+| `wps_word_proofread_basic` | 检测常见中文错别字、标点和格式问题 |
 
 ### 调用示例
 
@@ -401,4 +420,4 @@ wps_word_insert_header({
 
 *Skill by lc2panda - WPS MCP Project*
 
-<!-- 审计记录：2026-03-21 T18 同步工具列表 24个MCP工具，按功能重新分组（格式化5+内容10+文档管理9），与代码100%同步 -->
+<!-- 审计记录：2026-08-17 同步工具列表 32个MCP工具，按功能重新分组（格式化5+内容14+文档管理9+校对4），模板填写动作已补齐Windows/macOS代码路径。 -->

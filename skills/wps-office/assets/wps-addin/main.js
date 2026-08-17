@@ -1432,7 +1432,7 @@ function handleFindInDocument(params) {
                 false,
                 false,
                 true,
-                1,
+                0,
                 false,
                 '',
                 0

@@ -1,4 +1,4 @@
-﻿# Input: Action 名称与 JSON 参数
+# Input: Action 名称与 JSON 参数
 # Output: WPS COM 调用结果 JSON
 # Pos: Windows COM 桥接脚本。一旦我被修改，请更新我的头部注释（Updated: 2026-05-26 15:30:00 CST），以及所属文件夹的md。
 # WPS COM Bridge - PowerShell script for WPS COM operations
@@ -2281,7 +2281,7 @@ switch ($Action) {
         $searchRange = $doc.Content.Duplicate
         $searchRange.Find.ClearFormatting()
         $searchRange.Find.Text = $p.findText
-        $found = $searchRange.Find.Execute($p.findText, $matchCase, $matchWholeWord, $false, $false, $false, $true, 1, $false, "", 0)
+        $found = $searchRange.Find.Execute($p.findText, $matchCase, $matchWholeWord, $false, $false, $false, $true, 0, $false, "", 0)
         while ($found -and $results.Count -lt $maxResults) {
             $matchStart = $searchRange.Start
             $matchEnd = $searchRange.End
@@ -2299,7 +2299,7 @@ switch ($Action) {
             $searchRange = $doc.Range($matchEnd, $doc.Content.End)
             $searchRange.Find.ClearFormatting()
             $searchRange.Find.Text = $p.findText
-            $found = $searchRange.Find.Execute($p.findText, $matchCase, $matchWholeWord, $false, $false, $false, $true, 1, $false, "", 0)
+            $found = $searchRange.Find.Execute($p.findText, $matchCase, $matchWholeWord, $false, $false, $false, $true, 0, $false, "", 0)
         }
         Output-Json @{ success = $true; data = @{ results = $results; count = $results.Count; findText = $p.findText } }
     }

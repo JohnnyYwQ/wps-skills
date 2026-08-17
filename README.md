@@ -13,8 +13,8 @@ Issue #4 已在 `skills/wps-office/` 交付首个可加载的 WPS Skill Package 
 ## 项目定位
 
 本项目是MCP Server + Skills框架，让AI助手（Claude Code/Cursor/Augment等）能操控WPS Office。
-- 231个MCP专业工具 + 12个内置工具 = 243个
-- 支持Excel(82工具) / Word(28工具) / PPT(112工具) / 通用(9工具)
+- 235个MCP专业工具 + 12个内置工具 = 247个
+- 支持Excel(82工具) / Word(32工具) / PPT(112工具) / 通用(9工具)
 - 支持macOS、Windows、Linux
 
 ## 前提条件
@@ -127,10 +127,10 @@ kill %1 2>/dev/null
 ```
 Skills层(SKILL.md自然语言指导)
   ↓ Claude Code调用
-MCP Server层(239个工具)
+MCP Server层(247个工具)
   ↓ wpsClient.executeMethod()
 执行层
-  ├── macOS: wps-claude-assistant (227 action, HTTP轮询)
+  ├── macOS: wps-claude-assistant (231 action, HTTP轮询)
   └── Windows: wps-com.ps1 (231 action, COM接口)
 ```
 
@@ -139,7 +139,7 @@ MCP Server层(239个工具)
 | 应用 | 工具数 | 主要能力 |
 |------|--------|---------|
 | Excel | 82 | 公式/数据/图表/透视表/工作表/格式/工作簿/行列/批注保护/图片导出 |
-| Word | 28 | 格式/内容/文档管理/页眉页脚/批注/模板填写/段落结构 |
+| Word | 32 | 格式/内容/文档管理/页眉页脚/批注/模板填写/段落结构/校对修订 |
 | PPT | 112 | 幻灯片/形状/图片/表格/美化/动画/图表/3D/数据可视化/图片导出 |
 | 通用 | 9 | 保存/连接检测/文本选取/格式转换 |
 | 内置 | 12 | 连接检查/万能方法调用/数据缓存 |

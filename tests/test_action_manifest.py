@@ -18,6 +18,11 @@ REPRESENTATIVE_FIXTURES = (
     REPOSITORY_ROOT / "tests" / "fixtures" / "representative-actions.json"
 )
 UNIFIED_ADDIN = REPOSITORY_ROOT / "skills/wps-office/assets/wps-addin/main.js"
+LEGACY_MAC_MAIN = REPOSITORY_ROOT / "wps-claude-assistant/main.js"
+LEGACY_MAC_WORD_HANDLER = (
+    REPOSITORY_ROOT / "wps-claude-assistant/handlers/word-handler.js"
+)
+WINDOWS_BRIDGE = REPOSITORY_ROOT / "wps-office-mcp/scripts/wps-com.ps1"
 EXCEL_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/excel.md"
 WORD_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/word.md"
 POWERPOINT_REFERENCE = (
@@ -946,6 +951,10 @@ class WordContractTests(unittest.TestCase):
         )
         cls.group_actions = set(cls.word_group["actions"])
         cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
+        cls.legacy_mac_main_source = LEGACY_MAC_MAIN.read_text(encoding="utf-8")
+        cls.legacy_mac_word_handler_source = LEGACY_MAC_WORD_HANDLER.read_text(
+            encoding="utf-8"
+        )
         cls.reference_source = (
             WORD_REFERENCE.read_text(encoding="utf-8")
             if WORD_REFERENCE.is_file()
@@ -1038,6 +1047,76 @@ class WordContractTests(unittest.TestCase):
         ):
             with self.subTest(action=action_name):
                 self.assertEqual(self.actions[action_name]["risk"], "destructive")
+
+    def test_legacy_mac_bridge_dispatches_template_actions(self) -> None:
+        template_actions = {
+            "getDocumentParagraphs": "getDocumentParagraphs",
+            "findInDocument": "findInDocument",
+            "smartFillField": "smartFillField",
+            "replaceBookmarkContent": "replaceBookmarkContent",
+        }
+        dispatch_actions = set(
+            re.findall(
+                r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
+                self.legacy_mac_main_source,
+                re.MULTILINE,
+            )
+        )
+
+        for action, function_name in template_actions.items():
+            with self.subTest(action=action):
+                main_function_name = f"handle{function_name[0].upper()}{function_name[1:]}"
+                self.assertIn(action, dispatch_actions)
+                self.assertRegex(
+                    self.legacy_mac_main_source,
+                    rf"function {main_function_name}\s*\(",
+                )
+                self.assertRegex(
+                    self.legacy_mac_word_handler_source,
+                    rf"function {function_name}\s*\(",
+                )
+                self.assertIn(
+                    f"{function_name}: {function_name}",
+                    self.legacy_mac_word_handler_source,
+                )
+
+    def test_find_in_document_does_not_wrap_and_repeat_matches(self) -> None:
+        bridge_sources = {
+            "unified add-in": self.addin_source,
+            "legacy mac main": self.legacy_mac_main_source,
+            "legacy mac handler": self.legacy_mac_word_handler_source,
+        }
+        for bridge_name, source in bridge_sources.items():
+            with self.subTest(bridge=bridge_name):
+                start = source.index(
+                    "function handleFindInDocument"
+                    if bridge_name != "legacy mac handler"
+                    else "function findInDocument"
+                )
+                end = source.find("\nfunction ", start + 1)
+                block = source[start:] if end < 0 else source[start:end]
+                self.assertRegex(
+                    block,
+                    r"true,\s*\n\s*0,\s*\n\s*false,",
+                    "Find.Execute must use wdFindStop (0), not wdFindContinue (1)",
+                )
+
+        windows_block = WINDOWS_BRIDGE.read_text(encoding="utf-8")
+        start = windows_block.index('"findInDocument" {')
+        end = windows_block.index('"smartFillField" {', start)
+        find_block = windows_block[start:end]
+        self.assertNotIn(
+            "$true, 1, $false, \"\", 0",
+            find_block,
+            "PowerShell Find.Execute must not wrap to the start of the document",
+        )
+        self.assertIn("$true, 0, $false, \"\", 0", find_block)
+
+    def test_windows_bridge_is_bom_free(self) -> None:
+        self.assertTrue(
+            WINDOWS_BRIDGE.read_bytes().startswith(b"# Input:"),
+            "PowerShell bridge must start with its comment, not a UTF-8 BOM",
+        )
 
     def test_word_reference_documents_workflow_and_complete_catalog(self) -> None:
         self.assertTrue(WORD_REFERENCE.is_file())

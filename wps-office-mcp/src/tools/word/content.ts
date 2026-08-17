@@ -17,6 +17,10 @@
  * - wps_word_insert_comment: 插入批注
  * - wps_word_set_font_style: 设置选中文字的字体样式属性
  * - wps_word_set_text_color: 设置文字颜色
+ * - wps_word_get_paragraphs: 获取文档段落结构
+ * - wps_word_find_in_document: 查找文本位置
+ * - wps_word_smart_fill_field: 智能填写模板字段
+ * - wps_word_replace_bookmark_content: 替换书签内容
  */
 
 import { v4 as uuidv4 } from 'uuid';
