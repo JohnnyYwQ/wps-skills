@@ -10,6 +10,12 @@ Issue #4 已在 `skills/wps-office/` 交付首个可加载的 WPS Skill Package 
 
 当前里程碑开放清单中的只读和普通写入 WPS Action；破坏性操作需要明确确认并由 Runner 强制校验 `confirmed: true`。完整能力迁移由后续迁移 Issue 继续交付。下方 Node.js、MCP 和旧平台桥说明仍记录尚未删除的旧运行时，在替代路径通过完整验收前继续保留。
 
+## Linux 使用说明
+
+Linux 不使用 Windows 的 PowerShell COM 桥。当前 WPS Skill Package 会通过 `skills/wps-office/scripts/wps.py check` 在当前用户的 WPS 配置目录安装统一的 WPS JavaScript Add-in；Add-in 通过本机 `127.0.0.1:58891` 轮询 Runner 来执行 WPS Action。Linux x86_64 与 ARM64 均由该路径识别，首次安装或更新后需要完全重启 WPS Office。
+
+旧 MCP 运行时同样通过 `wps-claude-assistant/` 的 JavaScript Add-in 和 HTTP 轮询支持 Linux；`wps-office-mcp/scripts/wps-com.ps1` 仅是保留的 Windows 旧桥，不是 Linux 的前置条件。有关当前 Skill Package 的就绪检查和调用方式，请以 [`skills/wps-office/SKILL.md`](skills/wps-office/SKILL.md) 为准。
+
 ## 项目定位
 
 本项目是MCP Server + Skills框架，让AI助手（Claude Code/Cursor/Augment等）能操控WPS Office。
@@ -125,13 +131,15 @@ kill %1 2>/dev/null
 ## 架构
 
 ```
-Skills层(SKILL.md自然语言指导)
-  ↓ Claude Code调用
-MCP Server层(247个工具)
-  ↓ wpsClient.executeMethod()
-执行层
-  ├── macOS: wps-claude-assistant (231 action, HTTP轮询)
-  └── Windows: wps-com.ps1 (231 action, COM接口)
+WPS Skill Package
+  ↓ WPS Action
+统一 Platform Bridge：WPS JavaScript Add-in + 本机 loopback 轮询
+  ├── Linux x86_64 / ARM64
+  └── Windows x86_64 / ARM64
+
+旧 MCP 运行时（迁移资料，非当前执行路径）
+  ├── wps-claude-assistant（JavaScript Add-in + HTTP 轮询）
+  └── wps-com.ps1（Windows COM，已退休）
 ```
 
 ## 工具清单
