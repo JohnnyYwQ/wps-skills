@@ -33,8 +33,25 @@ ACTION_FIELDS = {
 }
 REFERENCE_GROUP_FIELDS = {"actions", "reference"}
 REQUIRED_ACTION_FIELDS = ACTION_FIELDS - {"examples"}
-MAPPING_FIELDS = {"tool", "actions", "status", "reason"}
+MAPPING_FIELDS = {"tool", "actions", "status", "reason", "decision"}
 MAPPING_STATUSES = {"mapped", "workflow", "retired", "conflict"}
+RETIRED_ACTION_FIELDS = {"action", "decision", "reason", "replacements"}
+RETIRED_CONTRACT_FIELDS = {"action", "decision", "reason", "retired_parameters"}
+REVIEWED_RETIREMENT_DECISION = "ADR-0014"
+ADR_0014_RETIRED_ACTIONS = {"convertFormat", "openFile"}
+ADR_0014_RETIRED_LEGACY_TOOLS = {
+    "wps_cache_data",
+    "wps_clear_cache",
+    "wps_convert_format",
+    "wps_excel_find_replace",
+    "wps_execute_method",
+    "wps_get_cached_data",
+    "wps_list_cache",
+    "wps_word_proofread_basic",
+}
+ADR_0014_RETIRED_CONTRACTS = {
+    "addArrow": {"height", "left", "top", "width"},
+}
 JSON_TYPES = {"array", "boolean", "null", "number", "object", "string"}
 SCHEMA_FIELDS = {
     "additionalProperties",
@@ -335,6 +352,127 @@ def legacy_tool_application(tool_name: str) -> str:
     return ""
 
 
+def validate_retired_actions(
+    migration_map: Dict[str, Any], action_names: set
+) -> set:
+    retired_actions = migration_map.get("retired_actions")
+    if not isinstance(retired_actions, list):
+        raise ValueError("legacy-tool-action-map.json field 'retired_actions' must be an array")
+    retired_names = set()
+    for index, retirement in enumerate(retired_actions):
+        if not isinstance(retirement, dict) or set(retirement) != RETIRED_ACTION_FIELDS:
+            raise ValueError(
+                f"retired_actions[{index}] must contain action, decision, reason, and replacements"
+            )
+        action_name = retirement["action"]
+        if not isinstance(action_name, str) or not re.fullmatch(
+            r"[a-z][A-Za-z0-9]*", action_name
+        ):
+            raise ValueError(f"retired_actions[{index}].action must be a WPS Action name")
+        if action_name in retired_names:
+            raise ValueError(f"duplicate retired WPS Action '{action_name}'")
+        retired_names.add(action_name)
+        if retirement["decision"] != REVIEWED_RETIREMENT_DECISION:
+            raise ValueError(
+                f"retired WPS Action '{action_name}' requires a reviewed decision "
+                f"({REVIEWED_RETIREMENT_DECISION})"
+            )
+        if not isinstance(retirement["reason"], str) or not retirement["reason"].strip():
+            raise ValueError(f"retired WPS Action '{action_name}' requires a reason")
+        replacements = retirement["replacements"]
+        if not isinstance(replacements, list) or not all(
+            isinstance(replacement, str) and replacement
+            for replacement in replacements
+        ) or len(replacements) != len(set(replacements)):
+            raise ValueError(
+                f"retired WPS Action '{action_name}'.replacements must be a unique Action array"
+            )
+        unknown_replacements = set(replacements) - action_names
+        if unknown_replacements:
+            replacement = sorted(unknown_replacements)[0]
+            raise ValueError(
+                f"retired WPS Action '{action_name}' references unknown replacement "
+                f"'{replacement}'"
+            )
+    exposed_actions = retired_names & action_names
+    if exposed_actions:
+        action_name = sorted(exposed_actions)[0]
+        raise ValueError(f"retired WPS Action '{action_name}' is still exposed by the manifest")
+    return retired_names
+
+
+def validate_retired_contracts(
+    migration_map: Dict[str, Any], actions_by_name: Dict[str, Dict[str, Any]]
+) -> Dict[str, set]:
+    retired_contracts = migration_map.get("retired_contracts")
+    if not isinstance(retired_contracts, list):
+        raise ValueError("legacy-tool-action-map.json field 'retired_contracts' must be an array")
+    retired_contracts_by_action = {}
+    for index, retirement in enumerate(retired_contracts):
+        if not isinstance(retirement, dict) or set(retirement) != RETIRED_CONTRACT_FIELDS:
+            raise ValueError(
+                f"retired_contracts[{index}] must contain action, decision, reason, and retired_parameters"
+            )
+        action_name = retirement["action"]
+        if action_name not in actions_by_name:
+            raise ValueError(
+                f"retired contract references unknown WPS Action '{action_name}'"
+            )
+        if action_name in retired_contracts_by_action:
+            raise ValueError(f"duplicate retired contract for WPS Action '{action_name}'")
+        if retirement["decision"] != REVIEWED_RETIREMENT_DECISION:
+            raise ValueError(
+                f"retired contract for WPS Action '{action_name}' requires a reviewed "
+                f"decision ({REVIEWED_RETIREMENT_DECISION})"
+            )
+        if not isinstance(retirement["reason"], str) or not retirement["reason"].strip():
+            raise ValueError(
+                f"retired contract for WPS Action '{action_name}' requires a reason"
+            )
+        parameters = retirement["retired_parameters"]
+        if not isinstance(parameters, list) or not parameters or not all(
+            isinstance(parameter, str) and parameter for parameter in parameters
+        ) or len(parameters) != len(set(parameters)):
+            raise ValueError(
+                f"retired contract for WPS Action '{action_name}'.retired_parameters "
+                "must be a non-empty unique parameter array"
+            )
+        exposed_parameters = set(parameters) & set(
+            actions_by_name[action_name]["parameters"]["properties"]
+        )
+        if exposed_parameters:
+            parameter = sorted(exposed_parameters)[0]
+            raise ValueError(
+                f"retired parameter '{parameter}' is still exposed by WPS Action "
+                f"'{action_name}'"
+            )
+        retired_contracts_by_action[action_name] = set(parameters)
+    return retired_contracts_by_action
+
+
+def validate_reviewed_retirement_boundary(
+    migration_map: Dict[str, Any],
+    retired_actions: set,
+    retired_legacy_tools: set,
+    retired_contracts: Dict[str, set],
+) -> None:
+    schema_version = migration_map.get("schema_version")
+    if not isinstance(schema_version, int) or schema_version < 1:
+        raise ValueError("legacy-tool-action-map.json requires a positive schema_version")
+    if schema_version < 2:
+        if retired_actions or retired_legacy_tools or retired_contracts:
+            raise ValueError(
+                "retirement entries require legacy-tool-action-map.json schema_version 2"
+            )
+        return
+    if retired_actions != ADR_0014_RETIRED_ACTIONS:
+        raise ValueError("retired WPS Actions are not the reviewed ADR-0014 boundary")
+    if retired_legacy_tools != ADR_0014_RETIRED_LEGACY_TOOLS:
+        raise ValueError("retired legacy WPS Tools are not the reviewed ADR-0014 boundary")
+    if retired_contracts != ADR_0014_RETIRED_CONTRACTS:
+        raise ValueError("retired WPS Action contracts are not the reviewed ADR-0014 boundary")
+
+
 def validate(root: Path) -> int:
     manifest = load_json(root, MANIFEST_PATH)
     migration_map = load_json(root, MIGRATION_MAP_PATH)
@@ -343,6 +481,7 @@ def validate(root: Path) -> int:
         raise ValueError("action-manifest.json field 'actions' must be an array")
     action_names = set()
     action_applications = {}
+    actions_by_name = {}
     for index, action in enumerate(actions):
         if not isinstance(action, dict):
             raise ValueError(f"actions[{index}] must be an object")
@@ -396,6 +535,7 @@ def validate(root: Path) -> int:
             raise ValueError(f"duplicate WPS Action '{action_name}'")
         action_names.add(action_name)
         action_applications[action_name] = action["application"]
+        actions_by_name[action_name] = action
         for example in action.get("examples", []):
             example_name = example.get("name", "unnamed")
             validate_example_value(
@@ -408,6 +548,8 @@ def validate(root: Path) -> int:
                 action["result"],
                 f"example '{example_name}' result",
             )
+    retired_action_names = validate_retired_actions(migration_map, action_names)
+    retired_contracts = validate_retired_contracts(migration_map, actions_by_name)
     reference_groups = manifest.get("reference_groups", {})
     if not isinstance(reference_groups, dict):
         raise ValueError("action-manifest.json field 'reference_groups' must be an object")
@@ -441,7 +583,7 @@ def validate(root: Path) -> int:
     javascript_actions = set(
         re.findall(r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:", javascript_source, re.MULTILINE)
     )
-    unmanifested_javascript_actions = javascript_actions - action_names
+    unmanifested_javascript_actions = javascript_actions - action_names - retired_action_names
     if unmanifested_javascript_actions:
         action_name = sorted(unmanifested_javascript_actions)[0]
         raise ValueError(
@@ -480,7 +622,7 @@ def validate(root: Path) -> int:
     if stale_duplicate_exceptions:
         action_name = sorted(stale_duplicate_exceptions)[0]
         raise ValueError(f"stale PowerShell duplicate exception for '{action_name}'")
-    unmanifested_powershell_actions = powershell_actions - action_names
+    unmanifested_powershell_actions = powershell_actions - action_names - retired_action_names
     if unmanifested_powershell_actions:
         action_name = sorted(unmanifested_powershell_actions)[0]
         raise ValueError(
@@ -517,6 +659,7 @@ def validate(root: Path) -> int:
     if not isinstance(mappings, list):
         raise ValueError("legacy-tool-action-map.json field 'legacy_tools' must be an array")
     mapped_tools = set()
+    retired_legacy_tools = set()
     for index, mapping in enumerate(mappings):
         if not isinstance(mapping, dict):
             raise ValueError(f"legacy_tools[{index}] must be an object")
@@ -559,6 +702,13 @@ def validate(root: Path) -> int:
                 raise ValueError(
                     f"legacy WPS Tool '{tool_name}' status '{status}' requires a reason"
                 )
+        if status == "retired" and mapping.get("decision") != REVIEWED_RETIREMENT_DECISION:
+            raise ValueError(
+                f"legacy WPS Tool '{tool_name}' status 'retired' requires a reviewed "
+                f"decision ({REVIEWED_RETIREMENT_DECISION})"
+            )
+        if status == "retired":
+            retired_legacy_tools.add(tool_name)
     unmapped_tools = legacy_tools - mapped_tools
     if unmapped_tools:
         tool_name = sorted(unmapped_tools)[0]
@@ -583,6 +733,12 @@ def validate(root: Path) -> int:
                     f"legacy WPS Tool '{mapping['tool']}' owned by {tool_application} "
                     f"maps to {action_application} WPS Action '{mapped_action}'"
                 )
+    validate_reviewed_retirement_boundary(
+        migration_map,
+        retired_action_names,
+        retired_legacy_tools,
+        retired_contracts,
+    )
     return len(actions)
 
 

@@ -12,7 +12,7 @@ python3 scripts/wps.py invoke '{"action":"getSheetList","params":{},"timeout_ms"
 
 For a typical workbook update, invoke these Actions sequentially and pass returned values into later calls when needed:
 
-1. Use `getActiveWorkbook` to inspect the active workbook and available sheets.
+1. Use `openWorkbook` for an existing file, or `getActiveWorkbook` to inspect the active workbook and available sheets.
 2. Use `switchSheet` with `{"sheet":"Summary"}` to select the target sheet.
 3. Use `setRangeData` with a rectangular two-dimensional `data` array to write values.
 4. Use `setFormula` with a `range` and an Excel `formula` beginning with `=`.
@@ -20,6 +20,9 @@ For a typical workbook update, invoke these Actions sequentially and pass return
 6. Use the common `save` Action to persist the workbook.
 
 Each step is a separate `scripts/wps.py invoke` process. Stop the workflow on the first failure; do not assume that later Actions ran.
+
+Open workbooks only through `openWorkbook`. For spreadsheet replacement, use `findInSheet` and `replaceInSheet`; no Word replacement contract is an Excel Action.
+To create a PDF, use the common `convertToPDF` Action; for other supported output workflows, use `save` or `saveAs` with the application's documented format handling.
 
 ## Choose a Core Action
 

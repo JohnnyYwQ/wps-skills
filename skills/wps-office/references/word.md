@@ -22,6 +22,8 @@ For a typical editing and proofreading workflow, invoke these Actions sequential
 
 Each step is a separate `scripts/wps.py invoke` process. Stop at the first failure and do not assume later changes ran. Character ranges use a zero-based start and exclusive end; paragraph indexes are one-based.
 
+Open existing documents only through `openDocument`. To create a PDF, use the common `convertToPDF` Action; for other supported output workflows, use `save` or `saveAs` with the application's documented format handling.
+
 ## Choose a Word Action
 
 The catalog below is derived from the manifest's `word_workflows` reference group. The manifest remains the source of truth.

@@ -270,62 +270,6 @@
   },
   "actions": [
     {
-      "action": "convertFormat",
-      "application": "common",
-      "description": "Convert format in WPS Common.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "outputPath": {
-            "description": "Value passed as the 'outputPath' Action parameter.",
-            "type": "string"
-          },
-          "targetFormat": {
-            "description": "Value passed as the 'targetFormat' Action parameter.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "targetFormat"
-        ],
-        "additionalProperties": false
-      },
-      "result": {
-        "type": "object",
-        "properties": {
-          "appType": {
-            "type": "string",
-            "description": "Value returned as the 'appType' result field."
-          },
-          "outputPath": {
-            "type": "string",
-            "description": "Value returned as the 'outputPath' result field."
-          },
-          "sourcePath": {
-            "type": "string",
-            "description": "Value returned as the 'sourcePath' result field."
-          },
-          "targetFormat": {
-            "type": "string",
-            "description": "Value returned as the 'targetFormat' result field."
-          }
-        },
-        "required": [
-          "appType",
-          "outputPath",
-          "sourcePath",
-          "targetFormat"
-        ],
-        "additionalProperties": false,
-        "description": "Result payload returned by the convertFormat WPS Action."
-      },
-      "prerequisites": [
-        "wps_running",
-        "active_document"
-      ],
-      "risk": "destructive"
-    },
-    {
       "action": "convertToPDF",
       "application": "common",
       "description": "Convert to pdf in WPS Common.",
@@ -438,51 +382,6 @@
         "active_document"
       ],
       "risk": "read"
-    },
-    {
-      "action": "openFile",
-      "application": "common",
-      "description": "Open file in WPS Common.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "appType": {
-            "description": "Value passed as the 'appType' Action parameter.",
-            "type": "string"
-          },
-          "path": {
-            "description": "Value passed as the 'path' Action parameter.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "path"
-        ],
-        "additionalProperties": false
-      },
-      "result": {
-        "type": "object",
-        "properties": {
-          "appType": {
-            "type": "string",
-            "description": "Value returned as the 'appType' result field."
-          },
-          "path": {
-            "type": "string",
-            "description": "Value returned as the 'path' result field."
-          }
-        },
-        "required": [
-          "appType",
-          "path"
-        ],
-        "additionalProperties": false,
-        "description": "Result payload returned by the openFile WPS Action."
-      },
-      "prerequisites": [
-        "wps_running"
-      ],
-      "risk": "write"
     },
     {
       "action": "ping",
@@ -7960,24 +7859,8 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "height": {
-            "description": "Value passed as the 'height' Action parameter.",
-            "type": "number"
-          },
-          "left": {
-            "description": "Value passed as the 'left' Action parameter.",
-            "type": "number"
-          },
           "slideIndex": {
             "description": "Value passed as the 'slideIndex' Action parameter.",
-            "type": "number"
-          },
-          "top": {
-            "description": "Value passed as the 'top' Action parameter.",
-            "type": "number"
-          },
-          "width": {
-            "description": "Value passed as the 'width' Action parameter.",
             "type": "number"
           },
           "startX": {

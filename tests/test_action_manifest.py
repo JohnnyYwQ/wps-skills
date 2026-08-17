@@ -508,6 +508,122 @@ class ActionManifestValidatorTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 1)
         self.assertIn("status 'mapped' requires exactly one WPS Action", completed.stderr)
 
+    def test_retired_action_must_not_be_exposed_by_the_manifest(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["retired_actions"] = [
+                {
+                    "action": "ping",
+                    "decision": "ADR-0014",
+                    "reason": "A reviewed retirement example.",
+                    "replacements": [],
+                }
+            ]
+            self._write_json(mapping_path, mapping)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("retired WPS Action 'ping' is still exposed", completed.stderr)
+
+    def test_retired_action_requires_a_reviewed_decision_and_reason(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["retired_actions"] = [
+                {
+                    "action": "oldAction",
+                    "decision": "",
+                    "reason": "",
+                    "replacements": [],
+                }
+            ]
+            self._write_json(mapping_path, mapping)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("retired WPS Action 'oldAction' requires a reviewed decision", completed.stderr)
+
+    def test_retired_legacy_tool_requires_a_reviewed_decision(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["legacy_tools"][0].update(
+                {"actions": [], "status": "retired", "reason": "Retired example."}
+            )
+            self._write_json(mapping_path, mapping)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("status 'retired' requires a reviewed decision", completed.stderr)
+
+    def test_retired_contract_parameters_must_not_remain_in_the_manifest(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["retired_contracts"] = [
+                {
+                    "action": "ping",
+                    "decision": "ADR-0014",
+                    "reason": "A reviewed contract retirement example.",
+                    "retired_parameters": ["token"],
+                }
+            ]
+            manifest_path = root / "skills/wps-office/references/action-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["actions"][0]["parameters"]["properties"]["token"] = {
+                "type": "string"
+            }
+            self._write_json(mapping_path, mapping)
+            self._write_json(manifest_path, manifest)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("retired parameter 'token' is still exposed", completed.stderr)
+
+    def test_current_ledger_schema_rejects_an_unreviewed_retirement_boundary(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["schema_version"] = 2
+            mapping["retired_actions"] = [
+                {
+                    "action": "oldAction",
+                    "decision": "ADR-0014",
+                    "reason": "An arbitrary retirement is not accepted.",
+                    "replacements": [],
+                }
+            ]
+            self._write_json(mapping_path, mapping)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("not the reviewed ADR-0014 boundary", completed.stderr)
+
+    def test_retirement_entries_cannot_bypass_the_current_ledger_schema(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["retired_actions"] = [
+                {
+                    "action": "oldAction",
+                    "decision": "ADR-0014",
+                    "reason": "An arbitrary retirement is not accepted.",
+                    "replacements": [],
+                }
+            ]
+            self._write_json(mapping_path, mapping)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("retirement entries require", completed.stderr)
+
     @contextmanager
     def _minimal_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -555,6 +671,8 @@ class ActionManifestValidatorTests(unittest.TestCase):
                         "status": "mapped",
                     }
                 ],
+                "retired_actions": [],
+                "retired_contracts": [],
                 "bridge_exceptions": {
                     "javascript_missing": [],
                     "powershell_missing": [],
@@ -598,6 +716,94 @@ class ActionManifestValidatorTests(unittest.TestCase):
     def _write_text(path: Path, value: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(value, encoding="utf-8")
+
+
+class RetirementContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.manifest = json.loads(
+            (REPOSITORY_ROOT / "skills/wps-office/references/action-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        cls.actions = {entry["action"]: entry for entry in cls.manifest["actions"]}
+        cls.ledger = json.loads(
+            (REPOSITORY_ROOT / "doc/migration/legacy-tool-action-map.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        cls.tools = {entry["tool"]: entry for entry in cls.ledger["legacy_tools"]}
+
+    def test_retired_actions_are_replaced_by_canonical_workflows(self) -> None:
+        retirements = {entry["action"]: entry for entry in self.ledger["retired_actions"]}
+
+        self.assertNotIn("openFile", self.actions)
+        self.assertEqual(
+            retirements["openFile"]["replacements"],
+            ["openDocument", "openWorkbook", "openPresentation"],
+        )
+        self.assertNotIn("convertFormat", self.actions)
+        self.assertEqual(
+            retirements["convertFormat"]["replacements"],
+            ["convertToPDF", "save", "saveAs"],
+        )
+        for retirement in retirements.values():
+            self.assertEqual(retirement["decision"], "ADR-0014")
+            self.assertTrue(retirement["reason"].strip())
+            self.assertTrue(set(retirement["replacements"]).issubset(self.actions))
+
+    def test_accepted_legacy_retirements_are_auditable(self) -> None:
+        expected_retired_tools = {
+            "wps_cache_data",
+            "wps_clear_cache",
+            "wps_execute_method",
+            "wps_get_cached_data",
+            "wps_list_cache",
+            "wps_word_proofread_basic",
+            "wps_convert_format",
+            "wps_excel_find_replace",
+        }
+        retired_tools = {
+            tool_name
+            for tool_name, entry in self.tools.items()
+            if entry["status"] == "retired"
+        }
+
+        self.assertEqual(retired_tools, expected_retired_tools)
+        for tool_name in expected_retired_tools:
+            with self.subTest(tool=tool_name):
+                entry = self.tools[tool_name]
+                self.assertEqual(entry["actions"], [])
+                self.assertEqual(entry["decision"], "ADR-0014")
+                self.assertTrue(entry["reason"].strip())
+
+    def test_application_references_use_canonical_open_and_excel_replace_actions(self) -> None:
+        references = {
+            "excel": EXCEL_REFERENCE.read_text(encoding="utf-8"),
+            "word": WORD_REFERENCE.read_text(encoding="utf-8"),
+            "powerpoint": POWERPOINT_REFERENCE.read_text(encoding="utf-8"),
+        }
+
+        self.assertIn("`openWorkbook`", references["excel"])
+        self.assertIn("`openDocument`", references["word"])
+        self.assertIn("`openPresentation`", references["powerpoint"])
+        self.assertIn("`replaceInSheet`", references["excel"])
+        self.assertNotIn("`findReplace`", references["excel"])
+        for source in references.values():
+            self.assertNotIn("`openFile`", source)
+            self.assertNotIn("`convertFormat`", source)
+
+    def test_add_arrow_uses_only_the_packaged_coordinate_contract(self) -> None:
+        retirement = self.ledger["retired_contracts"][0]
+        parameters = self.actions["addArrow"]["parameters"]["properties"]
+
+        self.assertEqual(retirement["action"], "addArrow")
+        self.assertEqual(retirement["decision"], "ADR-0014")
+        self.assertEqual(
+            retirement["retired_parameters"], ["height", "left", "top", "width"]
+        )
+        self.assertTrue({"startX", "startY", "endX", "endY"}.issubset(parameters))
+        self.assertFalse(set(retirement["retired_parameters"]) & set(parameters))
 
 
 class ExcelCoreContractTests(unittest.TestCase):

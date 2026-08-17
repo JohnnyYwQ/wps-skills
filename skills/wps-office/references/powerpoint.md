@@ -12,7 +12,7 @@ python3 scripts/wps.py invoke '{"action":"getActivePresentation","params":{},"ti
 
 For a typical authoring workflow, invoke these Actions sequentially:
 
-1. Use `createPresentation`, or open an existing file.
+1. Use `createPresentation`, or use `openPresentation` with an existing path.
 2. Use `addSlide` with a layout plus optional initial title and content.
 3. Use `setSlideContent` when the content placeholder needs a precise update.
 4. Use `insertPptImage` to add a local image at an explicit position and size.
@@ -21,6 +21,8 @@ For a typical authoring workflow, invoke these Actions sequentially:
 7. Use the common `save` Action to persist the presentation.
 
 Each step is a separate `scripts/wps.py invoke` process. Stop at the first failure and do not assume later changes ran. Slide, shape, row, and column indexes are one-based.
+
+Open existing presentations only through `openPresentation`. To create a PDF, use the common `convertToPDF` Action; for other supported output workflows, use `save` or `saveAs` with the application's documented format handling.
 
 ## Choose a Core Action
 
@@ -49,6 +51,8 @@ Use this section for shape composition, data visualization, diagrams, visual sty
 - Themes, masters, and 3D: `getSlideMaster`, `setMasterBackground`, `addMasterElement`, `setSlideTheme`, `set3DRotation`, `set3DDepth`, `set3DMaterial`, `create3DText`, `setBackgroundGradient`
 - External content and presentation controls: `insertSlidesFromFile`, `replacePptImage`, `findPptText`, `replacePptText`, `addPptHyperlink`, `removePptHyperlink`, `setSlideNumber`, `setPptFooter`, `setPptDateTime`, `startSlideShow`, `endSlideShow`
 <!-- powerpoint-advanced-actions:end -->
+
+`addArrow` draws a line arrow from `startX` and `startY` to `endX` and `endY`; use `weight` and `color` for line styling. Do not supply rectangle geometry for this Action.
 
 For `insertSlidesFromFile`, provide the source presentation in `filePath`; optionally set `afterIndex`, `slideStart`, and `slideEnd`. For `replacePptImage`, provide `filePath` and the one-based `slideIndex`, plus the target image's `name` or `shapeIndex`; the replacement preserves the target geometry and rotation. Both operations return diagnostic errors from WPS when the source or target cannot be used.
 
