@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -20,20 +21,33 @@ SKILL = REPOSITORY_ROOT / "skills" / "wps-office" / "SKILL.md"
 POLL_URL = "http://127.0.0.1:58891/poll"
 RESULT_URL = "http://127.0.0.1:58891/result"
 UNKNOWN_URL = "http://127.0.0.1:58891/not-a-protocol-route"
+REPRESENTATIVE_ACTIONS = json.loads(
+    (REPOSITORY_ROOT / "tests/fixtures/representative-actions.json").read_text(
+        encoding="utf-8"
+    )
+)
 RUNNER_ENV = None
 AUTH_TOKEN = None
 
 
-def invoke_runner(request):
+def invoke_runner(request, runner=RUNNER):
     request_json = request if isinstance(request, str) else json.dumps(request)
     return subprocess.run(
-        [sys.executable, str(RUNNER), "invoke", request_json],
+        [sys.executable, str(runner), "invoke", request_json],
         cwd=REPOSITORY_ROOT,
         env=RUNNER_ENV,
         text=True,
         capture_output=True,
         timeout=5,
         check=False,
+    )
+
+
+def representative_action(action_name):
+    return next(
+        fixture
+        for fixture in REPRESENTATIVE_ACTIONS
+        if fixture["action"] == action_name
     )
 
 
@@ -347,6 +361,11 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
                 "ping",
                 "Request field 'timeout_ms' must be an integer between 1 and 300000",
             ),
+            (
+                json.dumps({"action": "ping", "params": {}, "confirmed": 1}),
+                "ping",
+                "Request field 'confirmed' must be a boolean",
+            ),
         )
 
         for request_json, action, message in cases:
@@ -368,34 +387,151 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
                 )
                 self.assertEqual(completed.stderr, "")
 
-    def test_non_read_action_is_rejected_before_contacting_the_addin(self):
-        with socket.socket() as occupied_port:
-            occupied_port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            occupied_port.bind(("127.0.0.1", 58891))
-            occupied_port.listen(1)
+    def test_write_action_round_trips_without_a_confirmation_marker(self):
+        fixture = representative_action("insertText")
+        addin = FakeAddin({"success": True, **fixture["result"]})
+        addin.start()
 
+        completed = invoke_runner(
+            {
+                "action": fixture["action"],
+                "params": fixture["params"],
+                "timeout_ms": 2000,
+            }
+        )
+
+        addin_finished = addin.finished.wait(1)
+        if not addin_finished:
+            addin.stop()
+            addin.finished.wait(1)
+        self.assertTrue(addin_finished, "Fake Add-in did not finish")
+        if addin.error:
+            raise addin.error
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": True,
+                "action": "insertText",
+                "data": {"position": "end", "textLength": 16},
+            },
+        )
+        self.assertEqual(addin.action_request["action"], "insertText")
+        self.assertEqual(addin.action_request["params"], fixture["params"])
+
+    def test_destructive_action_without_confirmation_never_reaches_the_addin(self):
+        fixture = representative_action("deleteSlide")
+        addin = FakeAddin({"success": True, **fixture["result"]})
+        addin.start()
+        try:
             completed = invoke_runner(
                 {
-                    "action": "openFile",
-                    "params": {"path": "/tmp/example.docx"},
-                    "timeout_ms": 50,
+                    "action": fixture["action"],
+                    "params": fixture["params"],
+                    "timeout_ms": 2000,
                 }
             )
 
+            self.assertFalse(
+                addin.action_received.wait(0.2),
+                "Unconfirmed destructive Action reached the Fake Add-in",
+            )
+        finally:
+            addin.stop()
+            self.assertTrue(addin.finished.wait(1), "Fake Add-in did not stop")
+        if addin.error:
+            raise addin.error
         self.assertEqual(completed.returncode, 1)
         self.assertEqual(
             json.loads(completed.stdout),
             {
                 "ok": False,
-                "action": "openFile",
+                "action": "deleteSlide",
                 "error": {
-                    "code": "ACTION_NOT_READ_ONLY",
-                    "message": "WPS Action is not read-only: openFile",
+                    "code": "CONFIRMATION_REQUIRED",
+                    "message": (
+                        "Destructive WPS Action requires confirmed=true: deleteSlide"
+                    ),
                     "retryable": False,
                 },
             },
         )
-        self.assertEqual(completed.stderr, "")
+
+    def test_confirmed_destructive_action_returns_a_structured_result(self):
+        fixture = representative_action("deleteSlide")
+        addin = FakeAddin({"success": True, **fixture["result"]})
+        addin.start()
+
+        completed = invoke_runner(
+            {
+                "action": fixture["action"],
+                "params": fixture["params"],
+                "confirmed": True,
+                "timeout_ms": 2000,
+            }
+        )
+
+        addin_finished = addin.finished.wait(1)
+        if not addin_finished:
+            addin.stop()
+            addin.finished.wait(1)
+        self.assertTrue(addin_finished, "Fake Add-in did not finish")
+        if addin.error:
+            raise addin.error
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": True,
+                "action": "deleteSlide",
+                "data": {"deleted": 2},
+            },
+        )
+        self.assertEqual(addin.action_request["action"], "deleteSlide")
+        self.assertNotIn("confirmed", addin.action_request)
+
+    def test_unknown_or_missing_risk_is_rejected_before_contacting_the_addin(self):
+        for risk in (None, "critical"):
+            with self.subTest(risk=risk), tempfile.TemporaryDirectory() as directory:
+                copied_skill = Path(directory) / "wps-office"
+                shutil.copytree(RUNNER.parents[1], copied_skill)
+                manifest_path = copied_skill / "references/action-manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                ping = next(
+                    action for action in manifest["actions"] if action["action"] == "ping"
+                )
+                if risk is None:
+                    del ping["risk"]
+                else:
+                    ping["risk"] = risk
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+                with socket.socket() as occupied_port:
+                    occupied_port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    occupied_port.bind(("127.0.0.1", 58891))
+                    occupied_port.listen(1)
+                    completed = invoke_runner(
+                        {"action": "ping", "params": {}, "timeout_ms": 50},
+                        copied_skill / "scripts/wps.py",
+                    )
+
+                self.assertEqual(completed.returncode, 1)
+                self.assertEqual(
+                    json.loads(completed.stdout),
+                    {
+                        "ok": False,
+                        "action": "ping",
+                        "error": {
+                            "code": "INVALID_ACTION_RISK",
+                            "message": (
+                                "WPS Action has an invalid or missing risk "
+                                "classification: ping"
+                            ),
+                            "retryable": False,
+                        },
+                    },
+                )
+                self.assertEqual(completed.stderr, "")
 
     def test_invalid_params_are_rejected_before_contacting_the_addin(self):
         with socket.socket() as occupied_port:
@@ -455,13 +591,16 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
         self.assertEqual(completed.stderr, "")
 
     def test_read_action_round_trips_through_real_loopback_http(self):
-        addin = FakeAddin(
-            {"success": True, "message": "pong", "timestamp": 1723852800000}
-        )
+        fixture = representative_action("getCellValue")
+        addin = FakeAddin({"success": True, **fixture["result"]})
         addin.start()
 
         completed = invoke_runner(
-            {"action": "ping", "params": {}, "timeout_ms": 2000}
+            {
+                "action": fixture["action"],
+                "params": fixture["params"],
+                "timeout_ms": 2000,
+            }
         )
 
         self.assertTrue(addin.finished.wait(1), "Fake Add-in did not finish")
@@ -472,13 +611,13 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             json.loads(completed.stdout),
             {
                 "ok": True,
-                "action": "ping",
-                "data": {"message": "pong", "timestamp": 1723852800000},
+                "action": "getCellValue",
+                "data": {"value": 42, "text": "42", "formula": ""},
             },
         )
         self.assertEqual(completed.stderr, "")
-        self.assertEqual(addin.action_request["action"], "ping")
-        self.assertEqual(addin.action_request["params"], {})
+        self.assertEqual(addin.action_request["action"], "getCellValue")
+        self.assertEqual(addin.action_request["params"], fixture["params"])
 
         self.assertTrue(loopback_port_is_available())
 

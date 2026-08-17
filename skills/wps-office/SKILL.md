@@ -1,11 +1,11 @@
 ---
 name: wps-office
-description: Operate WPS Office through canonical WPS Actions and the bundled Python 3.9+ Runner. Use for setup, readiness checks, or read-only Excel, Word, PowerPoint, common, and cross-application inspection through WPS Office.
+description: Operate WPS Office through canonical WPS Actions and the bundled Python 3.9+ Runner. Use for setup, readiness checks, or read and write Excel, Word, PowerPoint, common, and cross-application work through WPS Office.
 ---
 
 # WPS Office
 
-Execute one read-only WPS Action per Python process. Use only the bundled standard-library Runner; do not start a separate service or use another runtime.
+Execute one WPS Action per Python process. Use only the bundled standard-library Runner; do not start a separate service or use another runtime.
 
 ## Check Readiness
 
@@ -30,7 +30,13 @@ Do not run the Action unless `data.ready` is `true`. The installer recognizes Li
 
 Read `references/action-manifest.json` and select the canonical WPS Action matching the request. Check its `application`, parameter contract, result contract, prerequisites, and `risk` before invoking it.
 
-This initial package supports the end-to-end read path. Invoke only entries whose `risk` is `read`. Do not invoke `write` or `destructive` entries until their Runner safety gates are available.
+Apply the manifest risk policy before invoking:
+
+- `read`: invoke directly after readiness succeeds.
+- `write`: invoke when the user's current request authorizes the change; no confirmation marker is required.
+- `destructive`: explain the specific deletion, overwrite, or discard and obtain explicit user confirmation. Only after that confirmation, invoke with `"confirmed":true`. Never infer confirmation from an earlier general request.
+
+Do not invoke an Action whose `risk` is missing or is not one of these three values. The Runner also rejects that invalid manifest state before contacting WPS.
 
 ## Invoke the Runner
 
@@ -40,7 +46,15 @@ After readiness succeeds, run from this skill directory. Pass exactly one JSON r
 python3 scripts/wps.py invoke '{"action":"ping","params":{},"timeout_ms":30000}'
 ```
 
-Replace `ping` and `params` with the chosen read Action. Keep `timeout_ms` bounded. Each invocation starts one temporary service bound to `127.0.0.1:58891`, waits for the WPS Add-in to poll and return the correlated result, then closes the service and exits.
+Replace `ping` and `params` with the chosen Action. Keep `timeout_ms` bounded. Each invocation starts one temporary service bound to `127.0.0.1:58891`, waits for the WPS Add-in to poll and return the correlated result, then closes the service and exits.
+
+For a destructive Action only, include the confirmation marker after the user explicitly confirms the named consequence:
+
+```bash
+python3 scripts/wps.py invoke '{"action":"deleteSlide","params":{"slideIndex":2},"confirmed":true,"timeout_ms":30000}'
+```
+
+If confirmation is absent, the Runner returns `CONFIRMATION_REQUIRED` before the WPS Add-in receives the Action. Do not retry until explicit confirmation is obtained. `INVALID_ACTION_RISK` means the manifest risk is missing or unknown; do not bypass or retry that gate.
 
 Readiness checks and invocations share a per-user cross-process lock. If another WPS Action owns it, `ACTION_BUSY` is retryable after that process finishes. Never start a background service to work around this error.
 

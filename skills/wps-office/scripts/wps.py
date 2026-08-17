@@ -315,6 +315,14 @@ def parse_request(raw_request):
             False,
             action_name,
         )
+
+    if "confirmed" in request and not isinstance(request["confirmed"], bool):
+        raise RunnerError(
+            "INVALID_REQUEST",
+            "Request field 'confirmed' must be a boolean",
+            False,
+            action_name,
+        )
     return request
 
 
@@ -574,10 +582,22 @@ def readiness_context(action=None, operation=None):
 def invoke(request):
     action_name = request["action"]
     action = load_action(action_name)
-    if action.get("risk") != "read":
+    risk = action.get("risk")
+    if risk not in {"read", "write", "destructive"}:
         raise RunnerError(
-            "ACTION_NOT_READ_ONLY",
-            "WPS Action is not read-only: {0}".format(action_name),
+            "INVALID_ACTION_RISK",
+            (
+                "WPS Action has an invalid or missing risk classification: {0}"
+            ).format(action_name),
+            False,
+            action_name,
+        )
+    if risk == "destructive" and request.get("confirmed") is not True:
+        raise RunnerError(
+            "CONFIRMATION_REQUIRED",
+            "Destructive WPS Action requires confirmed=true: {0}".format(
+                action_name
+            ),
             False,
             action_name,
         )
