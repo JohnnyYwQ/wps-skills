@@ -14,6 +14,8 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+from wps_skill import addon_installer
+
 
 HOST = "127.0.0.1"
 PORT = 58891
@@ -21,23 +23,28 @@ MANIFEST_PATH = Path(__file__).resolve().parents[1] / "references" / "action-man
 
 
 class RunnerError(Exception):
-    def __init__(self, code, message, retryable, action=None):
+    def __init__(self, code, message, retryable, action=None, operation=None):
         super().__init__(message)
         self.code = code
         self.message = message
         self.retryable = retryable
         self.action = action
+        self.operation = operation
 
     def as_result(self):
-        return {
+        result = {
             "ok": False,
-            "action": self.action,
             "error": {
                 "code": self.code,
                 "message": self.message,
                 "retryable": self.retryable,
             },
         }
+        if self.operation is not None:
+            result["operation"] = self.operation
+        else:
+            result["action"] = self.action
+        return result
 
 
 def load_action(action_name):
@@ -165,17 +172,28 @@ def parse_request(raw_request):
     return request
 
 
-def make_handler(state):
+def make_handler(state, auth_token=None):
     class PollingHandler(BaseHTTPRequestHandler):
+        def _is_authorized(self):
+            return auth_token is None or self.headers.get("Authorization") == (
+                "Bearer {0}".format(auth_token)
+            )
+
         def do_GET(self):
             if self.path != "/poll":
                 self._send_json(404, {"error": "Not found"})
+                return
+            if not self._is_authorized():
+                self._send_json(401, {"error": "Unauthorized"})
                 return
             self._send_json(200, {"command": state["command"]})
 
         def do_POST(self):
             if self.path != "/result":
                 self._send_json(404, {"error": "Not found"})
+                return
+            if not self._is_authorized():
+                self._send_json(401, {"error": "Unauthorized"})
                 return
             try:
                 content_length = int(self.headers.get("Content-Length", "0"))
@@ -197,7 +215,9 @@ def make_handler(state):
             self.send_response(status)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header(
+                "Access-Control-Allow-Headers", "Content-Type, Authorization"
+            )
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -207,6 +227,77 @@ def make_handler(state):
             del format_string, args
 
     return PollingHandler
+
+
+def check_options(raw_options):
+    if raw_options is None:
+        return {"timeout_ms": 2000}
+    try:
+        options = json.loads(raw_options)
+    except (TypeError, ValueError):
+        raise RunnerError(
+            "INVALID_REQUEST",
+            "Check options must be valid JSON",
+            False,
+            operation="check",
+        )
+    if not isinstance(options, dict):
+        raise RunnerError(
+            "INVALID_REQUEST",
+            "Check options must be a JSON object",
+            False,
+            operation="check",
+        )
+    timeout_ms = options.get("timeout_ms", 2000)
+    if (
+        not isinstance(timeout_ms, int)
+        or isinstance(timeout_ms, bool)
+        or not 1 <= timeout_ms <= 300000
+    ):
+        raise RunnerError(
+            "INVALID_REQUEST",
+            "Check option 'timeout_ms' must be an integer between 1 and 300000",
+            False,
+            operation="check",
+        )
+    if set(options) - {"timeout_ms"}:
+        raise RunnerError(
+            "INVALID_REQUEST",
+            "Check options contain an unknown field",
+            False,
+            operation="check",
+        )
+    return {"timeout_ms": timeout_ms}
+
+
+def ping_addin(auth_token, timeout_ms):
+    state = {
+        "command": {
+            "action": "ping",
+            "params": {},
+            "requestId": "req-{0}".format(secrets.token_urlsafe(18)),
+        },
+        "result": None,
+    }
+    try:
+        server = HTTPServer((HOST, PORT), make_handler(state, auth_token))
+    except OSError as error:
+        if error.errno == errno.EADDRINUSE:
+            return False
+        raise
+    try:
+        deadline = time.monotonic() + (timeout_ms / 1000.0)
+        while state["result"] is None and time.monotonic() < deadline:
+            server.timeout = min(0.25, max(0.0, deadline - time.monotonic()))
+            server.handle_request()
+    finally:
+        server.server_close()
+    result = state["result"]
+    return (
+        isinstance(result, dict)
+        and result.get("success") is True
+        and result.get("message") == "pong"
+    )
 
 
 def invoke(request):
@@ -297,6 +388,65 @@ def invoke(request):
 
 
 def main(argv):
+    if len(argv) == 2 and argv[1] == "install":
+        try:
+            install_result = addon_installer.install()
+        except addon_installer.AddinInstallError as error:
+            raise RunnerError(
+                error.code,
+                error.message,
+                error.retryable,
+                operation="install",
+            )
+        result = {
+            "ok": True,
+            "operation": "install",
+            "data": install_result,
+        }
+        print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        return 0
+    if 2 <= len(argv) <= 3 and argv[1] == "check":
+        options = check_options(argv[2] if len(argv) == 3 else None)
+        try:
+            install_result = addon_installer.install()
+        except addon_installer.AddinInstallError as error:
+            raise RunnerError(
+                error.code,
+                error.message,
+                error.retryable,
+                operation="check",
+            )
+        if install_result["restart_required"]:
+            check_result = {
+                "status": "restart_required",
+                "ready": False,
+                "restart_required": True,
+                "platform": install_result["platform"],
+                "architecture": install_result["architecture"],
+            }
+        elif not addon_installer.wps_is_running(install_result["platform"]):
+            check_result = {
+                "status": "wps_not_running",
+                "ready": False,
+                "restart_required": False,
+                "platform": install_result["platform"],
+                "architecture": install_result["architecture"],
+            }
+        else:
+            ready = ping_addin(
+                addon_installer.auth_token(install_result["platform"]),
+                options["timeout_ms"],
+            )
+            check_result = {
+                "status": "ready" if ready else "addin_unavailable",
+                "ready": ready,
+                "restart_required": False,
+                "platform": install_result["platform"],
+                "architecture": install_result["architecture"],
+            }
+        result = {"ok": True, "operation": "check", "data": check_result}
+        print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        return 0
     if len(argv) != 3 or argv[1] != "invoke":
         raise RunnerError(
             "INVALID_REQUEST", "Usage: wps.py invoke '<json-request>'", False

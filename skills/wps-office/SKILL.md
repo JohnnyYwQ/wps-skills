@@ -1,11 +1,28 @@
 ---
 name: wps-office
-description: Operate WPS Office through canonical WPS Actions and the bundled Python 3.9+ Runner. Use for read-only Excel, Word, PowerPoint, common, or cross-application inspection through WPS Office.
+description: Operate WPS Office through canonical WPS Actions and the bundled Python 3.9+ Runner. Use for setup, readiness checks, or read-only Excel, Word, PowerPoint, common, and cross-application inspection through WPS Office.
 ---
 
 # WPS Office
 
 Execute one read-only WPS Action per Python process. Use only the bundled standard-library Runner; do not start a separate service or use another runtime.
+
+## Check Readiness
+
+Before every Action workflow, run:
+
+```bash
+python3 scripts/wps.py check
+```
+
+The first check installs or updates the bundled WPS Add-in in the current user's profile on Linux or Windows. Handle `data.status` as follows:
+
+- `ready`: continue to the Action.
+- `restart_required`: ask the user to fully exit and restart WPS Office, then check again.
+- `wps_not_running`: ask the user to start WPS Office, then check again.
+- `addin_unavailable`: ask the user to fully restart WPS Office and check again; if it persists, report that the installed Add-in is not responding.
+
+Do not run the Action unless `data.ready` is `true`. The supported targets are Linux x86_64, Linux ARM64, Windows x86_64, and Windows ARM64. Setup failures return a stable structured error on stdout and a nonzero exit status.
 
 ## Choose an Action
 
@@ -15,7 +32,7 @@ This initial package supports the end-to-end read path. Invoke only entries whos
 
 ## Invoke the Runner
 
-Run from this skill directory. Pass exactly one JSON request as the final argument:
+After readiness succeeds, run from this skill directory. Pass exactly one JSON request as the final argument:
 
 ```bash
 python3 scripts/wps.py invoke '{"action":"ping","params":{},"timeout_ms":30000}'
