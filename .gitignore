@@ -24,6 +24,7 @@ planplan.md
 /tests/*
 !/tests/test_action_manifest.py
 !/tests/test_addon_installer.py
+!/tests/test_package_integrity.py
 !/tests/test_wps_runner.py
 !/tests/fixtures/
 !/tests/fixtures/*.json
