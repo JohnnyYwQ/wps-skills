@@ -8,7 +8,7 @@
     <version>1.0.0</version>
     <name>Claude助手</name>
     <description>Claude AI 与 WPS Office 的桥接加载项（轮询模式）</description>
-    <author>WPS-Claude-Skills Team</author>
+    <author>WPS Office Skill Team</author>
 
     <!-- 支持的WPS应用类型 -->
     <hosts>

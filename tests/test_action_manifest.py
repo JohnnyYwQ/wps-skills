@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from contextlib import contextmanager
 import json
 from pathlib import Path
@@ -18,11 +19,6 @@ REPRESENTATIVE_FIXTURES = (
     REPOSITORY_ROOT / "tests" / "fixtures" / "representative-actions.json"
 )
 UNIFIED_ADDIN = REPOSITORY_ROOT / "skills/wps-office/assets/wps-addin/main.js"
-LEGACY_MAC_MAIN = REPOSITORY_ROOT / "wps-claude-assistant/main.js"
-LEGACY_MAC_WORD_HANDLER = (
-    REPOSITORY_ROOT / "wps-claude-assistant/handlers/word-handler.js"
-)
-WINDOWS_BRIDGE = REPOSITORY_ROOT / "wps-office-mcp/scripts/wps-com.ps1"
 EXCEL_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/excel.md"
 WORD_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/word.md"
 POWERPOINT_REFERENCE = (
@@ -31,6 +27,62 @@ POWERPOINT_REFERENCE = (
 
 
 class ActionManifestValidatorTests(unittest.TestCase):
+    def test_production_package_is_self_contained_and_has_one_skill(self) -> None:
+        skills_directory = REPOSITORY_ROOT / "skills"
+        self.assertEqual(
+            sorted(path.name for path in skills_directory.iterdir() if path.is_dir()),
+            ["wps-office"],
+        )
+        for retired_path in (
+            "package.json",
+            "wps-office-mcp",
+            "wps-claude-addon",
+            "wps-claude-assistant",
+            "scripts/auto-install-mac.sh",
+            "scripts/auto-install.ps1",
+            "scripts/dev.ps1",
+            "scripts/install.ps1",
+            "scripts/install.sh",
+        ):
+            with self.subTest(path=retired_path):
+                self.assertFalse((REPOSITORY_ROOT / retired_path).exists())
+
+        marketplace = json.loads(
+            (REPOSITORY_ROOT / ".claude-plugin/marketplace.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(
+            marketplace["plugins"][0]["skills"], ["./skills/wps-office"]
+        )
+
+        production_sources = [
+            REPOSITORY_ROOT / "README.md",
+            REPOSITORY_ROOT / "INSTALL.md",
+            *(
+                path
+                for path in (REPOSITORY_ROOT / "skills/wps-office").rglob("*")
+                if path.suffix in {".md", ".py", ".js", ".xml", ".json"}
+            ),
+        ]
+        for source_path in production_sources:
+            source = source_path.read_text(encoding="utf-8")
+            for retired_runtime in ("MCP", "Node.js", "npm", "TypeScript", "PowerShell"):
+                with self.subTest(source=source_path, retired_runtime=retired_runtime):
+                    self.assertNotIn(retired_runtime, source)
+
+        standard_library = set(sys.stdlib_module_names) | {"__future__", "wps_skill"}
+        for source_path in (REPOSITORY_ROOT / "skills/wps-office/scripts").rglob("*.py"):
+            for node in ast.walk(ast.parse(source_path.read_text(encoding="utf-8"))):
+                names = []
+                if isinstance(node, ast.Import):
+                    names = [alias.name for alias in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    names = [node.module]
+                for name in names:
+                    with self.subTest(source=source_path, imported_module=name):
+                        self.assertIn(name.split(".", 1)[0], standard_library)
+
     def test_repository_examples_cover_each_application_and_risk_contract(self) -> None:
         manifest = json.loads(
             (REPOSITORY_ROOT / "skills/wps-office/references/action-manifest.json").read_text(
@@ -347,7 +399,7 @@ class ActionManifestValidatorTests(unittest.TestCase):
     def test_unmapped_bridge_action_is_rejected(self) -> None:
         with self._minimal_baseline() as root:
             self._write_text(
-                root / "wps-claude-assistant/main.js",
+                root / "skills/wps-office/assets/wps-addin/main.js",
                 "switch (action) {\n  case 'ping': return true;\n"
                 "  case 'hiddenCapability': return true;\n}\n",
             )
@@ -360,113 +412,22 @@ class ActionManifestValidatorTests(unittest.TestCase):
             completed.stderr,
         )
 
-    def test_unmapped_powershell_action_is_rejected(self) -> None:
-        with self._minimal_baseline() as root:
-            self._write_text(
-                root / "wps-office-mcp/scripts/wps-com.ps1",
-                'switch ($Action) {\n    "ping" { @{ success = $true } }\n'
-                '    "hiddenCapability" { @{ success = $true } }\n}\n',
-            )
-
-            completed = self._run_validator(root)
-
-        self.assertEqual(completed.returncode, 1)
-        self.assertIn(
-            "PowerShell dispatch has unmanifested WPS Action 'hiddenCapability'",
-            completed.stderr,
-        )
-
-    def test_unexplained_bridge_omission_is_rejected(self) -> None:
+    def test_missing_packaged_action_is_rejected(self) -> None:
         with self._minimal_baseline() as root:
             manifest_path = root / "skills/wps-office/references/action-manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             extra = dict(manifest["actions"][0])
-            extra["action"] = "powershellOnly"
+            extra["action"] = "missingFromAddin"
             manifest["actions"].append(extra)
             self._write_json(manifest_path, manifest)
-            self._write_text(
-                root / "wps-office-mcp/scripts/wps-com.ps1",
-                'switch ($Action) {\n    "ping" { @{ success = $true } }\n'
-                '    "powershellOnly" { @{ success = $true } }\n}\n',
-            )
 
             completed = self._run_validator(root)
 
         self.assertEqual(completed.returncode, 1)
         self.assertIn(
-            "WPS Action 'powershellOnly' is missing from JavaScript without an explanation",
+            "WPS Action 'missingFromAddin' is missing from the packaged JavaScript Add-in",
             completed.stderr,
         )
-
-    def test_explained_bridge_omission_passes(self) -> None:
-        with self._minimal_baseline() as root:
-            manifest_path = root / "skills/wps-office/references/action-manifest.json"
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            extra = dict(manifest["actions"][0])
-            extra["action"] = "powershellOnly"
-            manifest["actions"].append(extra)
-            self._write_json(manifest_path, manifest)
-            self._write_text(
-                root / "wps-office-mcp/scripts/wps-com.ps1",
-                'switch ($Action) {\n    "ping" { @{ success = $true } }\n'
-                '    "powershellOnly" { @{ success = $true } }\n}\n',
-            )
-            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
-            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
-            mapping["bridge_exceptions"]["javascript_missing"] = [
-                {
-                    "action": "powershellOnly",
-                    "reason": "The legacy JavaScript add-in has not ported this action yet.",
-                }
-            ]
-            self._write_json(mapping_path, mapping)
-
-            completed = self._run_validator(root)
-
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-
-    def test_bridge_exception_without_reason_is_rejected(self) -> None:
-        with self._minimal_baseline() as root:
-            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
-            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
-            mapping["bridge_exceptions"]["javascript_missing"] = [
-                {"action": "ping", "reason": ""}
-            ]
-            self._write_json(mapping_path, mapping)
-
-            completed = self._run_validator(root)
-
-        self.assertEqual(completed.returncode, 1)
-        self.assertIn("bridge exception for 'ping' requires a reason", completed.stderr)
-
-    def test_unexplained_duplicate_dispatch_is_rejected(self) -> None:
-        with self._minimal_baseline() as root:
-            self._write_text(
-                root / "wps-office-mcp/scripts/wps-com.ps1",
-                'switch ($Action) {\n    "ping" { @{ success = $true } }\n'
-                '    "ping" { @{ success = $true } }\n}\n',
-            )
-
-            completed = self._run_validator(root)
-
-        self.assertEqual(completed.returncode, 1)
-        self.assertIn(
-            "PowerShell dispatch duplicates WPS Action 'ping' without an explanation",
-            completed.stderr,
-        )
-
-    def test_unmapped_legacy_tool_is_rejected(self) -> None:
-        with self._minimal_baseline() as root:
-            self._write_text(
-                root / "wps-office-mcp/src/tools/common/general.ts",
-                "const first = { name: 'wps_common_ping' };\n"
-                "const second = { name: 'wps_common_hidden' };\n",
-            )
-
-            completed = self._run_validator(root)
-
-        self.assertEqual(completed.returncode, 1)
-        self.assertIn("legacy WPS Tool 'wps_common_hidden' is not mapped", completed.stderr)
 
     def test_mapping_to_unknown_action_is_rejected(self) -> None:
         with self._minimal_baseline() as root:
@@ -482,10 +443,6 @@ class ActionManifestValidatorTests(unittest.TestCase):
 
     def test_cross_application_mapping_is_rejected(self) -> None:
         with self._minimal_baseline() as root:
-            self._write_text(
-                root / "wps-office-mcp/src/tools/common/general.ts",
-                "const definition = { name: 'wps_excel_ping' };\n",
-            )
             mapping_path = root / "doc/migration/legacy-tool-action-map.json"
             mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
             mapping["legacy_tools"][0]["tool"] = "wps_excel_ping"
@@ -513,18 +470,6 @@ class ActionManifestValidatorTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 1)
         self.assertIn("has invalid status 'conflict'", completed.stderr)
-
-    def test_stale_contract_conflict_exceptions_are_rejected(self) -> None:
-        with self._minimal_baseline() as root:
-            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
-            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
-            mapping["bridge_exceptions"]["contract_conflicts"] = []
-            self._write_json(mapping_path, mapping)
-
-            completed = self._run_validator(root)
-
-        self.assertEqual(completed.returncode, 1)
-        self.assertIn("unknown bridge exception category 'contract_conflicts'", completed.stderr)
 
     def test_mapped_tool_without_an_action_is_rejected(self) -> None:
         with self._minimal_baseline() as root:
@@ -633,7 +578,19 @@ class ActionManifestValidatorTests(unittest.TestCase):
             completed = self._run_validator(root)
 
         self.assertEqual(completed.returncode, 1)
-        self.assertIn("not the reviewed ADR-0014 boundary", completed.stderr)
+        self.assertIn("does not match the frozen WPS Tool inventory", completed.stderr)
+
+    def test_current_ledger_schema_rejects_an_incomplete_frozen_tool_inventory(self) -> None:
+        with self._minimal_baseline() as root:
+            mapping_path = root / "doc/migration/legacy-tool-action-map.json"
+            mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+            mapping["schema_version"] = 2
+            self._write_json(mapping_path, mapping)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("does not match the frozen WPS Tool inventory", completed.stderr)
 
     def test_retirement_entries_cannot_bypass_the_current_ledger_schema(self) -> None:
         with self._minimal_baseline() as root:
@@ -703,28 +660,11 @@ class ActionManifestValidatorTests(unittest.TestCase):
                 ],
                 "retired_actions": [],
                 "retired_contracts": [],
-                "bridge_exceptions": {
-                    "javascript_missing": [],
-                    "powershell_missing": [],
-                    "powershell_duplicate_dispatches": [],
-                },
             },
         )
         self._write_text(
-            root / "wps-claude-assistant/main.js",
+            root / "skills/wps-office/assets/wps-addin/main.js",
             "switch (action) {\n  case 'ping': return true;\n}\n",
-        )
-        self._write_text(
-            root / "wps-office-mcp/scripts/wps-com.ps1",
-            'switch ($Action) {\n    "ping" { @{ success = $true } }\n}\n',
-        )
-        self._write_text(
-            root / "wps-office-mcp/src/tools/common/general.ts",
-            "const definition = { name: 'wps_common_ping' };\n",
-        )
-        self._write_text(
-            root / "wps-office-mcp/src/server/mcp-server.ts",
-            "// No built-in tools in this fixture.\n",
         )
 
     @staticmethod
@@ -825,10 +765,6 @@ class RetirementContractTests(unittest.TestCase):
     def test_add_arrow_uses_only_the_packaged_coordinate_contract(self) -> None:
         retirement = self.ledger["retired_contracts"][0]
         parameters = self.actions["addArrow"]["parameters"]["properties"]
-        powershell_source = WINDOWS_BRIDGE.read_text(encoding="utf-8")
-        arrow_dispatch = powershell_source.split('    "addArrow" {', 1)[1].split(
-            '\n    "', 1
-        )[0]
 
         self.assertEqual(retirement["action"], "addArrow")
         self.assertEqual(retirement["decision"], "ADR-0014")
@@ -837,25 +773,9 @@ class RetirementContractTests(unittest.TestCase):
         )
         self.assertTrue({"startX", "startY", "endX", "endY"}.issubset(parameters))
         self.assertFalse(set(retirement["retired_parameters"]) & set(parameters))
-        for parameter in ("startX", "startY", "endX", "endY"):
-            self.assertIn(f"$p.{parameter}", arrow_dispatch)
-        for retired_parameter in retirement["retired_parameters"]:
-            self.assertNotIn(f"$p.{retired_parameter}", arrow_dispatch)
 
     def test_corrected_cross_application_mappings_are_canonical(self) -> None:
         mappings = {entry["tool"]: entry for entry in self.ledger["legacy_tools"]}
-        excel_source = (
-            REPOSITORY_ROOT / "wps-office-mcp/src/tools/excel/data.ts"
-        ).read_text(encoding="utf-8")
-        powerpoint_source = (
-            REPOSITORY_ROOT / "wps-office-mcp/src/tools/ppt/presentation.ts"
-        ).read_text(encoding="utf-8")
-        javascript_image_handler = LEGACY_MAC_MAIN.read_text(encoding="utf-8").split(
-            "function handleInsertPptImage(params)", 1
-        )[1].split("// 删除图片", 1)[0]
-        powershell_image_dispatch = WINDOWS_BRIDGE.read_text(encoding="utf-8").split(
-            '    "insertPptImage" {', 1
-        )[1].split('\n    "', 1)[0]
 
         self.assertEqual(
             mappings["wps_excel_add_comment"],
@@ -880,12 +800,9 @@ class RetirementContractTests(unittest.TestCase):
             set(self.actions["addArrow"]["parameters"]["required"]),
             {"startX", "startY", "endX", "endY"},
         )
-        self.assertIn("'addCellComment'", excel_source)
-        self.assertNotIn("'addComment'", excel_source)
-        self.assertIn("'insertPptImage'", powerpoint_source)
-        self.assertNotIn("'insertImage'", powerpoint_source)
-        self.assertIn("slideIndex: index", javascript_image_handler)
-        self.assertIn("slideIndex = $slideIndex", powershell_image_dispatch)
+        packaged_addin = UNIFIED_ADDIN.read_text(encoding="utf-8")
+        self.assertIn("handleAddCellComment", packaged_addin)
+        self.assertIn("handleInsertPptImage", packaged_addin)
 
 
 class ExcelCoreContractTests(unittest.TestCase):
@@ -1239,10 +1156,6 @@ class WordContractTests(unittest.TestCase):
         )
         cls.group_actions = set(cls.word_group["actions"])
         cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
-        cls.legacy_mac_main_source = LEGACY_MAC_MAIN.read_text(encoding="utf-8")
-        cls.legacy_mac_word_handler_source = LEGACY_MAC_WORD_HANDLER.read_text(
-            encoding="utf-8"
-        )
         cls.reference_source = (
             WORD_REFERENCE.read_text(encoding="utf-8")
             if WORD_REFERENCE.is_file()
@@ -1336,74 +1249,14 @@ class WordContractTests(unittest.TestCase):
             with self.subTest(action=action_name):
                 self.assertEqual(self.actions[action_name]["risk"], "destructive")
 
-    def test_legacy_mac_bridge_dispatches_template_actions(self) -> None:
-        template_actions = {
-            "getDocumentParagraphs": "getDocumentParagraphs",
-            "findInDocument": "findInDocument",
-            "smartFillField": "smartFillField",
-            "replaceBookmarkContent": "replaceBookmarkContent",
-        }
-        dispatch_actions = set(
-            re.findall(
-                r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:",
-                self.legacy_mac_main_source,
-                re.MULTILINE,
-            )
-        )
-
-        for action, function_name in template_actions.items():
-            with self.subTest(action=action):
-                main_function_name = f"handle{function_name[0].upper()}{function_name[1:]}"
-                self.assertIn(action, dispatch_actions)
-                self.assertRegex(
-                    self.legacy_mac_main_source,
-                    rf"function {main_function_name}\s*\(",
-                )
-                self.assertRegex(
-                    self.legacy_mac_word_handler_source,
-                    rf"function {function_name}\s*\(",
-                )
-                self.assertIn(
-                    f"{function_name}: {function_name}",
-                    self.legacy_mac_word_handler_source,
-                )
-
     def test_find_in_document_does_not_wrap_and_repeat_matches(self) -> None:
-        bridge_sources = {
-            "unified add-in": self.addin_source,
-            "legacy mac main": self.legacy_mac_main_source,
-            "legacy mac handler": self.legacy_mac_word_handler_source,
-        }
-        for bridge_name, source in bridge_sources.items():
-            with self.subTest(bridge=bridge_name):
-                start = source.index(
-                    "function handleFindInDocument"
-                    if bridge_name != "legacy mac handler"
-                    else "function findInDocument"
-                )
-                end = source.find("\nfunction ", start + 1)
-                block = source[start:] if end < 0 else source[start:end]
-                self.assertRegex(
-                    block,
-                    r"true,\s*\n\s*0,\s*\n\s*false,",
-                    "Find.Execute must use wdFindStop (0), not wdFindContinue (1)",
-                )
-
-        windows_block = WINDOWS_BRIDGE.read_text(encoding="utf-8")
-        start = windows_block.index('"findInDocument" {')
-        end = windows_block.index('"smartFillField" {', start)
-        find_block = windows_block[start:end]
-        self.assertNotIn(
-            "$true, 1, $false, \"\", 0",
-            find_block,
-            "PowerShell Find.Execute must not wrap to the start of the document",
-        )
-        self.assertIn("$true, 0, $false, \"\", 0", find_block)
-
-    def test_windows_bridge_is_bom_free(self) -> None:
-        self.assertTrue(
-            WINDOWS_BRIDGE.read_bytes().startswith(b"# Input:"),
-            "PowerShell bridge must start with its comment, not a UTF-8 BOM",
+        start = self.addin_source.index("function handleFindInDocument")
+        end = self.addin_source.find("\nfunction ", start + 1)
+        block = self.addin_source[start:] if end < 0 else self.addin_source[start:end]
+        self.assertRegex(
+            block,
+            r"true,\s*\n\s*0,\s*\n\s*false,",
+            "Find.Execute must use wdFindStop (0), not wdFindContinue (1)",
         )
 
     def test_word_reference_documents_workflow_and_complete_catalog(self) -> None:

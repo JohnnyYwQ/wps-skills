@@ -5,8 +5,8 @@ Issue #3 冻结了迁移开始时的能力事实。机器可读文件是唯一�
 ## 事实来源
 
 - `skills/wps-office/references/action-manifest.json`：公开 WPS Action 契约。每项记录应用归属、参数 Schema、结果 Schema、前置条件和 `read` / `write` / `destructive` 风险等级。
-- `doc/migration/legacy-tool-action-map.json`：一次性迁移对照。它记录全部旧 WPS Tool 到原始 WPS Action 名称的映射，以及当前 Platform Bridge 的已解释差异。
-- `scripts/validate_action_manifest.py`：Python 3.9+ 标准库校验入口。它直接扫描旧 TypeScript、JavaScript Add-in 和 PowerShell 路径，避免手工维护另一份能力计数。
+- `doc/migration/legacy-tool-action-map.json`：冻结的一次性迁移对照。它记录全部旧 WPS Tool 到原始 WPS Action 名称的映射和明确退役项，作为删除旧运行时后的审计证据。
+- `scripts/validate_action_manifest.py`：Python 3.9+ 标准库校验入口。它只读取最终 manifest、打包的 JavaScript Add-in 与冻结迁移对照。
 
 公开接口只使用 manifest 中的 `action`，例如 `getCellValue`。旧 WPS Tool 名称只存在于迁移对照中。
 
@@ -14,24 +14,17 @@ Issue #3 冻结了迁移开始时的能力事实。机器可读文件是唯一�
 
 | 范围 | 数量 | 说明 |
 |---|---:|---|
-| WPS Action manifest | 251 | 241 个 PowerShell dispatch，加 10 个旧 Tool 已调用但两个 Bridge 均未实现的 Action |
-| 旧 WPS Tool | 250 | 241 个直接映射、6 个不产生 WPS Action 的本地能力、3 个已解释名称冲突 |
-| JavaScript Add-in dispatch | 227 | 所有名称都进入 manifest |
-| PowerShell 唯一 dispatch | 241 | 源文件有 245 个分支，4 个 Action 各重复一次 |
-| JavaScript 已解释缺口 | 24 | 14 个 PowerShell-only Action，以及 10 个尚无 Bridge 实现的 Tool Action |
-| PowerShell 已解释缺口 | 10 | 旧 Tool 已调用、但尚无 Bridge 实现的 Action |
+| WPS Action manifest | 249 | 最终公开的规范 WPS Action |
+| 打包 JavaScript Add-in dispatch | 249 | 与 manifest 中的 WPS Action 逐项完全一致 |
+| 冻结旧 WPS Tool 对照 | 250 | 包含映射、工作流映射与明确退役项 |
 
-原迁移分析中的“JavaScript 比 PowerShell 少 14 个”仍然成立。额外的 10 个双 Bridge 缺口来自 Tool handler：`autoSum`、`evaluateFormula`、`insertSectionBreak`、`setFontColor`、`setLineSpacing`、`setShapeFill`、`setSlideSize`、`setSlideTheme`、`setTextColor`、`setZoom`。
+`addArrow` 统一采用起止坐标绘制线箭头；先前的边界框块箭头形式已按 ADR-0014 退役。manifest 只接受 `startX`、`startY`、`endX` 和 `endY`，迁移对照不再保留契约冲突例外。
 
-PowerShell 重复分支是 `create3DText`、`set3DDepth`、`set3DMaterial`、`set3DRotation`。manifest 对每个名称只保留一个规范 Action；迁移加载项时必须合并并验证重复实现，不能把重复名称公开成两个接口。
-
-`addArrow` 统一采用起止坐标绘制线箭头；PowerShell 的边界框块箭头形式已按 ADR-0014 退役。manifest 只接受 `startX`、`startY`、`endX` 和 `endY`，迁移对照不再保留契约冲突例外。
-
-旧 Tool 中曾有应用专属能力错误发送到另一个应用已占用的 Action 名称。迁移对照现在将 Excel 批注修正为 `addCellComment`，将 PowerPoint 插图修正为 `insertPptImage`；错误复用 Word `findReplace` 的 Excel 查找替换则按 ADR-0014 明确退役。不存在未决的 `conflict` 映射。
+旧 WPS Tool 中曾有应用专属能力错误发送到另一个应用已占用的 WPS Action 名称。迁移对照现在将 Excel 批注修正为 `addCellComment`，将 PowerPoint 插图修正为 `insertPptImage`；错误复用 Word `findReplace` 的 Excel 查找替换则按 ADR-0014 明确退役。不存在未决的 `conflict` 映射。
 
 ## Schema 约定
 
-每个 Action 必须包含：
+每个 WPS Action 必须包含：
 
 - `action`：原始、大小写敏感的 WPS Action 名称；
 - `application`：`common`、`excel`、`word` 或 `powerpoint`；
@@ -51,7 +44,7 @@ Excel、Word、PowerPoint 和通用代表样例位于 `tests/fixtures/representa
 
 ```bash
 python3 scripts/validate_action_manifest.py
-python3 -m unittest tests.test_action_manifest -v
+python3 -m unittest discover -s tests -v
 ```
 
-校验会拒绝非法或缺失字段、重复 Action、未进入 manifest 的 Bridge dispatch、未映射旧 WPS Tool、指向未知 Action 的迁移映射，以及没有明确说明的 Bridge 缺口或重复 dispatch。
+校验会拒绝非法或缺失字段、重复 Action、未进入 manifest 的打包 Add-in dispatch、manifest 中缺失的打包 Add-in dispatch，以及指向未知或跨应用 WPS Action 的迁移映射。

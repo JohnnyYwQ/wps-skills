@@ -1,5 +1,5 @@
 {
-  "name": "wps-mcp-skills",
+  "name": "wps-office-skill",
   "owner": {
     "name": "lc2panda",
     "email": "lc2panda@github.com"
@@ -10,14 +10,11 @@
   },
   "plugins": [
     {
-      "name": "wps-office-skills",
-      "description": "Complete WPS Office automation skills including Excel formula generation, Word formatting, PPT beautification, and cross-app operations",
+      "name": "wps-office",
+      "description": "WPS Office automation through one progressive WPS Skill Package",
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/wps-excel",
-        "./skills/wps-word",
-        "./skills/wps-ppt",
         "./skills/wps-office"
       ]
     }

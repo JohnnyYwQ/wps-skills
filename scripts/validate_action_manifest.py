@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate the checked-in WPS Action baseline.
 
-Input: A repository root containing the manifest, migration map, and legacy sources.
+Input: A repository root containing the production manifest, packaged Add-in, and frozen migration ledger.
 Output: A human-readable validation summary or actionable errors on stderr.
 Position: Standard-library guard for the migration's canonical WPS Action contract.
 """
@@ -9,7 +9,7 @@ Position: Standard-library guard for the migration's canonical WPS Action contra
 from __future__ import annotations
 
 import argparse
-from collections import Counter
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -19,8 +19,7 @@ from typing import Any, Dict
 
 MANIFEST_PATH = Path("skills/wps-office/references/action-manifest.json")
 MIGRATION_MAP_PATH = Path("doc/migration/legacy-tool-action-map.json")
-JAVASCRIPT_DISPATCH_PATH = Path("wps-claude-assistant/main.js")
-POWERSHELL_DISPATCH_PATH = Path("wps-office-mcp/scripts/wps-com.ps1")
+JAVASCRIPT_DISPATCH_PATH = Path("skills/wps-office/assets/wps-addin/main.js")
 ACTION_FIELDS = {
     "action",
     "application",
@@ -35,11 +34,6 @@ REFERENCE_GROUP_FIELDS = {"actions", "reference"}
 REQUIRED_ACTION_FIELDS = ACTION_FIELDS - {"examples"}
 MAPPING_FIELDS = {"tool", "actions", "status", "reason", "decision"}
 MAPPING_STATUSES = {"mapped", "workflow", "retired"}
-BRIDGE_EXCEPTION_CATEGORIES = {
-    "javascript_missing",
-    "powershell_missing",
-    "powershell_duplicate_dispatches",
-}
 RETIRED_ACTION_FIELDS = {"action", "decision", "reason", "replacements"}
 RETIRED_CONTRACT_FIELDS = {"action", "decision", "reason", "retired_parameters"}
 REVIEWED_RETIREMENT_DECISION = "ADR-0014"
@@ -57,6 +51,10 @@ ADR_0014_RETIRED_LEGACY_TOOLS = {
 ADR_0014_RETIRED_CONTRACTS = {
     "addArrow": {"height", "left", "top", "width"},
 }
+FROZEN_LEGACY_TOOL_COUNT = 250
+FROZEN_LEGACY_TOOL_IDENTIFIERS_DIGEST = (
+    "d64663b94f87377bd8b0636b8003a01b6252237195a1a587d553ce6d1eebac4f"
+)
 JSON_TYPES = {"array", "boolean", "null", "number", "object", "string"}
 SCHEMA_FIELDS = {
     "additionalProperties",
@@ -84,36 +82,6 @@ def load_json(root: Path, relative_path: Path) -> Dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{relative_path} must contain a JSON object")
     return value
-
-
-def exception_actions(migration_map: Dict[str, Any], key: str) -> set:
-    bridge_exceptions = migration_map.get("bridge_exceptions")
-    if not isinstance(bridge_exceptions, dict):
-        raise ValueError("legacy-tool-action-map.json requires bridge_exceptions")
-    unknown_categories = set(bridge_exceptions) - BRIDGE_EXCEPTION_CATEGORIES
-    if unknown_categories:
-        category = sorted(unknown_categories)[0]
-        raise ValueError(f"unknown bridge exception category '{category}'")
-    missing_categories = BRIDGE_EXCEPTION_CATEGORIES - set(bridge_exceptions)
-    if missing_categories:
-        category = sorted(missing_categories)[0]
-        raise ValueError(f"missing bridge exception category '{category}'")
-    exceptions = bridge_exceptions.get(key)
-    if not isinstance(exceptions, list):
-        raise ValueError(f"bridge_exceptions.{key} must be an array")
-    actions = set()
-    for index, exception in enumerate(exceptions):
-        if not isinstance(exception, dict):
-            raise ValueError(f"bridge_exceptions.{key}[{index}] must be an object")
-        action_name = exception.get("action")
-        if not isinstance(action_name, str) or not action_name:
-            raise ValueError(f"bridge_exceptions.{key}[{index}] requires an Action name")
-        if action_name in actions:
-            raise ValueError(f"duplicate bridge exception for '{action_name}' in {key}")
-        actions.add(action_name)
-        if not isinstance(exception.get("reason"), str) or not exception["reason"].strip():
-            raise ValueError(f"bridge exception for '{action_name}' requires a reason")
-    return actions
 
 
 def matches_json_type(value: Any, expected_type: str) -> bool:
@@ -486,6 +454,21 @@ def validate_reviewed_retirement_boundary(
         raise ValueError("retired WPS Action contracts are not the reviewed ADR-0014 boundary")
 
 
+def validate_frozen_legacy_tool_inventory(migration_map: Dict[str, Any], tools: set) -> None:
+    if migration_map.get("schema_version", 0) < 2:
+        return
+    identifiers_digest = hashlib.sha256(
+        "\n".join(sorted(tools)).encode("utf-8")
+    ).hexdigest()
+    if (
+        len(tools) != FROZEN_LEGACY_TOOL_COUNT
+        or identifiers_digest != FROZEN_LEGACY_TOOL_IDENTIFIERS_DIGEST
+    ):
+        raise ValueError(
+            "legacy-tool-action-map.json does not match the frozen WPS Tool inventory"
+        )
+
+
 def validate(root: Path) -> int:
     manifest = load_json(root, MANIFEST_PATH)
     migration_map = load_json(root, MIGRATION_MAP_PATH)
@@ -596,69 +579,18 @@ def validate(root: Path) -> int:
     javascript_actions = set(
         re.findall(r"^\s*case\s+['\"]([A-Za-z][A-Za-z0-9]*)['\"]\s*:", javascript_source, re.MULTILINE)
     )
-    unmanifested_javascript_actions = javascript_actions - action_names - retired_action_names
+    unmanifested_javascript_actions = javascript_actions - action_names
     if unmanifested_javascript_actions:
         action_name = sorted(unmanifested_javascript_actions)[0]
         raise ValueError(
             f"JavaScript dispatch has unmanifested WPS Action '{action_name}'"
         )
-    javascript_exceptions = exception_actions(migration_map, "javascript_missing")
     javascript_omissions = action_names - javascript_actions
-    unexplained_javascript_omissions = javascript_omissions - javascript_exceptions
-    if unexplained_javascript_omissions:
-        action_name = sorted(unexplained_javascript_omissions)[0]
+    if javascript_omissions:
+        action_name = sorted(javascript_omissions)[0]
         raise ValueError(
-            f"WPS Action '{action_name}' is missing from JavaScript without an explanation"
+            f"WPS Action '{action_name}' is missing from the packaged JavaScript Add-in"
         )
-    stale_javascript_exceptions = javascript_exceptions - javascript_omissions
-    if stale_javascript_exceptions:
-        action_name = sorted(stale_javascript_exceptions)[0]
-        raise ValueError(f"stale JavaScript bridge exception for '{action_name}'")
-    powershell_source = (root / POWERSHELL_DISPATCH_PATH).read_text(encoding="utf-8")
-    powershell_dispatches = re.findall(
-        r'^ {4}"([A-Za-z][A-Za-z0-9]*)"\s*\{', powershell_source, re.MULTILINE
-    )
-    powershell_actions = set(powershell_dispatches)
-    duplicate_powershell_actions = {
-        action for action, count in Counter(powershell_dispatches).items() if count > 1
-    }
-    duplicate_exceptions = exception_actions(
-        migration_map, "powershell_duplicate_dispatches"
-    )
-    unexplained_duplicates = duplicate_powershell_actions - duplicate_exceptions
-    if unexplained_duplicates:
-        action_name = sorted(unexplained_duplicates)[0]
-        raise ValueError(
-            f"PowerShell dispatch duplicates WPS Action '{action_name}' without an explanation"
-        )
-    stale_duplicate_exceptions = duplicate_exceptions - duplicate_powershell_actions
-    if stale_duplicate_exceptions:
-        action_name = sorted(stale_duplicate_exceptions)[0]
-        raise ValueError(f"stale PowerShell duplicate exception for '{action_name}'")
-    unmanifested_powershell_actions = powershell_actions - action_names - retired_action_names
-    if unmanifested_powershell_actions:
-        action_name = sorted(unmanifested_powershell_actions)[0]
-        raise ValueError(
-            f"PowerShell dispatch has unmanifested WPS Action '{action_name}'"
-        )
-    powershell_exceptions = exception_actions(migration_map, "powershell_missing")
-    powershell_omissions = action_names - powershell_actions
-    unexplained_powershell_omissions = powershell_omissions - powershell_exceptions
-    if unexplained_powershell_omissions:
-        action_name = sorted(unexplained_powershell_omissions)[0]
-        raise ValueError(
-            f"WPS Action '{action_name}' is missing from PowerShell without an explanation"
-        )
-    stale_powershell_exceptions = powershell_exceptions - powershell_omissions
-    if stale_powershell_exceptions:
-        action_name = sorted(stale_powershell_exceptions)[0]
-        raise ValueError(f"stale PowerShell bridge exception for '{action_name}'")
-    legacy_tool_sources = list((root / "wps-office-mcp/src/tools").rglob("*.ts"))
-    legacy_tool_sources.append(root / "wps-office-mcp/src/server/mcp-server.ts")
-    legacy_tools = set()
-    for path in legacy_tool_sources:
-        source = path.read_text(encoding="utf-8")
-        legacy_tools.update(re.findall(r"\bname:\s*['\"](wps_[^'\"]+)['\"]", source))
     mappings = migration_map.get("legacy_tools", [])
     if not isinstance(mappings, list):
         raise ValueError("legacy-tool-action-map.json field 'legacy_tools' must be an array")
@@ -713,14 +645,6 @@ def validate(root: Path) -> int:
             )
         if status == "retired":
             retired_legacy_tools.add(tool_name)
-    unmapped_tools = legacy_tools - mapped_tools
-    if unmapped_tools:
-        tool_name = sorted(unmapped_tools)[0]
-        raise ValueError(f"legacy WPS Tool '{tool_name}' is not mapped")
-    stale_tool_mappings = mapped_tools - legacy_tools
-    if stale_tool_mappings:
-        tool_name = sorted(stale_tool_mappings)[0]
-        raise ValueError(f"migration map contains unknown legacy WPS Tool '{tool_name}'")
     for mapping in mappings:
         if not isinstance(mapping, dict):
             continue
@@ -737,6 +661,7 @@ def validate(root: Path) -> int:
                     f"legacy WPS Tool '{mapping['tool']}' owned by {tool_application} "
                     f"maps to {action_application} WPS Action '{mapped_action}'"
                 )
+    validate_frozen_legacy_tool_inventory(migration_map, mapped_tools)
     validate_reviewed_retirement_boundary(
         migration_map,
         retired_action_names,
