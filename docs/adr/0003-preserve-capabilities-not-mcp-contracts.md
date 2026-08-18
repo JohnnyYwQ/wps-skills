@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0014
 ---
 
 # Preserve WPS capabilities rather than MCP contracts

@@ -8,4 +8,4 @@ Support claims require behavioral smoke tests against an installed WPS on Linux 
 
 ## Consequences
 
-The project must have access to all four environments before release. Each environment must exercise add-in installation and readiness plus representative Excel, Word, PowerPoint, common, destructive-confirmation, save, and cross-application workflows.
+A supported release requires access to all four environments before release. Each environment must exercise add-in installation and readiness plus representative Excel, Word, PowerPoint, common, destructive-confirmation, save, and cross-application workflows. A Migration Complete preview, as defined by ADR-0015, is not a supported release and does not grant Platform Certified status to any target.

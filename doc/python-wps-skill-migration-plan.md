@@ -9,7 +9,7 @@
 - 不依赖 Node.js、npm、MCP 协议或 MCP SDK；
 - 目标智能体加载 `SKILL.md` 后调用技能目录内的 Python；
 - Python 3.9 及以上，仅使用标准库；
-- 保留现有 Excel、Word、PowerPoint、通用及跨应用能力；
+- 保留现有 Excel、Word、PowerPoint、通用及跨应用的稳定能力，但允许按 ADR-0014 明确退役旧 MCP 运行时专用、契约错误/歧义或已有规范 Action 替代的能力；
 - 不保留旧 MCP Tool 名称和 MCP 响应形式；
 - Linux x86_64、Linux ARM64、Windows x86_64、Windows ARM64 使用同一套 Python 和 WPS JavaScript 加载项；
 - 每次 Python 调用只执行一个 WPS Action，完成后退出；
@@ -42,6 +42,8 @@ WPS Office
 - Node.js 轮询服务器；
 - Windows PowerShell COM 执行路径；
 - 分散的四个独立 WPS Skill。
+
+唯一可加载的分发界面是 `wps-office` WPS Skill Package。`scripts/wps.py` 是智能体使用的包内 Python 执行入口，WPS Add-in 是由该入口安装的包内资产；二者都不作为独立产品发布。插件或 marketplace 清单的分发规则见 ADR-0009。
 
 保留并改造：
 
@@ -165,6 +167,19 @@ manifest 用于：
 
 迁移期间建立一次性的“旧 MCP Tool → WPS Action”对照表，用来证明能力没有遗漏；该对照表不进入最终接口。
 
+### 5.1 显式退役边界
+
+退役必须逐项记录，不能用“边缘能力”等模糊分类代替。当前确认范围为：
+
+- 退役通用 `openFile`，由 `openDocument`、`openWorkbook`、`openPresentation` 替代；
+- 退役通用 `convertFormat`，由 `convertToPDF` 与各应用保存 Action 覆盖支持的转换工作流；
+- 退役错误复用 Word 契约的旧 `wps_excel_find_replace`；
+- 维持六个 MCP 缓存、无限制动态调用及本地校对工具的既有退役状态；
+- Excel 单元格批注改为映射 `addCellComment`，PowerPoint 插图改为映射 `insertPptImage`，二者不退役；
+- `addArrow` 采用 JavaScript Add-in 的起止坐标契约，退役 PowerShell 的矩形边界参数形式。
+
+新增退役项必须像新增 Action 一样经过明确决策并更新迁移对照，不能仅因迁移或测试困难而省略。
+
 ## 6. Python runner
 
 每次 `invoke`：
@@ -222,7 +237,7 @@ manifest 用于：
 
 统一加载项以 `wps-claude-assistant` 的轮询实现为基础，不使用当前仅显示 COM 状态的 `wps-claude-addon`。
 
-当前静态对比结果：
+迁移早期的静态对比结果：
 
 ```text
 JavaScript Add-in dispatch：227
@@ -230,7 +245,7 @@ PowerShell dispatch：241
 JavaScript 相对缺口：14
 ```
 
-需要补齐的 dispatch：
+当时需要处置的 dispatch：
 
 ```text
 closeDocument
@@ -249,7 +264,7 @@ replaceRange
 smartFillField
 ```
 
-补齐时应优先移植行为和错误语义，不复制 PowerShell 结构。完成后由 manifest 与 dispatch 的集合测试确认无缺口。
+其中 `convertFormat` 与 `openFile` 已按 ADR-0014 明确退役；其余项已迁入最终 WPS Add-in。最终状态不以此历史缺口为准，而由 manifest 与最终 WPS Add-in dispatch 的集合测试确认。
 
 ## 9. Skill 内容迁移
 
@@ -304,7 +319,7 @@ Skill 负责对话确认，runner 负责强制执行。`destructive` Action 缺�
 
 1. 整理轮询版加载项为平台无关资产；
 2. 增加本地共享凭证；
-3. 补齐 14 个 Action；
+3. 按迁移对照补齐稳定 Action，并按 ADR-0014 处理明确退役项；
 4. 修正旧 MCP、Claude、macOS 专用命名；
 5. 让 manifest 与 dispatch 集合完全一致。
 
@@ -316,9 +331,25 @@ Skill 负责对话确认，runner 负责强制执行。`destructive` Action 缺�
 4. 加入 readiness、安全和错误恢复流程；
 5. 用真实用户任务进行前向测试。
 
-### 阶段 F：跨平台验收
+### 阶段 F：完成无实机迁移门槛
 
-在四个目标分别安装对应架构 WPS，并执行同一套 smoke tests：
+达到 `Migration Complete` 需要：
+
+- 应用 ADR-0014 的退役清单并消除迁移对照中的未决冲突；
+- manifest 与最终分发 Add-in 的 dispatch 集合完全一致；
+- 校验器只读取最终产物和冻结的迁移证据，不再扫描可执行旧源码；
+- 契约、安装器与 Fake Add-in 测试稳定通过；
+- `wps-office` 技能目录自包含，不引用仓库中的旧运行时；
+- 删除 `wps-office-mcp/`、根 `package.json` 中的 Node/MCP 内容、MCP/Node 安装和开发脚本；
+- 删除 Windows COM-only 加载项、PowerShell COM 脚本与三个独立应用 Skill；
+- 删除 README、INSTALL 和注释中的 MCP 配置说明；
+- 使保留的插件或 marketplace 元数据符合 ADR-0009，并删除名称、描述及配置中的 MCP 遗留措辞。
+
+删除前保留可回溯的迁移对照、测试证据和 Git 历史。达到该门槛后可合入主分支或发布明确标注的预览版本，但不得据此宣称任何平台已受支持。
+
+### 阶段 G：逐平台认证
+
+在每个目标分别安装对应架构 WPS，并执行同一套 smoke tests；通过的操作系统与架构组合单独获得 `Platform Certified` 状态：
 
 - 首次安装加载项；
 - 重复安装不改变有效配置；
@@ -329,31 +360,21 @@ Skill 负责对话确认，runner 负责强制执行。`destructive` Action 缺�
 - Excel 数据到 PowerPoint 的跨应用流程；
 - 破坏性 Action 无确认时被拒绝；
 - 超时、端口占用和并发锁；
-- 14 个补齐 Action 的针对性测试。
+- 所有从旧桥迁移或修正契约的 Action 的针对性测试。
 
-### 阶段 G：删除旧运行时
-
-只有在 manifest、自动测试和四平台 smoke tests 全部通过后，才删除：
-
-- `wps-office-mcp/`；
-- 根 `package.json` 中的 Node/MCP 内容；
-- MCP/Node 安装和开发脚本；
-- Windows COM-only 加载项；
-- PowerShell COM 脚本；
-- 三个独立应用 Skill；
-- README、INSTALL 和注释中的 MCP 配置说明。
-
-删除前保留可回溯的迁移对照和 Git 历史，不采用一次性大爆炸替换。
+四个平台可以按环境可用性独立认证；未认证平台保持预览状态。实机认证失败只阻止对应平台的支持声明，不恢复 Legacy MCP Runtime。
 
 ## 12. 验收标准
 
 - 最终 `wps-office` 目录不包含 Node.js、npm、TypeScript、MCP SDK 或 MCP 配置依赖；
 - 目标智能体只需加载一个 `SKILL.md`；
+- 任何保留的插件或 marketplace 元数据符合 ADR-0009；
 - 首次调用可在用户权限下完成 Add-in 安装；
 - 同一 Python 源码运行于四个平台；
 - manifest 中每个 Action 都有且只有一个 Add-in dispatch；
 - 旧能力到 Action 的迁移对照无遗漏；
 - `read`、`write`、`destructive` 规则由 runner 测试覆盖；
 - stdout、stderr、退出码和错误 JSON 契约稳定；
-- 四个真实 WPS 环境的 smoke tests 全部通过；
+- Migration Complete 门槛全部通过，且旧 MCP 运行时已删除；
+- 只有通过真实 WPS smoke tests 的操作系统与架构组合才标记为 Platform Certified；
 - 项目文档不再把 Skill、Action、Add-in 和 MCP 混为一谈。
