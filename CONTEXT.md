@@ -24,6 +24,22 @@ _Avoid_: Standalone application, MCP server
 WPS-hosted JavaScript that receives WPS Actions from the skill's Python runner and executes them inside WPS Office.
 _Avoid_: Skill, MCP server
 
+**Agent Host**:
+The AI application that discovers and loads a WPS Skill Package and executes its bundled runner. During a real-WPS test, the Agent Host runs on the Validation Target so the runner and WPS Add-in share the target's loopback interface and user profile.
+_Avoid_: Control host, remote bridge
+
+**Agent Host Smoke Test**:
+A candidate-specific test in which an Agent Host discovers and loads an unchanged WPS Skill Package, resolves its bundled resources, and drives an observable WPS result from a realistic user request. It demonstrates host integration but does not grant Platform Certified status.
+_Avoid_: Runner test, environment preflight, platform certification
+
+**Control Host**:
+The operator machine that stages candidates, orchestrates remote checks, and collects sanitized records from Validation Targets. It does not proxy WPS Action loopback traffic for another machine.
+_Avoid_: Agent Host, platform bridge
+
+**Validation Target**:
+The machine or virtual machine whose operating system and architecture are under test and where the Agent Host, Python runner, WPS Add-in, and WPS Office execute together.
+_Avoid_: Control host, inferred platform
+
 **Legacy MCP Runtime**:
 The retired Node.js, TypeScript, MCP, and PowerShell execution path retained only while its stable WPS behavior is extracted into the WPS Skill Package.
 _Avoid_: WPS Skill Package, fallback runtime
@@ -35,6 +51,10 @@ _Avoid_: Missing Action, unsupported platform
 **Migration Complete**:
 The repository state in which the WPS Skill Package is self-contained, its automated contracts pass, and the Legacy MCP Runtime has been removed. It makes no claim that WPS behavior has been verified on a particular operating-system and architecture pair.
 _Avoid_: Platform support, release certified
+
+**Environment Preflight**:
+The platform-specific check that a real WPS validation environment is accessible, correctly provisioned, resettable, and ready to receive a WPS Skill Package candidate. It does not certify WPS Skill Package behavior on that platform.
+_Avoid_: Platform validation, platform acceptance, certification
 
 **Platform Certified**:
 A specific operating-system and architecture pair whose installed WPS has passed the required behavioral smoke tests for the WPS Skill Package.
