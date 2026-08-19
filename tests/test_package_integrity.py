@@ -13,6 +13,7 @@ import tempfile
 import threading
 import time
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -22,6 +23,21 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_SOURCE = REPOSITORY_ROOT / "skills" / "wps-office"
 POLL_URL = "http://127.0.0.1:58891/poll"
 RESULT_URL = "http://127.0.0.1:58891/result"
+
+
+class ScriptSourceParser(HTMLParser):
+    """Collect external scripts in the order a browser entry loads them."""
+
+    def __init__(self):
+        super().__init__()
+        self.sources = []
+
+    def handle_starttag(self, tag, attributes):
+        if tag != "script":
+            return
+        source = dict(attributes).get("src")
+        if source is not None:
+            self.sources.append(source)
 
 
 def isolated_environment(profile, audit_directory):
@@ -303,6 +319,19 @@ class PackageIntegrityTests(unittest.TestCase):
                             self.assertIn(
                                 imported_module.split(".", 1)[0], standard_library
                             )
+
+    def test_browser_entry_loads_runtime_config_before_platform_bridge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package = self._stage_package(directory)
+            entry = package / "assets/wps-addin/index.html"
+            parser = ScriptSourceParser()
+
+            parser.feed(entry.read_text(encoding="utf-8"))
+
+            self.assertEqual(
+                parser.sources,
+                ["wps-skill-config.js", "main.js"],
+            )
 
     def test_staged_package_runs_documented_operations_without_repository_resources(self):
         with tempfile.TemporaryDirectory() as directory:

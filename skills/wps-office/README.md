@@ -11,6 +11,8 @@
 - `scripts/wps_skill/addon_installer.py`：在 Linux、macOS、Windows 用户配置目录幂等安装 WPS Add-in、安全合并 `publish.xml`、清理 macOS 目标目录的 Gatekeeper 隔离属性，并管理本机认证配置。
 - `assets/wps-addin/`：Linux x86_64、Linux ARM64、Windows x86_64 和 Windows ARM64 共用的 WPS Add-in 资源。
 
+WPS Add-in 的浏览器入口和 manifest 都必须先加载安装器生成的 `wps-skill-config.js`，再加载 `main.js`，使 loopback 轮询使用与 Runner 相同的本机凭据和安装摘要。
+
 `check` 会在首次使用或资源变化时原子安装 Add-in，并返回 `ready`、`restart_required`、`wps_not_running` 或 `addin_unavailable`。macOS 安装到 WPS 容器内的 `jsaddons` 目录，并在复制后清理目标 Add-in 的 Gatekeeper 隔离属性；仍须完全退出并重新打开 WPS 才能加载更新。非就绪结果可在 `data.error` 中附带稳定的传输错误，同时保留兼容的 readiness 状态。安装摘要会保持 `restart_required`，直到 WPS 中已加载的 Add-in 通过认证 ping 回报相同摘要。认证凭证只写入用户配置与已安装 Add-in，不通过标准输出返回。
 
 `check` 与 `invoke` 使用当前用户配置目录内的跨进程系统文件锁，竞争调用立即返回可重试的 `ACTION_BUSY`。Runner 只绑定 `127.0.0.1`，所有 Action 轮询与结果请求均使用本机共享凭证认证，并在成功、协议错误、断开、超时或端口冲突后关闭临时服务并释放锁。浏览器 CORS `OPTIONS` 预检无法携带认证头，因此只返回空协商响应，不读取或改变 Action 状态。锁由操作系统持有，进程退出后遗留的空锁文件不会继续占锁。

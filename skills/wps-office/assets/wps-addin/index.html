@@ -5,7 +5,8 @@
     <title>WPS Platform Bridge</title>
 </head>
 <body>
-    <!-- WPS加载项入口，必须在这里加载main.js -->
+    <!-- WPS加载项入口：安装器生成的认证配置必须先于main.js加载 -->
+    <script src="wps-skill-config.js"></script>
     <script src="main.js"></script>
 </body>
 </html>
