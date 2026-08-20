@@ -1417,6 +1417,31 @@ json.loads = _raise_once
             "INVALID_PARAMS",
         )
 
+    def test_legacy_cross_application_mappings_are_rejected_before_the_addin(self):
+        requests = (
+            {
+                "action": "addComment",
+                "params": {"cell": "B4", "comment": "Owner: finance"},
+                "timeout_ms": 1000,
+            },
+            {
+                "action": "insertImage",
+                "params": {
+                    "slideIndex": 1,
+                    "imagePath": "/tmp/chart.png",
+                    "path": "/tmp/chart.png",
+                    "filePath": "/tmp/chart.png",
+                    "left": 10,
+                    "top": 20,
+                },
+                "timeout_ms": 1000,
+            },
+        )
+
+        for request in requests:
+            with self.subTest(action=request["action"]):
+                self._assert_rejected_before_addin(request, "INVALID_PARAMS")
+
     def test_advanced_overwrite_requires_confirmation_before_the_addin(self):
         addin = FakeAddin(
             {"success": True, "data": {"cell": "A1", "text": "replacement"}}
