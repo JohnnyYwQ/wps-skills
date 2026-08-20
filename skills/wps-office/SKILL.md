@@ -30,7 +30,7 @@ Do not run the Action unless `data.ready` is `true`. The installer recognizes Li
 
 Read `references/action-manifest.json` and select the canonical WPS Action matching the request. Check its `application`, parameter contract, result contract, prerequisites, and `risk` before invoking it.
 
-For Excel core data, formatting, chart, analysis, pivot, protection, image, or context-aware work, also read `references/excel.md`. For Word document lifecycle, content, formatting, template, bookmark, comment, or revision work, also read `references/word.md`. For PowerPoint presentation lifecycle, slide, text, image, table, note, background, basic layout, advanced design, chart, diagram, animation, transition, theme, master, or cross-presentation work, also read `references/powerpoint.md`. Use the relevant workflow guidance while treating the manifest as the exact parameter and result contract.
+For opening, saving, saving as, converting, or closing files across applications, also read `references/common.md`. For Excel core data, formatting, chart, analysis, pivot, protection, image, or context-aware work, also read `references/excel.md`. For Word document lifecycle, content, formatting, template, bookmark, comment, or revision work, also read `references/word.md`. For PowerPoint presentation lifecycle, slide, text, image, table, note, background, basic layout, advanced design, chart, diagram, animation, transition, theme, master, or cross-presentation work, also read `references/powerpoint.md`. Use the relevant workflow guidance while treating the manifest as the exact parameter and result contract.
 
 Apply the manifest risk policy before invoking:
 

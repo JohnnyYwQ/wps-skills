@@ -1,6 +1,19 @@
 {
   "schema_version": 1,
   "reference_groups": {
+    "common_core": {
+      "reference": "common.md",
+      "actions": [
+        "convertToPDF",
+        "getAppInfo",
+        "getSelectedText",
+        "ping",
+        "save",
+        "saveAs",
+        "setSelectedText",
+        "wireCheck"
+      ]
+    },
     "excel_core": {
       "reference": "excel.md",
       "actions": [
@@ -277,11 +290,14 @@
         "type": "object",
         "properties": {
           "outputPath": {
-            "description": "Value passed as the 'outputPath' Action parameter.",
-            "type": "string"
+            "description": "Explicit PDF output path. The path must end in .pdf.",
+            "type": "string",
+            "pattern": "(?i).*\\.pdf$"
           }
         },
-        "required": [],
+        "required": [
+          "outputPath"
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -448,7 +464,7 @@
         "wps_running",
         "active_document"
       ],
-      "risk": "write"
+      "risk": "destructive"
     },
     {
       "action": "saveAs",
@@ -458,19 +474,82 @@
         "type": "object",
         "properties": {
           "appType": {
-            "description": "Value passed as the 'appType' Action parameter.",
-            "type": "string"
-          },
-          "format": {
-            "description": "Value passed as the 'format' Action parameter.",
-            "type": "string"
+            "description": "Active WPS application type returned by getAppInfo.",
+            "type": "string",
+            "enum": [
+              "wps",
+              "et",
+              "wpp"
+            ]
           },
           "path": {
-            "description": "Value passed as the 'path' Action parameter.",
+            "description": "Explicit output path. Its extension selects a format supported by the active WPS application.",
             "type": "string"
           }
         },
-        "required": [],
+        "required": [
+          "appType",
+          "path"
+        ],
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "appType": {
+                "type": "string",
+                "enum": [
+                  "wps"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "pattern": "(?i).*\\.(doc|docx|htm|html|rtf|txt|xml)$"
+              }
+            },
+            "required": [
+              "appType",
+              "path"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "appType": {
+                "type": "string",
+                "enum": [
+                  "et"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "pattern": "(?i).*\\.(csv|htm|html|xls|xlsb|xlsm|xlsx)$"
+              }
+            },
+            "required": [
+              "appType",
+              "path"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "appType": {
+                "type": "string",
+                "enum": [
+                  "wpp"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "pattern": "(?i).*\\.(htm|html|ppt|pptm|pptx)$"
+              }
+            },
+            "required": [
+              "appType",
+              "path"
+            ]
+          }
+        ],
         "additionalProperties": false
       },
       "result": {
@@ -3836,7 +3915,8 @@
         "properties": {
           "path": {
             "description": "Value passed as the 'path' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "pattern": "(?i).*\\.(csv|et|ett|xls|xlsb|xlsm|xlsx|xlt|xltm|xltx)$"
           },
           "readOnly": {
             "description": "Value passed as the 'readOnly' Action parameter.",
@@ -7144,7 +7224,7 @@
           "path": {
             "type": "string",
             "description": "Document path to open.",
-            "pattern": ".+"
+            "pattern": "(?i).*\\.(doc|docm|docx|dot|dotm|dotx|rtf|wps|wpt)$"
           }
         },
         "required": [
@@ -8809,6 +8889,10 @@
           "name": {
             "description": "Value passed as the 'name' Action parameter.",
             "type": "string"
+          },
+          "saveChanges": {
+            "description": "Whether to save pending presentation changes before closing; false explicitly discards them.",
+            "type": "boolean"
           }
         },
         "required": [],
@@ -11426,7 +11510,8 @@
         "properties": {
           "path": {
             "description": "Value passed as the 'path' Action parameter.",
-            "type": "string"
+            "type": "string",
+            "pattern": "(?i).*\\.(dps|dpt|pot|potm|potx|pps|ppsm|ppsx|ppt|pptm|pptx)$"
           }
         },
         "required": [

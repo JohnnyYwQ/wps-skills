@@ -915,7 +915,12 @@ json.loads = _raise_once
                 {"data": [["Item", "Amount"], ["Hosting", 42], [None, 42]]},
             ),
             (
-                {"action": "save", "params": {}, "timeout_ms": 1000},
+                {
+                    "action": "save",
+                    "params": {},
+                    "confirmed": True,
+                    "timeout_ms": 1000,
+                },
                 {},
             ),
         )
@@ -1102,6 +1107,100 @@ json.loads = _raise_once
         self.assertTrue(addin.finished.wait(1))
         if addin.error:
             raise addin.error
+
+    def test_open_actions_reject_missing_or_unsupported_files_before_the_addin(self):
+        action_extensions = {
+            "openDocument": ".docx",
+            "openWorkbook": ".xlsx",
+            "openPresentation": ".pptx",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            unsupported = root / "archive.zip"
+            unsupported.write_bytes(b"not an office file")
+
+            for action_name, extension in action_extensions.items():
+                with self.subTest(action=action_name, problem="missing"):
+                    completed = self._assert_rejected_before_addin(
+                        {
+                            "action": action_name,
+                            "params": {"path": str(root / ("missing" + extension))},
+                            "timeout_ms": 1000,
+                        },
+                        "INVALID_PARAMS",
+                    )
+                    self.assertIn("existing file", completed.stdout)
+
+                with self.subTest(action=action_name, problem="format"):
+                    completed = self._assert_rejected_before_addin(
+                        {
+                            "action": action_name,
+                            "params": {"path": str(unsupported)},
+                            "timeout_ms": 1000,
+                        },
+                        "INVALID_PARAMS",
+                    )
+                    self.assertIn("unsupported file extension", completed.stdout)
+
+    def test_output_actions_reject_unsupported_or_unwritable_targets_before_the_addin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cases = (
+                (
+                    "saveAs",
+                    {"appType": "wps", "path": str(root / "report.zip")},
+                    "unsupported file extension",
+                ),
+                (
+                    "saveAs",
+                    {
+                        "appType": "wps",
+                        "path": str(root / "missing" / "report.docx"),
+                    },
+                    "parent directory must exist",
+                ),
+                (
+                    "convertToPDF",
+                    {"outputPath": str(root / "missing" / "report.pdf")},
+                    "parent directory must exist",
+                ),
+            )
+            for action_name, params, message in cases:
+                with self.subTest(action=action_name, message=message):
+                    completed = self._assert_rejected_before_addin(
+                        {
+                            "action": action_name,
+                            "params": params,
+                            "confirmed": True,
+                            "timeout_ms": 1000,
+                        },
+                        "INVALID_PARAMS",
+                    )
+                    self.assertIn(message, completed.stdout)
+
+    def test_open_action_sends_the_normalized_path_to_the_addin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            document = Path(directory) / "report.docx"
+            document.write_bytes(b"test document")
+            relative_path = os.path.relpath(document, REPOSITORY_ROOT)
+            completed, addin = self._invoke_with_fake_addin(
+                {
+                    "action": "openDocument",
+                    "params": {"path": relative_path},
+                    "timeout_ms": 1000,
+                },
+                {
+                    "success": True,
+                    "data": {
+                        "name": document.name,
+                        "path": str(document),
+                        "paragraphs": 1,
+                    },
+                },
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stdout)
+        self.assertEqual(addin.action_request["params"]["path"], str(document.resolve()))
 
     def test_cell_info_result_matches_the_manifest_contract(self):
         data = {
@@ -1428,7 +1527,12 @@ json.loads = _raise_once
                 {"trackChanges": True, "revisionCount": 0},
             ),
             (
-                {"action": "save", "params": {}, "timeout_ms": 2000},
+                {
+                    "action": "save",
+                    "params": {},
+                    "confirmed": True,
+                    "timeout_ms": 2000,
+                },
                 {},
             ),
             (
@@ -1524,7 +1628,12 @@ json.loads = _raise_once
                 },
             ),
             (
-                {"action": "save", "params": {}, "timeout_ms": 2000},
+                {
+                    "action": "save",
+                    "params": {},
+                    "confirmed": True,
+                    "timeout_ms": 2000,
+                },
                 {},
             ),
         )

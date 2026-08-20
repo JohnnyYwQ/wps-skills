@@ -284,6 +284,8 @@ def validate_contract(value, schema, path):
         except re.error:
             matches_pattern = False
         if not matches_pattern:
+            if path.endswith((".path", ".outputPath")) and "\\." in pattern:
+                return "{0} has an unsupported file extension".format(path)
             return "{0} must match pattern '{1}'".format(path, pattern)
 
     if isinstance(value, dict):
@@ -319,8 +321,36 @@ def validate_contract(value, schema, path):
         validate_contract(value, alternative, path) is None
         for alternative in alternatives
     ):
+        if isinstance(value, dict) and {"appType", "path"}.issubset(value):
+            return "{0}.path has an unsupported file extension for {0}.appType".format(
+                path
+            )
         return "{0} must satisfy at least one allowed contract".format(path)
     return None
+
+
+def prepare_file_action_params(action_name, params):
+    """Normalize and validate file paths before contacting the WPS Add-in."""
+    normalized = dict(params)
+    if action_name in {"openDocument", "openWorkbook", "openPresentation"}:
+        input_path = Path(params["path"]).expanduser().resolve()
+        if not input_path.is_file():
+            return normalized, "params.path must name an existing file"
+        normalized["path"] = str(input_path)
+        return normalized, None
+
+    if action_name == "saveAs":
+        output_field = "path"
+    elif action_name == "convertToPDF":
+        output_field = "outputPath"
+    else:
+        return normalized, None
+
+    output_path = Path(params[output_field]).expanduser().resolve()
+    if not output_path.parent.is_dir():
+        return normalized, "output path parent directory must exist"
+    normalized[output_field] = str(output_path)
+    return normalized, None
 
 
 def expected_type_phrase(expected_type):
@@ -683,6 +713,8 @@ def invoke(request):
         )
     params = request.get("params", {})
     params_problem = validate_contract(params, action["parameters"], "params")
+    if params_problem is None:
+        params, params_problem = prepare_file_action_params(action_name, params)
     if params_problem:
         raise RunnerError(
             "INVALID_PARAMS", params_problem, False, action_name

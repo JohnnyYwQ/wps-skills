@@ -182,10 +182,13 @@ def validate_schema_node(schema: Any, context: str) -> None:
             raise ValueError(f"{context}.anyOf must be a non-empty array")
         properties = schema.get("properties", {})
         for branch_index, branch in enumerate(any_of):
-            if not isinstance(branch, dict) or set(branch) != {"required"}:
+            if not isinstance(branch, dict) or not branch:
                 raise ValueError(
-                    f"{context}.anyOf[{branch_index}] must contain only required"
+                    f"{context}.anyOf[{branch_index}] must be a schema object"
                 )
+            if set(branch) != {"required"}:
+                validate_schema_node(branch, f"{context}.anyOf[{branch_index}]")
+                continue
             required = branch["required"]
             if not isinstance(required, list) or not required or not all(
                 isinstance(item, str) for item in required
@@ -311,14 +314,19 @@ def validate_example_value(value: Any, schema: Dict[str, Any], context: str) -> 
                     f"{context}.{property_name}",
                 )
         any_of = schema.get("anyOf", [])
-        if any_of and not any(
-            all(property_name in value for property_name in branch["required"])
-            for branch in any_of
-        ):
+        if any_of and not any(example_matches_schema(value, branch) for branch in any_of):
             raise ValueError(f"{context}: must satisfy at least one anyOf branch")
     if isinstance(value, list) and isinstance(schema.get("items"), dict):
         for item_index, item in enumerate(value):
             validate_example_value(item, schema["items"], f"{context}[{item_index}]")
+
+
+def example_matches_schema(value: Any, schema: Dict[str, Any]) -> bool:
+    try:
+        validate_example_value(value, schema, "anyOf branch")
+    except ValueError:
+        return False
+    return True
 
 
 def legacy_tool_application(tool_name: str) -> str:

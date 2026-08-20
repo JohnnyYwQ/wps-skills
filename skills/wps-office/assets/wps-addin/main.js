@@ -1,6 +1,6 @@
 /**
  * Input: Python Runner 的 WPS Action、请求标识与加载项事件
- * Output: 包含 Excel 与 Word 已迁移工作流在内的 WPS 应用侧结构化执行结果
+ * Output: 包含通用文件生命周期、Excel、Word 与 PowerPoint 工作流的 WPS 应用侧结构化执行结果
  * Pos: 跨平台统一 WPS Add-in 主入口。一旦我被修改，请更新我的头部注释，以及所属文件夹的md。
  * WPS Skill Platform Bridge（轮询模式）
  * 加载项作为 HTTP 客户端，轮询 Python Runner 获取 WPS Action
@@ -1963,6 +1963,12 @@ function handleClosePresentation(params) {
         var ppt = params.name ? Application.Presentations.Item(params.name) : Application.ActivePresentation;
         if (!ppt) return { success: false, error: '没有找到演示文稿' };
         var name = ppt.Name;
+        var saveChanges = params.saveChanges === undefined ? true : !!params.saveChanges;
+        if (saveChanges) {
+            ppt.Save();
+        } else {
+            ppt.Saved = true;
+        }
         ppt.Close();
         return { success: true, data: { closed: name } };
     } catch (e) {
@@ -6519,31 +6525,41 @@ function handleLockCells(params) {
 
 // ==================== 通用高级 Handlers ====================
 
+var SAVE_AS_FORMAT_CODES = {
+    wps: { '.doc': 0, '.docx': 16, '.rtf': 6, '.txt': 2, '.htm': 8, '.html': 8, '.xml': 11 },
+    et: { '.xls': -4143, '.xlsx': 51, '.xlsm': 52, '.xlsb': 50, '.csv': 6, '.htm': 44, '.html': 44 },
+    wpp: { '.ppt': 1, '.pptx': 24, '.pptm': 25, '.htm': 12, '.html': 12 }
+};
+
 function handleConvertToPDF(params) {
     try {
         var appType = getAppType();
         var outputPath = params.outputPath;
+        if (!outputPath || !/\.pdf$/i.test(outputPath)) {
+            return { success: false, error: 'PDF 输出路径必须以 .pdf 结尾' };
+        }
+        var sourcePath = '';
 
         if (appType === 'wps') {
             var doc = Application.ActiveDocument;
             if (!doc) return { success: false, error: '没有打开的文档' };
-            if (!outputPath) outputPath = doc.FullName.replace(/\.\w+$/, '.pdf');
+            sourcePath = doc.FullName || '';
             doc.SaveAs2(outputPath, 17); // wdFormatPDF
         } else if (appType === 'et') {
             var wb = Application.ActiveWorkbook;
             if (!wb) return { success: false, error: '没有打开的工作簿' };
-            if (!outputPath) outputPath = wb.FullName.replace(/\.\w+$/, '.pdf');
+            sourcePath = wb.FullName || '';
             wb.ExportAsFixedFormat(0, outputPath); // xlTypePDF
         } else if (appType === 'wpp') {
             var pres = Application.ActivePresentation;
             if (!pres) return { success: false, error: '没有打开的演示文稿' };
-            if (!outputPath) outputPath = pres.FullName.replace(/\.\w+$/, '.pdf');
+            sourcePath = pres.FullName || '';
             pres.SaveAs(outputPath, 32); // ppSaveAsPDF
         } else {
             return { success: false, error: '无法识别当前应用类型' };
         }
 
-        return { success: true, data: { outputPath: outputPath } };
+        return { success: true, data: { appType: appType, outputPath: outputPath, sourcePath: sourcePath } };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -6578,26 +6594,33 @@ function handleSave(params) {
 function handleSaveAs(params) {
     try {
         var appType = getAppType();
-        var outputPath = params.path || params.outputPath;
+        if (appType !== params.appType) {
+            return { success: false, error: '当前应用类型与 saveAs.appType 不一致' };
+        }
+        var outputPath = params.path;
         if (!outputPath) return { success: false, error: '请指定保存路径' };
+        var extensionMatch = /(?:^|[\\/])[^\\/]+(\.[^.\\/]+)$/.exec(outputPath);
+        var extension = extensionMatch ? extensionMatch[1].toLowerCase() : '';
+        var formatCode = SAVE_AS_FORMAT_CODES[appType][extension];
+        if (formatCode === undefined) {
+            return { success: false, error: '当前应用不支持保存格式: ' + (extension || '(无扩展名)') };
+        }
 
         if (appType === 'wps') {
             var doc = Application.ActiveDocument;
             if (!doc) return { success: false, error: '没有打开的文档' };
-            doc.SaveAs2(outputPath);
+            doc.SaveAs2(outputPath, formatCode);
         } else if (appType === 'et') {
             var wb = Application.ActiveWorkbook;
             if (!wb) return { success: false, error: '没有打开的工作簿' };
-            wb.SaveAs(outputPath);
+            wb.SaveAs(outputPath, formatCode);
         } else if (appType === 'wpp') {
             var pres = Application.ActivePresentation;
             if (!pres) return { success: false, error: '没有打开的演示文稿' };
-            pres.SaveAs(outputPath);
-        } else {
-            return { success: false, error: '无法识别当前应用类型' };
+            pres.SaveAs(outputPath, formatCode);
         }
 
-        return { success: true, data: { filePath: outputPath } };
+        return { success: true, data: { appType: appType, path: outputPath } };
     } catch (e) {
         return { success: false, error: e.message };
     }

@@ -24,6 +24,7 @@ WORD_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/word.md"
 POWERPOINT_REFERENCE = (
     REPOSITORY_ROOT / "skills/wps-office/references/powerpoint.md"
 )
+COMMON_REFERENCE = REPOSITORY_ROOT / "skills/wps-office/references/common.md"
 
 
 class ActionManifestValidatorTests(unittest.TestCase):
@@ -353,6 +354,51 @@ class ActionManifestValidatorTests(unittest.TestCase):
             )
             manifest["actions"][0]["examples"] = [
                 {"name": "Missing path", "params": {}, "result": {}}
+            ]
+            self._write_json(manifest_path, manifest)
+
+            completed = self._run_validator(root)
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("must satisfy at least one anyOf branch", completed.stderr)
+
+    def test_any_of_branches_can_constrain_property_values(self) -> None:
+        with self._minimal_baseline() as root:
+            manifest_path = root / "skills/wps-office/references/action-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["actions"][0]["parameters"] = {
+                "type": "object",
+                "properties": {
+                    "appType": {"type": "string", "enum": ["wps", "et"]},
+                    "path": {"type": "string"},
+                },
+                "required": ["appType", "path"],
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "appType": {"type": "string", "enum": ["wps"]},
+                            "path": {"type": "string", "pattern": r"(?i).*\.docx$"},
+                        },
+                        "required": ["appType", "path"],
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "appType": {"type": "string", "enum": ["et"]},
+                            "path": {"type": "string", "pattern": r"(?i).*\.xlsx$"},
+                        },
+                        "required": ["appType", "path"],
+                    },
+                ],
+                "additionalProperties": False,
+            }
+            manifest["actions"][0]["examples"] = [
+                {
+                    "name": "Mismatched application format",
+                    "params": {"appType": "wps", "path": "report.xlsx"},
+                    "result": {},
+                }
             ]
             self._write_json(manifest_path, manifest)
 
@@ -803,6 +849,96 @@ class RetirementContractTests(unittest.TestCase):
         packaged_addin = UNIFIED_ADDIN.read_text(encoding="utf-8")
         self.assertIn("handleAddCellComment", packaged_addin)
         self.assertIn("handleInsertPptImage", packaged_addin)
+
+
+class CommonLifecycleContractTests(unittest.TestCase):
+    LIFECYCLE_ACTIONS = {
+        "convertToPDF",
+        "openDocument",
+        "openPresentation",
+        "openWorkbook",
+        "save",
+        "saveAs",
+        "closeDocument",
+        "closePresentation",
+        "closeWorkbook",
+    }
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.manifest = json.loads(
+            (
+                REPOSITORY_ROOT
+                / "skills/wps-office/references/action-manifest.json"
+            ).read_text(encoding="utf-8")
+        )
+        cls.actions = {entry["action"]: entry for entry in cls.manifest["actions"]}
+        cls.addin_source = UNIFIED_ADDIN.read_text(encoding="utf-8")
+
+    def test_common_group_documents_cross_application_file_workflows(self) -> None:
+        common_group = self.manifest["reference_groups"]["common_core"]
+        common_actions = {
+            name
+            for name, action in self.actions.items()
+            if action["application"] == "common"
+        }
+
+        self.assertEqual(common_group["reference"], "common.md")
+        self.assertEqual(set(common_group["actions"]), common_actions)
+        reference = COMMON_REFERENCE.read_text(encoding="utf-8")
+        for action_name in self.LIFECYCLE_ACTIONS:
+            with self.subTest(action=action_name):
+                self.assertIn("`{0}`".format(action_name), reference)
+
+    def test_file_paths_are_explicit_nonblank_contracts(self) -> None:
+        for action_name in ("openDocument", "openWorkbook", "openPresentation"):
+            with self.subTest(action=action_name):
+                path = self.actions[action_name]["parameters"]["properties"]["path"]
+                self.assertEqual(
+                    set(self.actions[action_name]["parameters"]["required"]),
+                    {"path"},
+                )
+                self.assertTrue(path["pattern"].startswith("(?i)"))
+
+        save_as = self.actions["saveAs"]["parameters"]
+        self.assertEqual(set(save_as["required"]), {"appType", "path"})
+        self.assertEqual(set(save_as["properties"]), {"appType", "path"})
+        self.assertEqual(len(save_as["anyOf"]), 3)
+
+        convert = self.actions["convertToPDF"]["parameters"]
+        self.assertEqual(set(convert["required"]), {"outputPath"})
+        self.assertEqual(convert["properties"]["outputPath"]["pattern"], r"(?i).*\.pdf$")
+
+    def test_output_actions_return_the_manifest_result_fields(self) -> None:
+        self.assertRegex(
+            self.addin_source,
+            r"handleConvertToPDF[\s\S]*?data:\s*\{\s*appType:\s*appType,\s*outputPath:\s*outputPath,\s*sourcePath:\s*sourcePath\s*\}",
+        )
+        self.assertRegex(
+            self.addin_source,
+            r"handleSaveAs[\s\S]*?data:\s*\{\s*appType:\s*appType,\s*path:\s*outputPath\s*\}",
+        )
+
+    def test_close_actions_expose_consistent_save_or_discard_control(self) -> None:
+        for action_name in ("closeDocument", "closeWorkbook", "closePresentation"):
+            with self.subTest(action=action_name):
+                action = self.actions[action_name]
+                self.assertEqual(action["risk"], "destructive")
+                self.assertEqual(
+                    action["parameters"]["properties"]["saveChanges"]["type"],
+                    "boolean",
+                )
+
+    def test_every_file_overwrite_requires_confirmation(self) -> None:
+        for action_name in ("save", "saveAs", "convertToPDF"):
+            with self.subTest(action=action_name):
+                self.assertEqual(self.actions[action_name]["risk"], "destructive")
+
+    def test_save_as_uses_application_specific_format_codes(self) -> None:
+        self.assertIn("SAVE_AS_FORMAT_CODES", self.addin_source)
+        self.assertIn("doc.SaveAs2(outputPath, formatCode)", self.addin_source)
+        self.assertIn("wb.SaveAs(outputPath, formatCode)", self.addin_source)
+        self.assertIn("pres.SaveAs(outputPath, formatCode)", self.addin_source)
 
 
 class ExcelCoreContractTests(unittest.TestCase):
