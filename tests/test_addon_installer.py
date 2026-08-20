@@ -18,7 +18,9 @@ from urllib.request import Request, urlopen
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 RUNNER = REPOSITORY_ROOT / "skills" / "wps-office" / "scripts" / "wps.py"
 POLL_URL = "http://127.0.0.1:58891/poll"
+ACK_URL = "http://127.0.0.1:58891/ack"
 RESULT_URL = "http://127.0.0.1:58891/result"
+REQUEST_ID_HEADER = "X-WPS-Request-ID"
 
 
 def run_runner(
@@ -82,13 +84,16 @@ class FakeReadinessAddin:
         self.stopped.set()
 
     def _request(self, url, data=None, method="GET"):
+        headers = {
+            "Authorization": "Bearer {0}".format(self.auth_token),
+            "Content-Type": "application/json",
+        }
+        if method == "POST" and self.action_request is not None:
+            headers[REQUEST_ID_HEADER] = self.action_request["requestId"]
         return Request(
             url,
             data=data,
-            headers={
-                "Authorization": "Bearer {0}".format(self.auth_token),
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             method=method,
         )
 
@@ -106,6 +111,10 @@ class FakeReadinessAddin:
                     time.sleep(0.02)
                     continue
                 self.action_request = payload["actionRequest"]
+                with urlopen(
+                    self._request(ACK_URL, b"", "POST"), timeout=1
+                ) as response:
+                    json.load(response)
                 addin_result = self.result
                 if addin_result is None:
                     addin_result = {

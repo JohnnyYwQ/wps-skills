@@ -23,6 +23,7 @@ from wps_skill import addon_installer
 
 HOST = "127.0.0.1"
 PORT = 58891
+REQUEST_ID_HEADER = "X-WPS-Request-ID"
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "references" / "action-manifest.json"
 TRANSPORT_ERROR_DETAILS = {
     "PORT_IN_USE": (
@@ -407,6 +408,24 @@ def make_handler(exchange_state, auth_token):
                 },
             )
 
+        def _request_id_matches(self):
+            provided = self.headers.get(REQUEST_ID_HEADER, "")
+            expected = exchange_state["action_request"]["requestId"]
+            return secrets.compare_digest(provided, expected)
+
+        def _reject_stale_request(self):
+            error = transport_runner_error(
+                "REQUEST_ID_MISMATCH",
+                exchange_state["action_request"]["action"],
+            )
+            self._send_json(
+                409,
+                {
+                    "ok": False,
+                    "error": {"code": error.code, "message": error.message},
+                },
+            )
+
         def do_GET(self):
             if not self._is_authorized():
                 self._reject_unauthorized()
@@ -414,17 +433,23 @@ def make_handler(exchange_state, auth_token):
             if self.path != "/poll":
                 self._send_json(404, {"error": "Not found"})
                 return
-            if self._send_json(
+            self._send_json(
                 200, {"actionRequest": exchange_state["action_request"]}
-            ):
-                exchange_state["action_delivered"] = True
+            )
 
         def do_POST(self):
             if not self._is_authorized():
                 self._reject_unauthorized()
                 return
-            if self.path != "/result":
+            if self.path not in {"/ack", "/result"}:
                 self._send_json(404, {"error": "Not found"})
+                return
+            if not self._request_id_matches():
+                self._reject_stale_request()
+                return
+            exchange_state["action_delivered"] = True
+            if self.path == "/ack":
+                self._send_json(200, {"ok": True})
                 return
             try:
                 content_length = int(self.headers.get("Content-Length", "0"))
@@ -472,7 +497,8 @@ def make_handler(exchange_state, auth_token):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header(
-                "Access-Control-Allow-Headers", "Content-Type, Authorization"
+                "Access-Control-Allow-Headers",
+                "Content-Type, Authorization, {0}".format(REQUEST_ID_HEADER),
             )
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))

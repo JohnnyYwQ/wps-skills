@@ -19,8 +19,10 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 RUNNER = REPOSITORY_ROOT / "skills" / "wps-office" / "scripts" / "wps.py"
 SKILL = REPOSITORY_ROOT / "skills" / "wps-office" / "SKILL.md"
 POLL_URL = "http://127.0.0.1:58891/poll"
+ACK_URL = "http://127.0.0.1:58891/ack"
 RESULT_URL = "http://127.0.0.1:58891/result"
 UNKNOWN_URL = "http://127.0.0.1:58891/not-a-protocol-route"
+REQUEST_ID_HEADER = "X-WPS-Request-ID"
 REPRESENTATIVE_ACTIONS = json.loads(
     (REPOSITORY_ROOT / "tests/fixtures/representative-actions.json").read_text(
         encoding="utf-8"
@@ -64,6 +66,8 @@ def loopback_port_is_available():
 class PollingAddin:
     """Exercise the public loopback protocol as an external WPS Add-in client."""
 
+    acknowledges_action = True
+
     def __init__(self, auth_token=None):
         self.auth_token = AUTH_TOKEN if auth_token is None else auth_token
         self.action_request = None
@@ -81,30 +85,45 @@ class PollingAddin:
         self.stopped.set()
 
     def authorized_request(self, url, data=None, method="GET"):
+        headers = {
+            "Authorization": "Bearer {0}".format(self.auth_token),
+            "Content-Type": "application/json",
+        }
+        if method == "POST" and self.action_request is not None:
+            headers[REQUEST_ID_HEADER] = self.action_request["requestId"]
         return Request(
             url,
             data=data,
-            headers={
-                "Authorization": "Bearer {0}".format(self.auth_token),
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             method=method,
         )
 
     def handle_action(self, action_request):
         raise NotImplementedError
 
-    def send_partial_result(self, pause_seconds=0):
+    def acknowledge_action(self):
+        with urlopen(
+            self.authorized_request(ACK_URL, b"", "POST"), timeout=1
+        ) as response:
+            json.load(response)
+
+    def send_partial_result(self, pause_seconds=0, request_id=None):
+        if request_id is None:
+            request_id = self.action_request["requestId"]
+        request_id_header = "{0}: {1}\r\n".format(
+            REQUEST_ID_HEADER, request_id
+        )
         with socket.create_connection(("127.0.0.1", 58891), timeout=1) as client:
             headers = (
                 "POST /result HTTP/1.1\r\n"
                 "Host: 127.0.0.1\r\n"
                 "Authorization: Bearer {0}\r\n"
+                "{1}"
                 "Content-Type: application/json\r\n"
                 "Content-Length: 200\r\n"
                 "Connection: close\r\n"
                 "\r\n"
-            ).format(self.auth_token)
+            ).format(self.auth_token, request_id_header)
             client.sendall(headers.encode("ascii") + b'{"requestId":')
             if pause_seconds:
                 time.sleep(pause_seconds)
@@ -125,6 +144,8 @@ class PollingAddin:
                     time.sleep(0.02)
                     continue
                 self.action_request = payload["actionRequest"]
+                if self.acknowledges_action:
+                    self.acknowledge_action()
                 self.action_received.set()
                 self.handle_action(self.action_request)
                 return
@@ -251,6 +272,20 @@ class StallingAddin(PollingAddin):
 
     def handle_action(self, action_request):
         del action_request
+
+
+class UnacknowledgedAddin(StallingAddin):
+    """Read a WPS Action without acknowledging its delivery."""
+
+    acknowledges_action = False
+
+
+class StaleDisconnectingAddin(PollingAddin):
+    """Start an incomplete result upload for a previous WPS Action."""
+
+    def handle_action(self, action_request):
+        del action_request
+        self.send_partial_result(request_id="req-from-previous-invocation")
 
 
 class HangingResultAddin(PollingAddin):
@@ -1824,6 +1859,56 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
 
         self.assertTrue(loopback_port_is_available())
 
+    def test_poll_without_ack_remains_addin_not_ready(self):
+        addin = UnacknowledgedAddin()
+        addin.start()
+
+        completed = invoke_runner(
+            {"action": "ping", "params": {}, "timeout_ms": 200}
+        )
+
+        self.assertTrue(addin.finished.wait(1), "Unacknowledged Add-in did not poll")
+        if addin.error:
+            raise addin.error
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "ping",
+                "error": {
+                    "code": "ADDIN_NOT_READY",
+                    "message": "WPS Add-in did not return a result before the timeout",
+                    "retryable": True,
+                },
+            },
+        )
+
+    def test_stale_disconnected_result_does_not_override_current_timeout(self):
+        addin = StaleDisconnectingAddin()
+        addin.start()
+
+        completed = invoke_runner(
+            {"action": "ping", "params": {}, "timeout_ms": 200}
+        )
+
+        self.assertTrue(addin.finished.wait(1), "Stale result Add-in did not finish")
+        if addin.error:
+            raise addin.error
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "ping",
+                "error": {
+                    "code": "ACTION_TIMEOUT",
+                    "message": "WPS Action did not return a result before the timeout",
+                    "retryable": True,
+                },
+            },
+        )
+
     def test_stalled_action_is_distinct_from_an_addin_that_never_polled(self):
         addin = StallingAddin()
         addin.start()
@@ -1974,16 +2059,29 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
         preflight_payload = None
+        preflight_headers = None
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
             try:
                 request = Request(POLL_URL, method="OPTIONS")
                 with urlopen(request, timeout=0.25) as response:
                     preflight_payload = json.load(response)
+                    preflight_headers = response.headers
                 break
             except (OSError, URLError):
                 time.sleep(0.02)
         self.assertEqual(preflight_payload, {})
+        self.assertIn(
+            REQUEST_ID_HEADER,
+            preflight_headers.get("Access-Control-Allow-Headers", ""),
+        )
+
+        try:
+            urlopen(Request(ACK_URL, data=b"", method="POST"), timeout=0.25)
+        except HTTPError as error:
+            unauthorized_ack_response = (error.code, json.load(error))
+        else:
+            self.fail("Unauthenticated Action acknowledgment was accepted")
 
         try:
             urlopen(Request(UNKNOWN_URL), timeout=0.25)
@@ -1998,6 +2096,7 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
                 "message": "Loopback request authentication failed",
             },
         }
+        self.assertEqual(unauthorized_ack_response, (401, expected_auth_error))
         self.assertEqual(unknown_response, (401, expected_auth_error))
 
         addin = UnauthorizedResultAddin(

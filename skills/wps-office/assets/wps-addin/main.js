@@ -1,9 +1,10 @@
 /**
- * Input: Python Runner 的 WPS Action 与加载项事件
+ * Input: Python Runner 的 WPS Action、请求标识与加载项事件
  * Output: 包含 Excel 与 Word 已迁移工作流在内的 WPS 应用侧结构化执行结果
  * Pos: 跨平台统一 WPS Add-in 主入口。一旦我被修改，请更新我的头部注释，以及所属文件夹的md。
  * WPS Skill Platform Bridge（轮询模式）
  * 加载项作为 HTTP 客户端，轮询 Python Runner 获取 WPS Action
+ * 读取后显式确认请求标识，并用相同标识关联结果上传
  *
  * 架构：Python Runner (HTTP 服务端:58891) ← 轮询 ← WPS Add-in (HTTP 客户端)
  *
@@ -68,7 +69,14 @@ function poll() {
                 try {
                     var response = JSON.parse(xhr.responseText);
                     if (response.actionRequest) {
-                        handleAction(response.actionRequest);
+                        var actionRequest = response.actionRequest;
+                        acknowledgeAction(actionRequest.requestId, function(acknowledged) {
+                            if (acknowledged) {
+                                handleAction(actionRequest);
+                            }
+                            scheduleNextPoll();
+                        });
+                        return;
                     }
                 } catch (e) {
                     console.error('解析响应失败:', e);
@@ -98,12 +106,40 @@ function scheduleNextPoll() {
     _pollTimer = setTimeout(poll, CONFIG.POLL_INTERVAL);
 }
 
+function acknowledgeAction(requestId, callback) {
+    try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', CONFIG.SERVER_URL + '/ack', true);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + CONFIG.AUTH_TOKEN);
+        xhr.setRequestHeader('X-WPS-Request-ID', requestId);
+        xhr.timeout = 5000;
+
+        xhr.onload = function() {
+            callback(xhr.status === 200);
+        };
+
+        xhr.onerror = function() {
+            callback(false);
+        };
+
+        xhr.ontimeout = function() {
+            callback(false);
+        };
+
+        xhr.send();
+    } catch (e) {
+        console.error('确认 WPS Action 失败:', e);
+        callback(false);
+    }
+}
+
 function sendResult(requestId, result) {
     try {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', CONFIG.SERVER_URL + '/result', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('Authorization', 'Bearer ' + CONFIG.AUTH_TOKEN);
+        xhr.setRequestHeader('X-WPS-Request-ID', requestId);
         xhr.send(JSON.stringify({
             requestId: requestId,
             result: result

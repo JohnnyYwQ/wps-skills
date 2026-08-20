@@ -22,7 +22,9 @@ from urllib.request import Request, urlopen
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_SOURCE = REPOSITORY_ROOT / "skills" / "wps-office"
 POLL_URL = "http://127.0.0.1:58891/poll"
+ACK_URL = "http://127.0.0.1:58891/ack"
 RESULT_URL = "http://127.0.0.1:58891/result"
+REQUEST_ID_HEADER = "X-WPS-Request-ID"
 
 
 class ScriptSourceParser(HTMLParser):
@@ -186,13 +188,16 @@ class FakeAddin:
         self.stopped.set()
 
     def _request(self, url, data=None, method="GET"):
+        headers = {
+            "Authorization": "Bearer {0}".format(self.auth_token),
+            "Content-Type": "application/json",
+        }
+        if method == "POST" and self.action_request is not None:
+            headers[REQUEST_ID_HEADER] = self.action_request["requestId"]
         return Request(
             url,
             data=data,
-            headers={
-                "Authorization": "Bearer {0}".format(self.auth_token),
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             method=method,
         )
 
@@ -210,6 +215,10 @@ class FakeAddin:
                     time.sleep(0.02)
                     continue
                 self.action_request = payload["actionRequest"]
+                with urlopen(
+                    self._request(ACK_URL, b"", "POST"), timeout=1
+                ) as response:
+                    json.load(response)
                 body = json.dumps(
                     {
                         "requestId": self.action_request["requestId"],
@@ -331,6 +340,26 @@ class PackageIntegrityTests(unittest.TestCase):
             self.assertEqual(
                 parser.sources,
                 ["wps-skill-config.js", "main.js"],
+            )
+
+    def test_platform_bridge_acknowledges_and_correlates_each_action(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package = self._stage_package(directory)
+            bridge = (
+                package / "assets/wps-addin/main.js"
+            ).read_text(encoding="utf-8")
+
+            self.assertIn(
+                "acknowledgeAction(actionRequest.requestId", bridge
+            )
+            self.assertIn(
+                "xhr.open('POST', CONFIG.SERVER_URL + '/ack'", bridge
+            )
+            self.assertEqual(
+                bridge.count(
+                    "xhr.setRequestHeader('X-WPS-Request-ID', requestId)"
+                ),
+                2,
             )
 
     def test_staged_package_runs_documented_operations_without_repository_resources(self):
