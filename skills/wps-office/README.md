@@ -19,6 +19,6 @@ WPS Add-in 的浏览器入口和 manifest 都必须先加载安装器生成的 `
 
 Runner 从 Action 清单读取 `read`、`write` 或 `destructive` 风险等级。只读和普通写入 Action 可按正常流程执行；破坏性 Action 只有在请求包含布尔值 `"confirmed": true` 时才会送达 WPS Add-in，否则在传输前返回 `CONFIRMATION_REQUIRED`。缺失或未知风险等级返回 `INVALID_ACTION_RISK`，同样不会接触 WPS。
 
-Action 传输错误使用稳定分类：未确认投递为 `ADDIN_NOT_READY`，确认投递后超时为 `ACTION_TIMEOUT`，当前请求的结果上传断开为 `ADDIN_DISCONNECTED`，无效 JSON 为 `INVALID_ADDIN_JSON`，非对象结果信封为 `INVALID_ADDIN_RESPONSE`，请求标识不匹配为 `REQUEST_ID_MISMATCH`，端口占用为 `PORT_IN_USE`，其他端口打开失败为 `PORT_UNAVAILABLE`。诊断不得记录共享凭证或 Action 参数。
+Action 传输错误使用稳定分类：未确认投递为 `ADDIN_NOT_READY`，确认投递后超时为 `ACTION_TIMEOUT`，当前请求的结果上传断开为 `ADDIN_DISCONNECTED`，无效 JSON 为 `INVALID_ADDIN_JSON`，非对象结果信封为 `INVALID_ADDIN_RESPONSE`，请求标识不匹配为 `REQUEST_ID_MISMATCH`，端口占用为 `PORT_IN_USE`，其他端口打开失败为 `PORT_UNAVAILABLE`。已确认投递的写入或破坏性 Action 超时不可自动重试，避免 WPS 在 Runner 超时后完成原请求而导致重复修改。诊断不得记录共享凭证、Action 参数或未过滤的异常文本。
 
 修改目录结构、Runner 进程契约或 WPS Action 调用流程时同步更新此文件。

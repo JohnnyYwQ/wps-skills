@@ -451,6 +451,71 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
                 )
                 self.assertEqual(completed.stderr, "")
 
+    def test_unexpected_exception_diagnostic_redacts_sensitive_content(self):
+        sensitive_marker = "private-customer-document-name"
+        with tempfile.TemporaryDirectory() as fault_directory:
+            sitecustomize = Path(fault_directory) / "sitecustomize.py"
+            sitecustomize.write_text(
+                """import json
+import os
+
+_original_loads = json.loads
+_fault_raised = False
+
+
+def _raise_once(value, *args, **kwargs):
+    global _fault_raised
+    if not _fault_raised and isinstance(value, str) and '\"action\"' in value:
+        _fault_raised = True
+        raise RuntimeError(os.environ['WPS_TEST_SENSITIVE_MARKER'])
+    return _original_loads(value, *args, **kwargs)
+
+
+json.loads = _raise_once
+""",
+                encoding="utf-8",
+            )
+            environment = dict(RUNNER_ENV)
+            existing_python_path = environment.get("PYTHONPATH")
+            python_paths = [fault_directory]
+            if existing_python_path:
+                python_paths.append(existing_python_path)
+            environment["PYTHONPATH"] = os.pathsep.join(python_paths)
+            environment["WPS_TEST_SENSITIVE_MARKER"] = sensitive_marker
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(RUNNER),
+                    "invoke",
+                    json.dumps({"action": "ping", "params": {}}),
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                text=True,
+                capture_output=True,
+                timeout=3,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "ping",
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "The WPS Runner failed unexpectedly",
+                    "retryable": False,
+                },
+            },
+        )
+        self.assertIn("RuntimeError", completed.stderr)
+        self.assertNotIn(
+            sensitive_marker, completed.stdout + completed.stderr
+        )
+
     def test_write_action_round_trips_without_a_confirmation_marker(self):
         fixture = representative_action("insertText")
         completed, addin = self._invoke_with_fake_addin(
@@ -1934,6 +1999,36 @@ class WpsRunnerBlackBoxTests(unittest.TestCase):
             },
         )
         self.assertEqual(completed.stderr, "")
+
+    def test_acknowledged_write_timeout_is_not_retryable(self):
+        addin = StallingAddin()
+        addin.start()
+
+        completed = invoke_runner(
+            {
+                "action": "insertText",
+                "params": {"text": "Sensitive draft", "position": "end"},
+                "timeout_ms": 200,
+            }
+        )
+
+        self.assertTrue(addin.finished.wait(1), "Stalling Add-in did not poll")
+        if addin.error:
+            raise addin.error
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "ok": False,
+                "action": "insertText",
+                "error": {
+                    "code": "ACTION_TIMEOUT",
+                    "message": "WPS Action did not return a result before the timeout",
+                    "retryable": False,
+                },
+            },
+        )
+        self.assertNotIn("Sensitive draft", completed.stdout + completed.stderr)
 
     def test_action_deadline_bounds_a_stalled_result_upload(self):
         addin = HangingResultAddin()

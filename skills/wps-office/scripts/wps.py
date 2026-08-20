@@ -104,8 +104,10 @@ def transport_error_details(code):
     return {"code": code, "message": message, "retryable": retryable}
 
 
-def transport_runner_error(code, action):
+def transport_runner_error(code, action, retryable=None):
     details = transport_error_details(code)
+    if retryable is not None:
+        details["retryable"] = retryable
     return RunnerError(
         details["code"],
         details["message"],
@@ -397,7 +399,13 @@ def make_handler(exchange_state, auth_token):
 
         def _reject_protocol_error(self, status, code):
             error = transport_runner_error(
-                code, exchange_state["action_request"]["action"]
+                code,
+                exchange_state["action_request"]["action"],
+                retryable=(
+                    exchange_state["timeout_retryable"]
+                    if code == "ACTION_TIMEOUT"
+                    else None
+                ),
             )
             exchange_state["protocol_error"] = error
             self._send_json(
@@ -458,6 +466,7 @@ def make_handler(exchange_state, auth_token):
                 exchange_state["protocol_error"] = transport_runner_error(
                     "ACTION_TIMEOUT",
                     exchange_state["action_request"]["action"],
+                    retryable=exchange_state["timeout_retryable"],
                 )
                 return
             except (TypeError, ValueError):
@@ -505,9 +514,8 @@ def make_handler(exchange_state, auth_token):
             self.end_headers()
             try:
                 self.wfile.write(body)
-                return True
             except (BrokenPipeError, ConnectionResetError):
-                return False
+                pass
 
         def log_message(self, format_string, *args):
             del format_string, args
@@ -515,13 +523,16 @@ def make_handler(exchange_state, auth_token):
     return PollingHandler
 
 
-def exchange_with_addin(action_request, auth_token, timeout_ms):
+def exchange_with_addin(
+    action_request, auth_token, timeout_ms, timeout_retryable=True
+):
     exchange_state = {
         "action_request": action_request,
         "result": None,
         "result_received": False,
         "protocol_error": None,
         "action_delivered": False,
+        "timeout_retryable": timeout_retryable,
     }
     try:
         server = LoopbackHTTPServer(
@@ -706,6 +717,7 @@ def invoke_locked(action, action_name, params, request):
         )
     auth_token = readiness["auth_token"]
     timeout_ms = request.get("timeout_ms", 30000)
+    timeout_retryable = action["risk"] == "read"
     try:
         exchange_state = exchange_with_addin(
             {
@@ -715,6 +727,7 @@ def invoke_locked(action, action_name, params, request):
             },
             auth_token,
             timeout_ms,
+            timeout_retryable=timeout_retryable,
         )
     except LoopbackBindError as error:
         raise transport_runner_error(bind_error_code(error), action_name)
@@ -723,7 +736,13 @@ def invoke_locked(action, action_name, params, request):
         raise exchange_state["protocol_error"]
     if not exchange_state["result_received"]:
         error_code = incomplete_exchange_error_code(exchange_state)
-        raise transport_runner_error(error_code, action_name)
+        raise transport_runner_error(
+            error_code,
+            action_name,
+            retryable=(
+                timeout_retryable if error_code == "ACTION_TIMEOUT" else None
+            ),
+        )
 
     result = exchange_state["result"]
     if not isinstance(result, dict):
@@ -870,5 +889,8 @@ if __name__ == "__main__":
         print(
             json.dumps(unexpected.as_result(), ensure_ascii=False, separators=(",", ":"))
         )
-        print("Runner diagnostic: {0}".format(error), file=sys.stderr)
+        print(
+            "Runner diagnostic: unexpected {0}".format(type(error).__name__),
+            file=sys.stderr,
+        )
         sys.exit(1)
