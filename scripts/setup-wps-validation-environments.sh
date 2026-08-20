@@ -223,6 +223,15 @@ require_arm64_value() {
   [[ "$value" == *arm64* || "$value" == *aarch64* ]]
 }
 
+require_python_39_value() {
+  local value major minor
+  value=$(printf '%s' "$1" | tr -d '\r')
+  [[ "$value" =~ ^Python[[:space:]]+([0-9]+)\.([0-9]+)(\.|$) ]] || return 1
+  major="${BASH_REMATCH[1]}"
+  minor="${BASH_REMATCH[2]}"
+  (( major > 3 || (major == 3 && minor >= 9) ))
+}
+
 banner "WPS local ARM64 validation environments"
 
 stage "Host storage"
@@ -303,7 +312,7 @@ valid_ssh_target "$LINUX_ARM_SSH_TARGET" || die "Linux SSH target contains unsup
 linux_arch=$(ssh -o ConnectTimeout=15 "$LINUX_ARM_SSH_TARGET" uname -m | tr -d '\r')
 require_arm64_value "$linux_arch" || die "Linux guest did not report ARM64/aarch64"
 linux_python=$(ssh -o ConnectTimeout=15 "$LINUX_ARM_SSH_TARGET" 'python3 --version 2>&1' | tr -d '\r')
-[[ "$linux_python" == Python\ 3.* ]] || die "Python 3 was not found in the Linux guest"
+require_python_39_value "$linux_python" || die "Python 3.9 or newer was not found in the Linux guest"
 write_env LINUX_ARM_SSH_TARGET "$LINUX_ARM_SSH_TARGET"
 note "SSH passwords and key passphrases are handled by ssh and are never stored."
 
@@ -372,7 +381,7 @@ valid_ssh_target "$WINDOWS_ARM_SSH_TARGET" || die "Windows SSH target contains u
 windows_arch=$(ssh -o ConnectTimeout=15 "$WINDOWS_ARM_SSH_TARGET" 'powershell.exe -NoProfile -Command "[Runtime.InteropServices.RuntimeInformation]::OSArchitecture"' | tr -d '\r')
 require_arm64_value "$windows_arch" || die "Windows guest did not report ARM64"
 windows_python=$(ssh -o ConnectTimeout=15 "$WINDOWS_ARM_SSH_TARGET" 'python --version 2>&1' | tr -d '\r')
-[[ "$windows_python" == Python\ 3.* ]] || die "Python 3 was not found in the Windows guest"
+require_python_39_value "$windows_python" || die "Python 3.9 or newer was not found in the Windows guest"
 write_env WINDOWS_ARM_SSH_TARGET "$WINDOWS_ARM_SSH_TARGET"
 note "Windows passwords and product keys are never written to local state."
 
