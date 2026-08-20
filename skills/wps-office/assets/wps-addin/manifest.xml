@@ -4,10 +4,10 @@
 <!-- Pos: 跨平台统一 WPS Add-in 清单入口。一旦我被修改，请更新我的头部注释，以及所属文件夹的md。 -->
 <manifest xmlns="http://schemas.wps.cn/oaassist/2019/manifest"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <id>claude-assistant</id>
+    <id>wps-office-skill</id>
     <version>1.0.0</version>
-    <name>Claude助手</name>
-    <description>Claude AI 与 WPS Office 的桥接加载项（轮询模式）</description>
+    <name>WPS Office Skill</name>
+    <description>WPS Office Skill 与 WPS Office 的统一加载项桥接（轮询模式）</description>
     <author>WPS Office Skill Team</author>
 
     <!-- 支持的WPS应用类型 -->

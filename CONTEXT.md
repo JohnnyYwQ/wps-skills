@@ -4,10 +4,6 @@ This context describes the language used when exposing WPS Office capabilities t
 
 ## Language
 
-**WPS Tool**:
-An AI-callable WPS capability with a stable name, input contract, and result contract.
-_Avoid_: MCP tool, command
-
 **WPS Action**:
 A platform-neutral instruction to perform one concrete operation in WPS Office.
 _Avoid_: Tool, native call
@@ -27,6 +23,10 @@ _Avoid_: Skill, MCP server
 **Agent Host**:
 The AI application that discovers and loads a WPS Skill Package and executes its bundled runner. During a real-WPS test, the Agent Host runs on the Validation Target so the runner and WPS Add-in share the target's loopback interface and user profile.
 _Avoid_: Control host, remote bridge
+
+**Readiness Check**:
+An Agent Host-initiated check before a WPS Action workflow that ensures the current WPS environment can accept WPS Actions, potentially requiring WPS Office to be started or restarted.
+_Avoid_: Environment Preflight, installation check
 
 **Agent Host Smoke Test**:
 A candidate-specific test in which an Agent Host discovers and loads an unchanged WPS Skill Package, resolves its bundled resources, and drives an observable WPS result from a realistic user request. It demonstrates host integration but does not grant Platform Certified status.

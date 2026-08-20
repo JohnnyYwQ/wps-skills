@@ -26,14 +26,14 @@ var _isPolling = false;
 
 function OnAddinLoad(ribbonUI) {
     _ribbonUI = ribbonUI;
-    console.log('=== Claude助手 (轮询模式) 加载中 ===');
+    console.log('=== WPS Office Skill（轮询模式）加载中 ===');
     startPolling();
     return true;
 }
 
 function OnStatusClick() {
     var status = _isPolling ? '轮询中 (间隔: ' + CONFIG.POLL_INTERVAL + 'ms)' : '已停止';
-    alert('Claude助手 状态: ' + status + '\n服务器: ' + CONFIG.SERVER_URL);
+    alert('WPS Office Skill 状态：' + status + '\nRunner 地址：' + CONFIG.SERVER_URL);
     return true;
 }
 

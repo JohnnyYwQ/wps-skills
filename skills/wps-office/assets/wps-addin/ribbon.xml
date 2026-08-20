@@ -5,14 +5,15 @@
 <customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnAddinLoad">
   <ribbon startFromScratch="false">
     <tabs>
-      <tab id="claudeAssistantTab" label="Claude助手" insertAfterMso="TabView">
-        <group id="claudeStatus" label="状态">
-          <button id="btnStatus"
-                  label="服务状态"
+      <tab id="wpsOfficeSkillTab" label="WPS Office Skill" insertAfterMso="TabView">
+        <group id="wpsOfficeSkillConnectionGroup" label="连接与状态">
+          <button id="wpsOfficeSkillStatusButton"
+                  label="查看状态"
                   size="large"
                   onAction="OnStatusClick"
                   imageMso="Info"
-                  supertip="查看Claude助手服务状态"/>
+                  screentip="查看 WPS Office Skill 状态"
+                  supertip="查看 Add-in 的轮询状态以及本机 Python Runner 地址。"/>
         </group>
       </tab>
     </tabs>
