@@ -48,6 +48,10 @@ _Avoid_: WPS Skill Package, fallback runtime
 A former MCP-facing behavior deliberately excluded from the WPS Skill Package because it was runtime-only, had a broken or ambiguous contract, or is covered by canonical WPS Actions.
 _Avoid_: Missing Action, unsupported platform
 
+**WPS Action Retirement**:
+The deliberate removal of a published WPS Action through a GitHub Issue and ADR that record its impact, replacement or migration path, and coordinated contract changes.
+_Avoid_: Direct deletion, cleanup
+
 **Migration Complete**:
 The repository state in which the WPS Skill Package is self-contained, its automated contracts pass, and the Legacy MCP Runtime has been removed. It makes no claim that WPS behavior has been verified on a particular operating-system and architecture pair.
 _Avoid_: Platform support, release certified
