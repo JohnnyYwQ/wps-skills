@@ -9,7 +9,7 @@ This repository contains the shared WPS Action Session foundation and production
 - An application-scoped `ActionSession` with immutable one-document binding, closed Controller Result handling, exact-document dispatch, and idempotent cleanup.
 - A canonical JSONL `SessionHost` with strict Action Request decoding, lifecycle records, per-Action/session timing journals, traced request rejection, and terminal ordering.
 - A complete, validated Word target Contract Set and compact Action Index for fourteen designed Actions.
-- A production Word Application Contract Set containing thirteen Actions: document create/open; structured write, inspect, find, and replace; table and image insertion; header/footer, page-layout, and break changes; in-place save; and PDF export. Every advertised required Action has a real handler. Only the deferred `saveAs` target Action remains absent.
+- A production Word Application Contract Set containing fourteen Actions: document create/open; structured write, inspect, find, and replace; table and image insertion; header/footer, page-layout, and break changes; in-place save; and PDF export. Every advertised required Action has a real handler. First save and Save As preserve the exact live document.
 - A Session-owned suspended-process launcher with Windows Job Object containment, one lazy native `System32` Windows PowerShell bridge, stable-file-identity acquisition, and a cross-process guard/Lease/quarantine coordinator.
 - Real structured Word writing, including separate Western and East Asian run fonts, plus bounded search/replacement, tables, embedded images, headers/footers, layout, page/section breaks, and PDF export, with revision-aware results and operation-specific read-back verification.
 - Hidden bridge launch at both process layers: Windows creates the child with `CREATE_NO_WINDOW`, and native PowerShell is also given `-WindowStyle Hidden`, so automation does not open a console window.
@@ -24,7 +24,7 @@ The previous combined Skill, global Manifest and discovery CLI, multi-applicatio
 
 ## PPT
 
-The PPT slice supports **33 native Actions** for existing `.pptx` presentations.
+The PPT slice supports **37 native Actions** for new and existing `.pptx` presentations.
 The 18 newly admitted common Actions add shape fill/border styles, paragraph and
 text-box formatting, shape naming/stacking/alignment/distribution, slide background
 and visibility settings, speaker notes, literal find/replace, embedded PNG/JPEG
@@ -33,8 +33,7 @@ observation token and verifies native readback.
 
 Structure operations support up to 200 slides; slide snapshots support 100
 top-level shapes and 10000 UTF-16 units per shape. Tables are bounded to 100 cells;
-images to 20 MiB and 40 million pixels. Creation, first save, Save As, charts,
-animations, shape duplication and export remain outside the admitted surface.
+images to 20 MiB and 40 million pixels. Creation, first save, Save As, PDF and single-slide PNG export are admitted. Charts, animations and shape duplication remain unavailable.
 
 ```powershell
 python scripts/build/ppt.py --output build/skills/wps-ppt
@@ -55,7 +54,7 @@ See [the PPT Skill](src/main/resources/skills/wps-ppt/SKILL.md) and
 
 ## Excel
 
-The Excel slice supports 31 Actions for existing `.xlsx` workbooks: open/inspect/save,
+The Excel slice supports 34 Actions for new and existing `.xlsx` workbooks: open/inspect/save,
 worksheet discovery/create/rename/copy/move/delete, bounded value and formula edits,
 clear/copy/find/replace, sorting/filtering, row/column insertion/deletion, formatting,
 merge/unmerge and row/column sizing. Common statistical, lookup, date and text formulas
@@ -63,7 +62,7 @@ are supported. Region edits require `readRange` tokens; worksheet and structural
 require `getWorksheetInfo` tokens. Both observe at most 1000 cells; structural edits
 require the entire used range to fit that limit. Every mutation reads back its result.
 WPS file replacement during Save is protected by continuous locator/file claims.
-Workbook creation, Save As, charts, pivot tables and PDF export remain unavailable.
+Workbook creation, first save, Save As and PDF export are admitted; charts and pivot tables remain unavailable.
 
 Run `python scripts/demo/excel.py` in a Windows desktop terminal to see WPS fill,
 calculate, format and save a demo workbook while leaving its window open.
@@ -116,7 +115,7 @@ On the Windows WPS host, start a Word Session with:
 python scripts/call.py --session --app word
 ```
 
-The Host emits `session.ready`, accepts newline-delimited Action Requests, and reuses one exact live Word document and one bridge until `{"control":"close"}`. `saveAs` remains outside the production Contract Set because its gap-free destination Lease migration is still deferred.
+The Host emits `session.ready`, accepts newline-delimited Action Requests, and reuses one exact live Word document and one bridge until `{"control":"close"}`. `saveAs` handles first save and a new output path while retaining all old and new locator/file claims until cleanup.
 
 Protocol v1 remains closed: timing is diagnostic rather than an extra Action Response field. The `traceLog` in each Action Response records that Action's `elapsedMs`; the Session `traceLog` ends with `sessionElapsedMs`, `actionExecutionElapsedMs`, `cleanupElapsedMs`, and `actionCount` so wall time and actual Action execution are not confused.
 
@@ -177,3 +176,18 @@ See [the file-by-file guide (Chinese)](FILE_STRUCTURE.md) for directory rules, e
 - [Verification guide](src/main/resources/skills/wps-word/references/verification.md): verification, persistence, and failure handling.
 - [Word contracts](src/main/python/wps_skills/word/contracts.py): authoritative Action definitions and the derived production Contract Set.
 - [WPS Writer Type Library snapshot](src/test/resources/wps_skills/word/type_library/wps_writer_api.py): capability evidence only; never imported by the Runtime.
+
+## New documents and persistence
+
+The production surface now contains 85 Actions: Word 14, Excel 34 and PPT 37.
+Use `createDocument`, `createWorkbook` or `createPresentation` for explicit creation,
+then `saveAs` with an absent absolute destination and `overwritePolicy: "failIfExists"`.
+Existing outputs are never overwritten by Save As. Later `save` uses the new path.
+Excel/PPT export PDF without saving the source; PPT also exports a slide as PNG.
+Save As/PDF verification is bounded to 20 Excel worksheets with at most 1000 used
+cells each, or 200 PPT slides with at most 100 top-level shapes each. These observed
+fields do not prove full fidelity for unsupported document features.
+
+Run `python scripts/validate/persistence.py --output-dir build/persistence-acceptance`
+on the Windows desktop for the cross-application native acceptance. Skill packages
+are delivered as the complete directories under `build/skills/`.

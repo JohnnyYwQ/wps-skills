@@ -10,7 +10,7 @@ class ExcelContractsTests(unittest.TestCase):
         for contract in contracts.contracts:
             for example in contract.examples:
                 contracts.validate_params(contract.name, example['params'])
-        self.assertEqual(31, len(contracts.action_index()))
+        self.assertEqual(34, len(contracts.action_index()))
         self.assertEqual('establish', contracts.resolve('openWorkbook').binding_role)
 
     def test_ranges_are_bounded_sheet_local_rectangles(self):

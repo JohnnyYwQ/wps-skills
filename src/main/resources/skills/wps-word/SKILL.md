@@ -15,7 +15,9 @@ description: 在 Windows WPS Writer 中创建、读取和编辑 Word 文档，�
 - 用户要求新建时使用 `createDocument`。每个 Action Session 只绑定一个文档；后续操作始终复用这个 Session。
 - 修改已有文件默认需要显式 `save`，除非用户要求保留未保存状态。只读任务不保存。
 - 如果目标已有未保存修改，且本次任务需要保存，在第一次修改前说明保存会包含这些已有修改，并取得确认；已有明确授权可直接沿用。
-- 当前 `saveAs` 不可用，`save` 只能保存已有路径的文档。用户要求新建并保存到新 `.docx` 路径时，先说明能力限制，确定用户接受的交付方式，不能在最后才发现无法保存。新建且没有输出路径的文档可保留打开、未保存；PDF 导出不会替代 DOCX 保存。
+- 新建文档首次保存或保存到新路径使用 `saveAs`；目标必须是尚不存在的 `.docx`，显式传 `overwritePolicy: "failIfExists"`。新建且没有输出路径的文档可保留打开、未保存；PDF 导出不会替代 DOCX 保存。
+
+首次保存或另存为前读 [references/persistence.md](references/persistence.md)。`saveAs` 只写入尚不存在的 `.docx`，之后 `save` 保存当前路径。导出不会替代源文件保存；用户未提供新建文件的输出路径时，可按意图保留未保存状态并如实报告。
 
 ## 2. 发现并解析能力
 

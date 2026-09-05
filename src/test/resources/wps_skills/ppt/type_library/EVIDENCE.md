@@ -155,3 +155,7 @@ Native findings determine several deliberate boundaries:
 Creation, first save, Save As, shape duplication, charts, animations and export
 remain outside the production Contract Set. Full limits and token selection are
 specified in the Action Contracts and the Skill's `references/common.md`.
+
+## Persistence extension
+
+Creation, first save/Save As and export are now admitted. See [three-application native persistence evidence](../../persistence/EVIDENCE.md) for the tested native APIs, limits and validation.

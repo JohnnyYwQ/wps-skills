@@ -41,7 +41,7 @@ ID = integer(1)
 TOKEN = text(128, minLength=1)
 NUMBER = {'type': 'number'}
 BOOL = {'type': 'boolean'}
-STATE = obj({'persistenceState': text(enum=('saved', 'modified')), 'readOnly': BOOL})
+STATE = obj({'persistenceState': text(enum=('unsaved', 'saved', 'modified')), 'readOnly': BOOL})
 ARTIFACT = obj({'path': text(format='absolutePptxPath'), 'format': {'const': 'pptx'}, 'sizeBytes': integer(1, 2**63-1)})
 FONT = obj({'latinName': nullable(text(256)), 'eastAsianName': nullable(text(256)), 'size': nullable(NUMBER), 'bold': nullable(BOOL),
             'italic': nullable(BOOL), 'color': nullable(integer())})
@@ -60,7 +60,7 @@ STYLE = obj({'latinName': text(128, minLength=1), 'eastAsianName': text(128, min
 SLIDE_READ = {'slideId': ID}
 SLIDE_EDIT = dict(SLIDE_READ, expectedToken=TOKEN)
 SHAPE_EDIT = dict(SLIDE_EDIT, shapeId=ID)
-ERRORS = ('INVALID_PARAMS', 'SESSION_APP_MISMATCH', 'SESSION_DOCUMENT_NOT_BOUND', 'SESSION_DOCUMENT_ALREADY_BOUND',
+ERRORS = ('PERSISTENCE_LOCATOR_REQUIRED', 'OUTPUT_ALREADY_EXISTS', 'OUTPUT_MATCHES_BOUND_DOCUMENT', 'OUTPUT_PARENT_NOT_FOUND', 'OUTPUT_PATH_INVALID', 'OUTPUT_IN_USE', 'OUTPUT_ACCESS_DENIED', 'DOCUMENT_CHANGED_DURING_ACTION', 'OUTPUT_WRITE_FAILED', 'INVALID_PARAMS', 'SESSION_APP_MISMATCH', 'SESSION_DOCUMENT_NOT_BOUND', 'SESSION_DOCUMENT_ALREADY_BOUND',
           'DOCUMENT_NOT_FOUND', 'DOCUMENT_ACCESS_DENIED', 'DOCUMENT_OPEN_FAILED', 'DOCUMENT_BINDING_UNAVAILABLE',
           'DOCUMENT_LEASE_CONFLICT', 'DOCUMENT_QUARANTINED', 'DOCUMENT_CLOSED', 'DOCUMENT_READ_ONLY',
           'PPT_CAPABILITY_UNAVAILABLE', 'SLIDE_NOT_FOUND', 'SHAPE_NOT_FOUND', 'CONTENT_LIMIT_EXCEEDED',
@@ -69,6 +69,16 @@ ERRORS = ('INVALID_PARAMS', 'SESSION_APP_MISMATCH', 'SESSION_DOCUMENT_NOT_BOUND'
 
 
 def _result_error(name, params, result):
+    if name == 'createPresentation' and result['documentState']['persistenceState'] != 'unsaved':
+        return 'creation must observe an unsaved document'
+    if name in {'saveAs', 'exportPdf', 'exportSlideImage'}:
+        if result['artifact']['path'] != params['outputPath'] or result['replacedExisting']:
+            return 'output must match the absent authorized destination'
+        if name == 'saveAs':
+            if result['documentState']['persistenceState'] != 'saved':
+                return 'saveAs must observe saved state'
+        elif result['documentStateBefore'] != result['documentStateAfter']:
+            return 'export must preserve document state'
     if name == 'openPresentation' and result['artifact']['path'] != params['path']:
         return 'opened artifact differs from the authorized path'
     if name == 'save' and result['documentState']['persistenceState'] != 'saved':
@@ -106,7 +116,7 @@ def _result_error(name, params, result):
 def contract(name, purpose, category, params, result, example, verification, *, risk='read', role='required', constraint=''):
     return ActionContract(name=name, purpose=purpose, category=category, binding_role=role, risk=risk,
         parameters=params, result=result, stable_errors=ERRORS,
-        prerequisites=('Resolved existing .pptx Document Intent; UNBOUND Session.' if role == 'establish'
+        prerequisites=('Explicit existing-file or new-document intent; UNBOUND Session.' if role == 'establish'
                        else 'One exact live Presentation is bound to this PPT Session.',),
         constraints=(constraint, 'No active-document or selection targeting. No implicit save or automatic replay.'),
         verification=verification, examples=({'params': example},),
@@ -172,7 +182,7 @@ _TARGET_CONTRACTS = (
         constraint='Use getSlideInfo token; deletion removes all content of the specified shape.'),
     contract('save', 'Save the bound existing presentation to its authorized backing file.', 'persistence', obj({}),
         obj({'artifact':ARTIFACT,'documentState':STATE}), {}, 'Verify saved state, nonempty .pptx artifact and continuous exact binding.',
-        risk='write',constraint='No first save or Save As. Retain locator and all file-identity fences through native replacement.'),
+        risk='write',constraint='Use saveAs for first save or a new path. Retain locator and all file-identity fences through native replacement.'),
 )
 # Common editing contracts use separate observations for style, settings, notes
 # and table text, so their tokens cover the properties they actually mutate.
@@ -355,14 +365,28 @@ _COMMON_TARGET_CONTRACTS = (
 )
 _TARGET_CONTRACTS += _COMMON_TARGET_CONTRACTS
 
+
+# Persistence readback is bounded to 200 slides, each at most 100 top-level shapes.
+_TARGET_CONTRACTS += (
+    contract('createPresentation', 'Create one blank unsaved document; no file path.', 'persistence', obj({}), obj({'documentState': STATE}), {}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='', role='establish', risk='write'),
+    contract('saveAs', 'First-save or save the same live document to an absent destination.', 'persistence', obj({'outputPath': text(format='absolutePptxPath'), 'overwritePolicy': {'const': 'failIfExists'}}), obj({'artifact': ARTIFACT, 'documentState': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/new.pptx', 'overwritePolicy': 'failIfExists'}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='At most 200 slides and 100 top-level shapes per slide. Never replaces a preexisting destination. Retain old and new locator and identity fences until Session cleanup.', role='required', risk='write'),
+    contract('exportPdf', 'Export to an absent destination without saving the document.', 'persistence', obj({'outputPath': text(format='absolutePdfPath'), 'overwritePolicy': {'const': 'failIfExists'}}), obj({'artifact': obj({'path': text(format='absolutePdfPath'), 'format': {'const': 'pdf'}, 'sizeBytes': {'type': 'integer', 'minimum': 1}}), 'documentStateBefore': STATE, 'documentStateAfter': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/output.pdf', 'overwritePolicy': 'failIfExists'}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='Native PDF export defaults; PNG uses explicit pixels. At most 200 slides and 100 top-level shapes per slide. Verify exported format and unchanged bounded observations; no save or retargeting.', role='required', risk='write'),
+    contract('exportSlideImage', 'Export to an absent destination without saving the document.', 'persistence', obj({'outputPath': text(format='absolutePngPath'), 'overwritePolicy': {'const': 'failIfExists'}, 'slideId': ID, 'width': integer(1,4096), 'height': integer(1,4096)}), obj({'artifact': obj({'path': text(format='absolutePngPath'), 'format': {'const': 'png'}, 'sizeBytes': {'type': 'integer', 'minimum': 1}}), 'documentStateBefore': STATE, 'documentStateAfter': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/output.png', 'overwritePolicy': 'failIfExists', 'slideId': 256, 'width': 1280, 'height': 720}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='Native PDF export defaults; PNG uses explicit pixels. At most 200 slides and 100 top-level shapes per slide. Verify exported format and unchanged bounded observations; no save or retargeting.', role='required', risk='write'),
+)
+
 PPT_FORMAT_VALIDATORS = {'absolutePptxPath': _pptx_path,
     'absolutePptImagePath': lambda value: any(value.lower().endswith(ext) and _pptx_path(value[:-len(ext)]+'.pptx') for ext in ('.png','.jpg','.jpeg')),
     'pptName': lambda value: all(unicodedata.category(c) not in {'Cc','Cs'} for c in value),
     'pptText': lambda value: len(value.encode('utf-16-le', errors='surrogatepass')) <= 20000 and '\r' not in value and all(unicodedata.category(c) not in {'Cc','Cs'} or c in '\n\t' for c in value)}
+PPT_FORMAT_VALIDATORS.update({
+    'absolutePdfPath': lambda value: value.lower().endswith('.pdf') and _pptx_path(value[:-4]+'.pptx'),
+    'absolutePngPath': lambda value: value.lower().endswith('.png') and _pptx_path(value[:-4]+'.pptx'),
+})
 PPT_TARGET_CONTRACT_SET = ApplicationContractSet(application='ppt', contracts=_TARGET_CONTRACTS, format_validators=PPT_FORMAT_VALIDATORS)
 # Base slice and common Actions admitted after native acceptance on 2026-09-05.
 # See src/test/resources/wps_skills/ppt/type_library/EVIDENCE.md.
 _PPT_PRODUCTION_ACTIONS = frozenset({
+    'saveAs', 'createPresentation', 'exportPdf', 'exportSlideImage',
     'openPresentation', 'getPresentationInfo', 'listSlides', 'getSlideInfo',
     'addSlide', 'duplicateSlide', 'moveSlide', 'deleteSlide', 'addTextBox',
     'addShape', 'setShapeText', 'formatText', 'setShapeGeometry', 'deleteShape', 'save',

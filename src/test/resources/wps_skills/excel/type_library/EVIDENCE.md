@@ -149,3 +149,7 @@ need for a non-administrator PowerShell explicitly, without registering classes,
 using a hardcoded CLSID, or changing application privileges. Regression evidence
 covers both the elevated fail-fast path (no demo directory created) and the
 non-elevated complete visible demo with zero new helper consoles.
+
+## Persistence extension
+
+Creation, first save/Save As and export are now admitted. See [three-application native persistence evidence](../../persistence/EVIDENCE.md) for the tested native APIs, limits and validation.

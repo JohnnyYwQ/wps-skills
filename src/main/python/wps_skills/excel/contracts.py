@@ -97,7 +97,7 @@ READ_SCALAR = {'oneOf': ({'type': 'null'}, {'type': 'boolean'}, {'type': 'number
 TOKEN = string(128, minLength=1)
 SHEET = string(31, minLength=1)
 ADDRESS = string(32, minLength=1)
-STATE = obj({'persistenceState': string(enum=('saved', 'modified')), 'readOnly': {'type': 'boolean'}})
+STATE = obj({'persistenceState': string(enum=('unsaved', 'saved', 'modified')), 'readOnly': {'type': 'boolean'}})
 ARTIFACT = obj({'path': string(32768, format='absoluteXlsxPath'), 'format': {'const': 'xlsx'},
                 'sizeBytes': {'type': 'integer', 'minimum': 1}})
 CELL = obj({'value': READ_SCALAR, 'formula': {'oneOf': ({'type': 'null'}, string(8192, minLength=1))},
@@ -120,7 +120,7 @@ CELL['properties'].update({'merged': {'type': 'boolean'}, 'rowHidden': {'type': 
     'columnHidden': {'type': 'boolean'}, 'rowHeight': {'type': 'number', 'minimum': 0},
     'columnWidth': {'type': 'number', 'minimum': 0}})
 PATCH = obj(dict(STYLE, numberFormat=string(128, minLength=1), bold={'type': 'boolean'}), required=(), minProperties=1)
-ERRORS = ('INVALID_PARAMS', 'UNKNOWN_ACTION', 'SESSION_APP_MISMATCH', 'SESSION_DOCUMENT_NOT_BOUND',
+ERRORS = ('PERSISTENCE_LOCATOR_REQUIRED', 'OUTPUT_ALREADY_EXISTS', 'OUTPUT_MATCHES_BOUND_DOCUMENT', 'OUTPUT_PARENT_NOT_FOUND', 'OUTPUT_PATH_INVALID', 'OUTPUT_IN_USE', 'OUTPUT_ACCESS_DENIED', 'DOCUMENT_CHANGED_DURING_ACTION', 'INVALID_PARAMS', 'UNKNOWN_ACTION', 'SESSION_APP_MISMATCH', 'SESSION_DOCUMENT_NOT_BOUND',
           'SESSION_DOCUMENT_ALREADY_BOUND', 'DOCUMENT_NOT_FOUND', 'DOCUMENT_ACCESS_DENIED',
           'DOCUMENT_OPEN_FAILED', 'DOCUMENT_BINDING_UNAVAILABLE', 'DOCUMENT_LEASE_CONFLICT',
           'DOCUMENT_QUARANTINED', 'DOCUMENT_CLOSED', 'DOCUMENT_READ_ONLY', 'WORKSHEET_NOT_FOUND',
@@ -167,6 +167,16 @@ def _params_error(action, params):
 
 
 def _result_error(action, params, result):
+    if action == 'createWorkbook' and result['documentState']['persistenceState'] != 'unsaved':
+        return 'creation must observe an unsaved document'
+    if action in {'saveAs', 'exportPdf', 'exportSlideImage'}:
+        if result['artifact']['path'] != params['outputPath'] or result['replacedExisting']:
+            return 'output must match the absent authorized destination'
+        if action == 'saveAs':
+            if result['documentState']['persistenceState'] != 'saved':
+                return 'saveAs must observe saved state'
+        elif result['documentStateBefore'] != result['documentStateAfter']:
+            return 'export must preserve document state'
     if action == 'openWorkbook' and result['artifact']['path'] != params['path']:
         return 'opened artifact must match the authorized path'
     if action == 'listWorksheets':
@@ -248,13 +258,14 @@ def contract(name, purpose, category, params, result, example, *, risk='read', r
     return ActionContract(
         name=name, purpose=purpose, category=category, binding_role=role, risk=risk,
         parameters=params, result=result, stable_errors=ERRORS,
-        prerequisites=('Resolved existing .xlsx Document Intent; UNBOUND Session.' if role == 'establish'
+        prerequisites=('Explicit existing-file or new-document intent; UNBOUND Session.' if role == 'establish'
                        else 'One exact live Workbook is bound to this Excel Session.',),
         constraints=('One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.',
                      'Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.',
                      'No active-window targeting, external workbook references, or implicit save.',
                      'Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.',
-                     'Formula dialect and calculation compatibility require validation on the installed WPS version.'),
+                     'Formula dialect and calculation compatibility require validation on the installed WPS version.',
+                     *(('Save As and PDF export verify at most 20 worksheets, each UsedRange at most 1000 cells; only absent destinations with failIfExists. PDF follows current native print settings.',) if name in {'saveAs','exportPdf'} else ())),
         verification='Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.',
         examples=({'params': example},),
         parameter_validator=lambda params: _params_error(name, params),
@@ -342,15 +353,27 @@ _EXTRA_CONTRACTS.extend((
 ))
 _TARGET_CONTRACTS += tuple(_EXTRA_CONTRACTS)
 
+
+# Persistence readback is bounded to 20 worksheets, each UsedRange at most 1000 cells.
+_TARGET_CONTRACTS += (
+    contract('createWorkbook', 'Create one blank unsaved document; no file path.', 'persistence', obj({}), obj({'documentState': STATE}), {}, role='establish', risk='write'),
+    contract('saveAs', 'First-save or save the same live document to an absent destination.', 'persistence', obj({'outputPath': string(format='absoluteXlsxPath'), 'overwritePolicy': {'const': 'failIfExists'}}), obj({'artifact': ARTIFACT, 'documentState': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/new.xlsx', 'overwritePolicy': 'failIfExists'}, role='required', risk='write'),
+    contract('exportPdf', 'Export to an absent destination without saving the document.', 'persistence', obj({'outputPath': string(format='absolutePdfPath'), 'overwritePolicy': {'const': 'failIfExists'}}), obj({'artifact': obj({'path': string(format='absolutePdfPath'), 'format': {'const': 'pdf'}, 'sizeBytes': {'type': 'integer', 'minimum': 1}}), 'documentStateBefore': STATE, 'documentStateAfter': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/output.pdf', 'overwritePolicy': 'failIfExists'}, role='required', risk='write'),
+)
+
 EXCEL_FORMAT_VALIDATORS = {
     'absoluteXlsxPath': _xlsx_path, 'excelFormula': _formula,
     'excelLiteral': lambda value: all(c in {'\t', '\n'} or unicodedata.category(c) not in {'Cc', 'Cs'} for c in value),
 }
+EXCEL_FORMAT_VALIDATORS.update({
+    'absolutePdfPath': lambda value: value.lower().endswith('.pdf') and _xlsx_path(value[:-4]+'.xlsx'),
+})
 EXCEL_TARGET_CONTRACT_SET = ApplicationContractSet(application='excel', contracts=_TARGET_CONTRACTS,
                                                    format_validators=EXCEL_FORMAT_VALIDATORS)
 # Admitted after Windows WPS 12.0.0.28505 live acceptance on 2026-09-05.
 # Evidence: src/test/resources/wps_skills/excel/type_library/EVIDENCE.md.
 _EXCEL_PRODUCTION_ACTIONS = frozenset({
+    'saveAs', 'createWorkbook', 'exportPdf',
     'openWorkbook', 'getWorkbookInfo', 'listWorksheets', 'readRange',
     'writeRange', 'setFormulas', 'calculateRange', 'formatRange', 'save',
     'getWorksheetInfo', 'addWorksheet', 'renameWorksheet', 'copyWorksheet', 'moveWorksheet',

@@ -14,6 +14,7 @@ BRIDGE_SCRIPT = (
 def build_session(
     *,
     session_id,
+    contracts=None,
     debug_close_created_document=False,
 ):
     from wps_skills.core.action_session import ActionSession
@@ -26,6 +27,7 @@ def build_session(
     from wps_skills.word.contracts import WORD_PRODUCTION_CONTRACT_SET
     from wps_skills.word.handlers import WORD_HANDLERS
 
+    contracts = WORD_PRODUCTION_CONTRACT_SET if contracts is None else contracts
     launcher = None
     try:
         launcher = WindowsOwnedProcessLauncher()
@@ -39,11 +41,11 @@ def build_session(
         adapter = WordAdapter(
             backend=backend,
             handlers=WORD_HANDLERS,
-            contracts=WORD_PRODUCTION_CONTRACT_SET,
+            contracts=contracts,
         )
         return ActionSession(
             application="word",
-            contracts=WORD_PRODUCTION_CONTRACT_SET,
+            contracts=contracts,
             adapter=adapter,
             coordinator=WindowsDocumentCoordinator(bridge=bridge),
             session_id=session_id,

@@ -14,6 +14,8 @@ PRIVATE_OPERATIONS = MappingProxyType({
     'setFormulas': 'write_formula_rectangle',
     'calculateRange': 'calculate_rectangle',
     'formatRange': 'format_rectangle',
+    'saveAs': 'saveAs',
+    'exportPdf': 'exportPdf',
     'save': 'save_existing_workbook',
     'getWorksheetInfo': 'getWorksheetInfo',
     'addWorksheet': 'addWorksheet',

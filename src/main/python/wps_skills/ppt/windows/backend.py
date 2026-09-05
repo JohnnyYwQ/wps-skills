@@ -1,7 +1,7 @@
 """Exact-presentation backend over the shared Windows bridge."""
 
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Mapping, Optional
 
 from wps_skills.core.action_session import DefiniteEstablishFailure, UnprovableEstablishFailure
 from wps_skills.windows.bridge_types import BackendActionFailure, WindowsDocument
@@ -11,7 +11,7 @@ from wps_skills.windows.bridge_types import BackendActionFailure, WindowsDocumen
 class PptPreparation:
     preparation_id: str
     coordination_identity: str
-    path: str
+    path: Optional[str]
 
 
 def _fields(value, keys):
@@ -48,6 +48,29 @@ class WindowsPptBackend:
             _establish_failure(exc)
         self._preparation = PptPreparation(_text(result['preparationId']), _text(result['coordinationIdentity']), path)
         return self._preparation
+
+    def prepare_create(self, context):
+        if self._document is not None:
+            raise ValueError('Ppt backend is already bound')
+        try:
+            result = _fields(self._bridge.execute('prepare_new_document', {}, context),
+                             {'preparationId', 'coordinationIdentity'})
+        except BackendActionFailure as exc:
+            _establish_failure(exc)
+        self._preparation = PptPreparation(_text(result['preparationId']), _text(result['coordinationIdentity']), None)
+        return self._preparation
+
+    def create(self, preparation, context):
+        if preparation is not self._preparation or preparation.path is not None or self._document is not None:
+            raise ValueError('Ppt backend requires its own new-document preparation')
+        try:
+            result = _fields(self._bridge.execute('acquire_new_document',
+                             {'preparationId': preparation.preparation_id}, context),
+                             {'documentId', 'documentState'})
+        except BackendActionFailure as exc:
+            _establish_failure(exc)
+        self._document = WindowsDocument(_text(result['documentId']), None)
+        return self._document, {'documentState': result['documentState']}
 
     def open(self, preparation, context):
         if preparation is not self._preparation or self._document is not None:

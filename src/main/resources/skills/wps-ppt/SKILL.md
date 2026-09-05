@@ -1,6 +1,6 @@
 ---
 name: wps-ppt
-description: 通过 Windows WPS 演示读取和编辑已有 PPTX，管理幻灯片、图片和表格，调整形状/文字排版、背景与备注并保存。用户要求在可见 WPS 中操作演示文稿时使用。
+description: 通过 Windows WPS 演示新建或编辑 PPTX，管理幻灯片、图片和表格，调整文字排版、背景与备注，保存、另存为、导出 PDF 和单页 PNG。用户要求在可见 WPS 中操作演示文稿时使用。
 ---
 
 # WPS PPT
@@ -9,9 +9,11 @@ description: 通过 Windows WPS 演示读取和编辑已有 PPTX，管理幻灯�
 
 ## 文稿与保存意图
 
-先确定 Windows 主机上已有 `.pptx` 的绝对路径，使用 `openPresentation` 打开或复用这一确切文稿。一个 Session 只绑定一个文稿，不选择活动窗口，不把打开失败改为新建。当前不提供新建、首次保存、另存为、图表、动画、导出或旧版 `.ppt` / `.dps` / 宏文件支持。
+已有文稿使用 Windows 主机上 `.pptx` 的绝对路径调用 `openPresentation`；明确新建时使用 `createPresentation`，得到一个没有幻灯片的未保存文稿，再用 `listSlides` 和 `addSlide` 添加页面。一个 Session 只绑定一个文稿，不选择活动窗口，不把打开失败改为新建。当前不提供图表、动画或旧版 `.ppt` / `.dps` / 宏文件支持。
 
 修改已有文件默认需要显式 `save`，除非用户要求保留未保存状态。若 `openPresentation` 返回 `modified` 且本次需要保存，在首次修改前说明原有未保存修改也会一起保存，并取得确认；沿用用户已有的明确授权。只读任务不保存。
+
+首次保存或另存为前读 [references/persistence.md](references/persistence.md)。`saveAs` 只写入尚不存在的 `.pptx`，之后 `save` 保存当前路径。导出不会替代源文件保存；用户未提供新建文件的输出路径时，可按意图保留未保存状态并如实报告。
 
 ## 发现与执行
 

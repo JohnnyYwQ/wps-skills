@@ -1,4 +1,4 @@
 interface:
   display_name: "WPS Excel"
-  short_description: "通过 Windows WPS 表格读取、编辑和验证已有 Excel 工作簿"
-  default_prompt: "使用 $wps-excel 读取指定工作簿，修改目标区域并验证保存结果。"
+  short_description: "在 Windows WPS 中新建或编辑 Excel，验证、保存、另存为和导出 PDF"
+  default_prompt: "使用 $wps-excel 完成这个工作簿任务，验证内容并说明保存与导出结果。"

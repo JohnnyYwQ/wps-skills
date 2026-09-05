@@ -8,7 +8,7 @@ class PptContractsTests(unittest.TestCase):
     def test_examples_validate_and_all_edits_require_observations(self):
         for c in contracts.contracts:
             for example in c.examples: contracts.validate_params(c.name,example['params'])
-            if c.risk=='write' and c.name!='save':
+            if c.risk=='write' and c.category!='persistence':
                 example=dict(c.examples[0]['params']);del example['expectedToken']
                 with self.assertRaises(ContractValidationError): contracts.validate_params(c.name,example)
 

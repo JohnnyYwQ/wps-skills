@@ -14,6 +14,7 @@ class RepositoryEntryTests(unittest.TestCase):
         for group in ('build', 'demo', 'validate'):
             for app in ('word', 'excel', 'ppt'):
                 entries.append(scripts / group / (app + '.py'))
+        entries.append(scripts / 'validate' / 'persistence.py')
         entries.extend(scripts / 'validate' / (app + '_common.py') for app in ('excel', 'ppt'))
         with tempfile.TemporaryDirectory() as cwd:
             for entry in entries:

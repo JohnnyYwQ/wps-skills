@@ -1,6 +1,6 @@
 ---
 name: wps-excel
-description: 通过 Windows WPS 表格读取和修改已有 Excel 工作簿，管理工作表、批量读写、排序筛选、调整行列、设置公式和格式并保存。用户要求在 WPS 中操作已有 .xlsx 文件时使用。
+description: 通过 Windows WPS 表格新建或编辑 Excel 工作簿，管理工作表、数据、公式和格式，保存、另存为及导出 PDF。用户要求在 WPS 中制作或操作 .xlsx 文件时使用。
 ---
 
 # WPS Excel
@@ -9,9 +9,11 @@ description: 通过 Windows WPS 表格读取和修改已有 Excel 工作簿，�
 
 ## 确定目标与交付
 
-用户必须给出 Windows 主机上已有 `.xlsx` 的绝对路径。一个 Session 绑定一个确切工作簿；使用 `openWorkbook`，不猜测活动窗口，不把打开失败当成新建。当前不提供新建、另存为、图表、透视表、PDF 导出或 `.xls` / `.xlsm` / `.et` 编辑；任务依赖这些能力时先说明限制。
+已有文件使用 Windows 主机上 `.xlsx` 的绝对路径调用 `openWorkbook`；明确新建时使用 `createWorkbook`，得到一个含一张空白工作表的未保存工作簿。一个 Session 绑定一个确切工作簿，不猜测活动窗口，不把打开失败当成新建。当前不提供图表、透视表或 `.xls` / `.xlsm` / `.et` 编辑。
 
 修改已有文件默认需要显式 `save`，除非用户要求保留未保存状态。目标已有未保存修改且本次需要保存时，在第一次修改前说明这些修改也会一起保存并取得确认；沿用已有明确授权。只读任务不保存。
+
+首次保存或另存为前读 [references/persistence.md](references/persistence.md)。`saveAs` 只写入尚不存在的 `.xlsx`，之后 `save` 保存当前路径。导出不会替代源文件保存；用户未提供新建文件的输出路径时，可按意图保留未保存状态并如实报告。
 
 ## 发现能力
 

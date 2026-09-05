@@ -1,4 +1,4 @@
-"""Ppt Application Adapter; one Session binds one exact existing Presentation."""
+"""Ppt Application Adapter; one Session binds one exact new or existing Presentation."""
 
 from wps_skills.core.action_session import (
     AcquiredDocument, ControllerCommand, PreparedDocumentAcquisition,
@@ -16,8 +16,8 @@ class PptAdapter:
         required = {c.name for c in contracts.contracts if c.binding_role == 'required'}
         if not required.issubset(handlers) or any(not callable(handlers[name]) for name in required):
             raise ValueError('Ppt contracts require complete executable handlers')
-        if any(c.binding_role == 'establish' and c.name != 'openPresentation' for c in contracts.contracts):
-            raise ValueError('Ppt supports only openPresentation establishment')
+        if any(c.binding_role == 'establish' and c.name not in {'openPresentation', 'createPresentation'} for c in contracts.contracts):
+            raise ValueError('Ppt supports only explicit open or create establishment')
         self.contracts = contracts
         self._backend = backend
         self._handlers = {name: handlers[name] for name in required}
@@ -29,21 +29,23 @@ class PptAdapter:
 
     def prepare_establish(self, command):
         self._command(command)
-        if command.address.action != 'openPresentation':
+        if command.address.action not in {'openPresentation', 'createPresentation'}:
             raise ValueError('Action is not an Ppt establish Action')
-        state = self._backend.prepare_open(command.params['path'], command.context)
+        state = (self._backend.prepare_create(command.context) if command.address.action == 'createPresentation'
+                 else self._backend.prepare_open(command.params['path'], command.context))
         if not isinstance(state, PptPreparation):
             raise TypeError('Ppt backend returned an invalid preparation')
         return PreparedDocumentAcquisition(coordination_identity=state.coordination_identity, application_state=state)
 
     def establish(self, prepared, command):
         self._command(command)
-        if command.address.action != 'openPresentation' or not isinstance(prepared, PreparedDocumentAcquisition):
-            raise ValueError('Ppt requires its prepared openPresentation acquisition')
+        if command.address.action not in {'openPresentation', 'createPresentation'} or not isinstance(prepared, PreparedDocumentAcquisition):
+            raise ValueError('Ppt requires its prepared open or create acquisition')
         state = prepared.application_state
-        if not isinstance(state, PptPreparation) or state.path != command.params['path'] or state.coordination_identity != prepared.coordination_identity:
+        if not isinstance(state, PptPreparation) or state.path != command.params.get('path') or state.coordination_identity != prepared.coordination_identity:
             raise ValueError('Ppt acquisition identity does not match')
-        document, data = self._backend.open(state, command.context)
+        document, data = (self._backend.create(state, command.context) if command.address.action == 'createPresentation'
+                          else self._backend.open(state, command.context))
         return AcquiredDocument(document=document, data=data)
 
     def is_live(self, document):

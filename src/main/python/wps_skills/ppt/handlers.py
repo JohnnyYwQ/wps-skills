@@ -20,7 +20,7 @@ PRIVATE_OPERATIONS = MappingProxyType({name: name for name in (
     'formatText',
     'setShapeGeometry',
     'deleteShape',
-    'save',
+    'save', 'saveAs', 'exportPdf', 'exportSlideImage',
     'getShapeStyle',
     'formatShape',
     'formatParagraph',

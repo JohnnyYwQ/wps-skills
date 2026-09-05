@@ -20,6 +20,8 @@ $script:PreparationId = $null
 $script:PreparedIdentity = $null
 $script:PreparedPath = $null
 $script:PreparedCanonicalPath = $null
+$script:PreparedLocator = $null
+$script:BoundFileIdentity = $null
 $script:CoordinationMutex = $null
 $script:CoordinationMutexName = $null
 $script:CoordinationStatePath = $null
@@ -52,6 +54,7 @@ class DocumentQuarantinedException : System.Exception {
 
 . (Join-Path $PSScriptRoot '../../windows/bridge_common.ps1')
 . (Join-Path $PSScriptRoot '../../windows/window_presentation.ps1')
+. (Join-Path $PSScriptRoot '../../windows/output_persistence.ps1')
 
 function Connect-WpsApplication {
     $created = $false
@@ -277,14 +280,13 @@ function Test-BoundDocumentLive {
         $null = $script:Document.Name
         $application = $script:Document.Application
         $null = $application.Name
+        Assert-WordPersistenceBinding
         return $true
     }
     catch {
         return $false
     }
-    finally {
-        Release-ComReference -Value $application
-    }
+    # Application is retained by the Session; release it only at bridge exit.
 }
 
 function New-RangeValue {
@@ -1086,6 +1088,7 @@ function Invoke-PrepareExistingDocument {
     $script:PreparedIdentity = Get-StableFileIdentity -Path $canonicalPath
     $script:PreparedPath = $path
     $script:PreparedCanonicalPath = $canonicalPath
+    $script:PreparedLocator = Get-NormalizedFileLocator $canonicalPath
     return [ordered]@{
         preparationId = $script:PreparationId
         coordinationIdentity = $script:PreparedIdentity
@@ -1100,6 +1103,8 @@ function Invoke-PrepareNewDocument {
     $script:PreparedIdentity = 'new-' + [guid]::NewGuid().ToString('N')
     $script:PreparedPath = $null
     $script:PreparedCanonicalPath = $null
+    $script:PreparedLocator = $null
+    $script:BoundFileIdentity = $null
     return [ordered]@{
         preparationId = $script:PreparationId
         coordinationIdentity = $script:PreparedIdentity
@@ -1169,6 +1174,7 @@ function Invoke-AcquireExistingDocument {
     Show-BoundDocument -UseNormalWindowState $applicationCreated
     $script:DocumentId = 'document-' + [guid]::NewGuid().ToString('N')
     $script:AuthorizedPath = $path
+    $script:BoundFileIdentity = Get-StableFileIdentity $actualPath
     $script:Revision = New-ContentRevision
     $script:Fingerprint = Get-DocumentFingerprint
 
@@ -1197,6 +1203,7 @@ function Invoke-AcquireNewDocument {
     $applicationCreated = Connect-WpsApplication
     $script:Document = $script:Documents.Add()
     $script:DocumentCreatedBySession = $true
+    $script:UnsavedName = [string]$script:Document.Name
     Show-BoundDocument -UseNormalWindowState $applicationCreated
     $script:DocumentId = 'document-' + [guid]::NewGuid().ToString('N')
     $script:Revision = New-ContentRevision
@@ -1316,15 +1323,19 @@ function Invoke-SaveDocument {
     if ($authorizedPath -ne $script:AuthorizedPath) {
         throw 'The save locator does not match the bound document.'
     }
-    $expected = [IO.Path]::GetFullPath($script:AuthorizedPath)
     $actual = [IO.Path]::GetFullPath([string]$script:Document.FullName)
-    if (-not [string]::Equals($expected, $actual, [StringComparison]::OrdinalIgnoreCase)) {
+    if ((Get-NormalizedFileLocator $actual) -cne $script:PreparedLocator) {
         throw 'The bound document no longer has its established locator.'
     }
 
     $before = Sync-ContentRevision
     $revision = $script:Revision
+    Assert-WordPersistenceBinding
     $script:Document.Save()
+    $identity=Get-StableFileIdentity $actual
+    Add-CoordinationFence -Identity $identity
+    $script:BoundFileIdentity=$identity
+    Assert-WordPersistenceBinding
     $after = Get-DocumentFingerprint
     if ($before -ne $after) {
         throw 'The document content changed while it was being saved.'
@@ -1356,6 +1367,46 @@ if (-not (Test-Path -LiteralPath $wordActionsPath -PathType Leaf)) {
     throw 'The Word Action implementation resource is missing.'
 }
 . $wordActionsPath
+
+
+function Assert-WordPersistenceBinding {
+    if ([string]::IsNullOrEmpty($script:AuthorizedPath)) {
+        if (-not [string]::IsNullOrEmpty([string]$script:Document.Path) -or [string]$script:Document.Name -cne $script:UnsavedName) { throw 'The new document was saved outside this Session.' }
+    } else {
+        $actual=[IO.Path]::GetFullPath([string]$script:Document.FullName)
+        if ((Get-NormalizedFileLocator $actual) -cne $script:PreparedLocator -or (Get-StableFileIdentity $actual) -cne $script:BoundFileIdentity) { throw 'The document backing identity changed outside this Session.' }
+    }
+}
+
+function Invoke-WordSaveAs {
+    param($Arguments)
+    Assert-BoundDocument -DocumentId $Arguments.documentId
+    Assert-WordPersistenceBinding
+    if ([bool]$script:Document.ReadOnly) { throw [PersistenceActionException]::new('DOCUMENT_READ_ONLY','The document is read-only.') }
+    $params=$Arguments.operationArguments
+    Assert-SaveAsNames $params.outputPath
+    $before=Sync-ContentRevision
+    $revision=$script:Revision
+    $reservation=$null
+    try {
+        $reservation=New-OutputReservation -Path $params.outputPath -Extension '.docx' -ReserveFile
+        $alerts=$script:Application.DisplayAlerts
+        try {
+            $script:Application.DisplayAlerts=0
+            $script:SaveAsStarted=$true
+            $script:Document.SaveAs($reservation.path,16)|Out-Null
+        } finally { $script:Application.DisplayAlerts=$alerts }
+        $size=Complete-SaveAsBinding $reservation $params.outputPath
+        if ((Get-DocumentFingerprint) -cne $before) { throw [PersistenceActionException]::new('OUTPUT_VERIFICATION_FAILED','Observed Word content changed during Save As.') }
+        if ([int]$script:Document.SaveFormat -notin @(12,16)) { throw [PersistenceActionException]::new('OUTPUT_VERIFICATION_FAILED','Expected ordinary DOCX format.') }
+        return [ordered]@{revisionBefore=$revision;revisionAfter=$revision;artifact=[ordered]@{path=[string]$params.outputPath;format='docx';sizeBytes=$size};documentState=[ordered]@{persistenceState='saved';readOnly=[bool]$script:Document.ReadOnly};replacedExisting=$false}
+    } finally {
+        if($null -ne $reservation) {
+            if(-not $script:SaveAsStarted -and [IO.File]::Exists($reservation.path) -and (Get-StableFileIdentity $reservation.path) -eq $reservation.identity){[IO.File]::Delete($reservation.path)}
+            $reservation.handle.Dispose()
+        }
+    }
+}
 
 function Invoke-BridgeOperation {
     param(
@@ -1392,13 +1443,16 @@ function Invoke-BridgeOperation {
             }
             'acquire_coordination_guard' {
                 try {
+                    if ($script:PreparedLocator) { Add-CoordinationFence -Identity ('locator-'+$script:PreparedLocator) }
                     $data = Invoke-AcquireCoordinationGuard -Arguments $Arguments
                     return New-SuccessRecord -RequestId $RequestId -Data $data
                 }
                 catch [DocumentLeaseConflictException] {
+                    Release-AdditionalFences -Clean $true
                     return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_LEASE_CONFLICT' -Message $_.Exception.Message -BindingDisposition unchanged
                 }
                 catch [DocumentQuarantinedException] {
+                    Release-AdditionalFences -Clean $true
                     return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_QUARANTINED' -Message $_.Exception.Message -BindingDisposition unchanged
                 }
                 catch {
@@ -1634,6 +1688,21 @@ function Invoke-BridgeOperation {
                         -DefaultCode 'BREAK_APPLY_FAILED' `
                         -DefaultOutcome unknown `
                         -DefaultBindingDisposition unprovable
+                }
+            }
+            'save_as_artifact' {
+                $script:SaveAsStarted=$false
+                try {
+                    $data=Invoke-CoordinatedWpsCall { Invoke-WordSaveAs $Arguments }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                } catch {
+                    $code='OUTPUT_WRITE_FAILED';$outcome='failed';$binding='unchanged'
+                    if($_.Exception -is [PersistenceActionException]){$code=$_.Exception.Code}
+                    elseif($_.Exception -is [DocumentLeaseConflictException]){$code='DOCUMENT_LEASE_CONFLICT'}
+                    elseif($_.Exception -is [DocumentQuarantinedException]){$code='DOCUMENT_QUARANTINED'}
+                    elseif($_.Exception -is [UnauthorizedAccessException]){$code='OUTPUT_ACCESS_DENIED'}
+                    if($script:SaveAsStarted){$outcome='unknown';$binding='unprovable'}
+                    return New-FailureRecord -RequestId $RequestId -Outcome $outcome -Code $code -Message $_.Exception.Message -BindingDisposition $binding
                 }
             }
             'save_existing_artifact' {

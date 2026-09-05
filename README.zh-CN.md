@@ -8,7 +8,7 @@
 
 ## PPT
 
-PPT 已提供 **33 个原生动作**，覆盖已有 `.pptx` 的读取、编辑、排版与保存。
+PPT 已提供 **37 个原生动作**，覆盖新建和已有 `.pptx` 的读取、编辑、排版与保存。
 本次新增 18 项常用能力：
 
 | 类别 | 新动作 |
@@ -24,7 +24,7 @@ PPT 已提供 **33 个原生动作**，覆盖已有 `.pptx` 的读取、编辑�
 需要 Windows 和注册为 `KWPP.Application` 的 WPS 演示。结构操作最多 200 页，
 单页最多读取 100 个顶层形状，单形状文字最多 10000 UTF-16 单元。
 表格最多 100 格，图片只嵌入 PNG/JPEG；具体上限和 token 来源见 Skill 参考。
-新建文稿、首次保存、另存为、图表、动画和导出尚未提供。
+已支持新建文稿、首次保存、另存为、PDF 导出和单页 PNG 导出；图表和动画尚未提供。
 原生形状复制尚未通过验证，不在正式能力集内。
 
 ```powershell
@@ -60,7 +60,7 @@ python scripts/validate/ppt_common.py --output-dir build/ppt-common-acceptance
 
 ## Excel
 
-支持已有 `.xlsx` 工作簿的 31 个 Actions：
+支持新建与已有 `.xlsx` 工作簿的 34 个 Actions：
 
 | 类别 | Actions |
 | --- | --- |
@@ -74,7 +74,7 @@ python scripts/validate/ppt_common.py --output-dir build/ppt-common-acceptance
 每次指定准确工作表名称和最多 1000 个单元格的 A1 矩形。区域修改先 `readRange`，
 工作表和行列结构修改先 `getWorksheetInfo`，使用对应 token 并回读验证。格式支持
 字号、粗斜体、颜色、对齐、换行和数字格式，公式支持常用统计、查找和文本函数。
-原位保存期间持续保护文档占用。新建工作簿、另存为、图表、透视表和 PDF 导出尚未开放。
+原位保存期间持续保护文档占用。已开放新建工作簿、首次保存、另存为和 PDF 导出；图表与透视表尚未开放。
 结构操作也要求整表已用区域不超过 1000 个单元格。细节见 Excel Skill 的参考文档。
 
 ```bash
@@ -110,7 +110,7 @@ python scripts/validate/excel_common.py --output-dir build/excel-common-acceptan
 
 ## 当前能力
 
-Word 正式 Application Contract Set 包含 13 个可执行 Action：
+Word 正式 Application Contract Set 包含 14 个可执行 Action：
 
 | Action | 作用 |
 | --- | --- |
@@ -125,12 +125,15 @@ Word 正式 Application Contract Set 包含 13 个可执行 Action：
 | `setHeaderFooter` | 设置页眉页脚 |
 | `setPageLayout` | 设置页面布局 |
 | `insertBreak` | 插入分页符或分节符 |
-| `save` | 将绑定文档保存到已有路径 |
+| `save` | 将绑定文档保存到当前路径 |
+| `saveAs` | 首次保存或另存为尚不存在的 DOCX |
 | `exportPdf` | 导出 PDF |
 
 支持分别设置西文字体与东亚字体，并在操作后读回验证。内容范围带有 Content Revision，避免后续操作误用文档修改前的旧位置。
 
-`saveAs` 已有目标契约，但尚未进入正式能力集：保持同一个实际文档时，目标文件的 Document Lease 迁移机制仍待实现。因此，`save` 不能用于将新建文档首次保存到一个新路径。Excel 和 PPT 分别通过 `--app excel`、`--app ppt` 接入正式 CLI。
+`saveAs` 已进入三端正式能力集：首次保存和另存为都保留同一个实际文档，后续 `save` 使用新路径。只支持 `overwritePolicy: "failIfExists"`，不会覆盖已有目标。Excel 和 PPT 分别通过 `--app excel`、`--app ppt` 接入正式 CLI。
+
+三端共 85 项 Action（Word 14、Excel 34、PPT 37）。保存／导出的观察验证有界：Excel 最多 20 张表、每张 UsedRange 最多 1000 格；PPT 最多 200 页、每页 100 个顶层形状。不宣称完整验证未支持的文档特性。使用 `python scripts/validate/persistence.py --output-dir build/persistence-acceptance` 运行三端持久化原生验收。
 
 ## 环境要求
 

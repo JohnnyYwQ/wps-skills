@@ -358,7 +358,7 @@ VALID_RESULTS = {
 
 
 class WordContractSetTests(unittest.TestCase):
-    def test_production_set_advertises_every_completed_action_except_save_as(self):
+    def test_production_set_advertises_every_completed_action(self):
         self.assertEqual(
             (
                 "createDocument",
@@ -373,6 +373,7 @@ class WordContractSetTests(unittest.TestCase):
                 "setPageLayout",
                 "insertBreak",
                 "save",
+                "saveAs",
                 "exportPdf",
             ),
             WORD_PRODUCTION_CONTRACT_SET.action_names,

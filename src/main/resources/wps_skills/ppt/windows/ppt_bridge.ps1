@@ -37,6 +37,8 @@ class PptActionException : System.Exception {
 . (Join-Path $PSScriptRoot '../../windows/window_presentation.ps1')
 . (Join-Path $PSScriptRoot 'ppt_com.ps1')
 . (Join-Path $PSScriptRoot 'ppt_actions.ps1')
+. (Join-Path $PSScriptRoot '../../windows/output_persistence.ps1')
+. (Join-Path $PSScriptRoot 'ppt_persistence.ps1')
 . (Join-Path $PSScriptRoot 'ppt_common_actions.ps1')
 . (Join-Path $PSScriptRoot 'ppt_window.ps1')
 
@@ -72,7 +74,7 @@ function Invoke-PrepareExistingDocument {
 }
 
 function Get-PresentationState {
-    $state = if ([bool]$script:Document.Saved) { 'saved' } else { 'modified' }
+    $state = if ([string]::IsNullOrEmpty([string]$script:Document.Path)) { 'unsaved' } elseif ([bool]$script:Document.Saved) { 'saved' } else { 'modified' }
     return [ordered]@{ persistenceState = $state; readOnly = [bool]$script:Document.ReadOnly }
 }
 
@@ -93,7 +95,13 @@ function Assert-BoundPresentation {
     if ($DocumentId -cne $script:DocumentId -or -not (Test-BoundDocumentLive)) {
         throw [PptActionException]::new('DOCUMENT_CLOSED', 'The exact bound presentation is no longer available.')
     }
-    # A user Save As ends this slice's usable binding; never follow the new path.
+    if ([string]::IsNullOrEmpty($script:AuthorizedPath)) {
+        if (-not [string]::IsNullOrEmpty([string]$script:Document.Path) -or [string]$script:Document.Name -cne $script:UnsavedName) {
+            throw [PptActionException]::new('DOCUMENT_BINDING_UNAVAILABLE','The new document was saved outside this Session.')
+        }
+        return
+    }
+    # Follow only the locator committed by this Session’s explicit persistence Action.
     $actual = [IO.Path]::GetFullPath([string]$script:Document.FullName)
     if (-not [string]::Equals($actual, $script:PreparedCanonicalPath, [StringComparison]::OrdinalIgnoreCase) -or
         (Get-StableFileIdentity -Path $actual) -ne $script:BoundFileIdentity) {
@@ -164,9 +172,11 @@ function Invoke-BridgeOperation {
     $script:ActionMayHaveEffect = $false
     try {
         switch ($Operation) {
+            'prepare_new_document' { $data = Invoke-PrepareNewDocument }
+            'acquire_new_document' { $data = Invoke-CoordinatedWpsCall { Invoke-AcquireNewDocument -Arguments $Arguments } }
             'prepare_existing_document' { $data = Invoke-PrepareExistingDocument -Arguments $Arguments }
             'acquire_coordination_guard' {
-                Add-CoordinationFence -Identity ('locator-' + $script:PreparedLocator)
+                if ($script:PreparedLocator) { Add-CoordinationFence -Identity ('locator-' + $script:PreparedLocator) }
                 $data = Invoke-AcquireCoordinationGuard -Arguments $Arguments
             }
             'commit_document_lease' { $data = Invoke-CommitDocumentLease -Arguments $Arguments }
@@ -177,6 +187,12 @@ function Invoke-BridgeOperation {
             'probe_bound_document' {
                 $data = Invoke-CoordinatedWpsCall {
                     [ordered]@{ live = ([string]$Arguments.documentId -ceq $script:DocumentId -and (Test-BoundDocumentLive)) }
+                }
+            }
+            { $_ -in @('saveAs','exportPdf','exportSlideImage') } {
+                $data=Invoke-CoordinatedWpsCall {
+                    Assert-BoundPresentation -DocumentId ([string]$Arguments.documentId)
+                    Invoke-PptPersistence -Operation $Operation -Params $Arguments.operationArguments
                 }
             }
             default {
@@ -194,7 +210,8 @@ function Invoke-BridgeOperation {
         $code = 'PPT_READ_FAILED'
         $outcome = 'failed'
         $binding = 'unchanged'
-        if ($_.Exception -is [PptActionException]) { $code = $_.Exception.Code }
+        if ($_.Exception -is [PersistenceActionException]) { $code = $_.Exception.Code }
+        elseif ($_.Exception -is [PptActionException]) { $code = $_.Exception.Code }
         elseif ($_.Exception -is [DocumentLeaseConflictException]) { $code = 'DOCUMENT_LEASE_CONFLICT' }
         elseif ($_.Exception -is [DocumentQuarantinedException]) { $code = 'DOCUMENT_QUARANTINED' }
         elseif ($_.Exception -is [IO.FileNotFoundException]) { $code = 'DOCUMENT_NOT_FOUND' }
@@ -210,9 +227,10 @@ function Invoke-BridgeOperation {
         if ($Operation -eq 'acquire_existing_document' -and $code -eq 'DOCUMENT_OPEN_FAILED' -and -not $script:ActionMayHaveEffect) {
             return New-FailureRecord -RequestId $RequestId -Outcome 'failed' -Code $code -Message $_.Exception.Message -BindingDisposition 'unchanged'
         }
+        if ($Operation -eq 'saveAs' -and $script:ActionMayHaveEffect) { $code='OUTPUT_WRITE_FAILED'; $binding='unprovable'; $outcome='unknown' }
         if ($code -eq 'DOCUMENT_CLOSED') { $binding = 'lost'; $outcome = 'failed' }
         elseif ($code -eq 'DOCUMENT_BINDING_UNAVAILABLE' -or
-                $Operation -in @('acquire_existing_document', 'commit_document_lease', 'release_document_resources') -or
+                $Operation -in @('acquire_existing_document', 'acquire_new_document', 'commit_document_lease', 'release_document_resources') -or
                 ($Operation -eq 'acquire_coordination_guard' -and $code -notin @('DOCUMENT_LEASE_CONFLICT', 'DOCUMENT_QUARANTINED'))) {
             $binding = 'unprovable'; $outcome = 'unknown'
         }

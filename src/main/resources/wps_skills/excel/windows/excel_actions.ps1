@@ -240,6 +240,7 @@ function Invoke-ExcelAction {
             finally { Release-ExcelReference -Value $sheets }
         }
         'save_existing_workbook' {
+            if ([string]::IsNullOrEmpty($script:AuthorizedPath)) { throw [ExcelActionException]::new('PERSISTENCE_LOCATOR_REQUIRED','Use saveAs for the first save.') }
             if ([bool]$script:Document.ReadOnly) { throw [ExcelActionException]::new('DOCUMENT_READ_ONLY', 'The workbook is read-only.') }
             Assert-BoundWorkbook -DocumentId $script:DocumentId
             $script:ActionMayHaveEffect = $true

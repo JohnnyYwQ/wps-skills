@@ -15,10 +15,10 @@ def slide(shapes):
 
 class PptCommonContractsTests(unittest.TestCase):
     def test_admitted_common_actions_have_valid_examples_and_one_authority(self):
-        self.assertEqual(33,len(contracts.contracts))
+        self.assertEqual(37,len(contracts.contracts))
         for c in contracts.contracts:
             for example in c.examples:contracts.validate_params(c.name,example['params'])
-        self.assertEqual(33,len(PPT_PRODUCTION_CONTRACT_SET.contracts))
+        self.assertEqual(37,len(PPT_PRODUCTION_CONTRACT_SET.contracts))
 
     def test_base_snapshots_accept_extended_native_shape_observations(self):
         contracts.validate_result('getSlideInfo',slide([shape()]),params={'slideId':256})

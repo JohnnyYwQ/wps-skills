@@ -16,7 +16,8 @@ scripts/
 └── validate/
     ├── word.py
     ├── excel.py / excel_common.py
-    └── ppt.py / ppt_common.py
+    ├── ppt.py / ppt_common.py
+    └── persistence.py
 ```
 
 ## 构建与发现
@@ -52,13 +53,14 @@ $python = (Get-Command python.exe).Source
 | Excel | 数据、公式和计算、格式、读回与保存。 |
 | PPT | 幻灯片、文字和形状、复制页面、表格、演讲备注与保存。 |
 
-演示使用唯一文件名和独立输出目录，不覆盖已有文件。空白文件由演示夹具准备，所有展示的编辑通过正式 Action Session 执行；这不代表新增了首次保存或另存为 Action。正常结束保留已保存的 WPS 文档窗口。
+演示使用唯一文件名和独立输出目录，不覆盖已有文件。空白文件由演示夹具准备，所有展示的编辑通过正式 Action Session 执行；新建与首次保存由独立的 `validate/persistence.py` 覆盖。正常结束保留已保存的 WPS 文档窗口。
 
 ## 原生验证
 
 以下入口需要实际 Windows WPS 环境：
 
 ```powershell
+python scripts/validate/persistence.py --output-dir build/persistence-acceptance
 python scripts/validate/word.py --output-dir build/word-acceptance
 python scripts/validate/excel.py --output-dir build/excel-acceptance --wps-version 12.0.0.28505
 python scripts/validate/excel_common.py --output-dir build/excel-common-acceptance
@@ -66,7 +68,7 @@ python scripts/validate/ppt.py --output-dir build/ppt-acceptance
 python scripts/validate/ppt_common.py --output-dir build/ppt-common-acceptance
 ```
 
-Excel 的 `--wps-version` 应填写实际测试版本。Word 验证入口覆盖演示闭环、保存后的 DOCX 文字／表格以及精确文档窗口，不宣称覆盖全部 13 项 Word Action。Excel／PPT 分别保留基础和常用动作验收。
+Excel 的 `--wps-version` 应填写实际测试版本。Word 验证入口覆盖演示闭环、保存后的 DOCX 文字／表格以及精确文档窗口，不宣称覆盖全部 14 项 Word Action。Excel／PPT 分别保留基础和常用动作验收。
 
 完整启动链的控制台观察程序位于 `src/test/python/tests/{word,excel,ppt}/desktop_acceptance.pyw`。不依赖 WPS 的回归统一运行：
 

@@ -157,6 +157,7 @@ function Invoke-PptAction {
         }
         if([int]$Document.ReadOnly -ne 0){throw [PptActionException]::new('DOCUMENT_READ_ONLY','The presentation is read-only.')}
         if($Operation -eq 'save') {
+            if ([string]::IsNullOrEmpty($script:AuthorizedPath)) { throw [PptActionException]::new('PERSISTENCE_LOCATOR_REQUIRED','Use saveAs for the first save.') }
             Assert-BoundPresentation -DocumentId $script:DocumentId
             $script:ActionMayHaveEffect=$true
             $Document.Save()|Out-Null

@@ -39,6 +39,7 @@ class WordHandlerTests(unittest.TestCase):
             "setHeaderFooter": "update_header_footer_stories",
             "setPageLayout": "update_page_layout",
             "insertBreak": "insert_body_break",
+            "saveAs": "save_as_artifact",
             "save": "save_existing_artifact",
             "exportPdf": "export_pdf_artifact",
         }

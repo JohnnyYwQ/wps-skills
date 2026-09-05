@@ -91,6 +91,7 @@ class WindowsWordBackend:
         self._bridge = bridge
         self._preparation = None
         self._document = None
+        self._persistence_path = None
 
     def _execute(self, operation, arguments, context):
         result = self._bridge.execute(operation, arguments, context)
@@ -236,6 +237,7 @@ class WindowsWordBackend:
                 message=failure.message,
             ) from failure
         self._document = document
+        self._persistence_path = path
         return acquisition
 
     def create_document(self, preparation, context):
@@ -286,9 +288,14 @@ class WindowsWordBackend:
             "documentId": document.bridge_document_id,
             "operationArguments": dict(operation.arguments),
         }
-        if document.authorized_path is not None:
-            arguments["authorizedPath"] = document.authorized_path
-        return self._execute(operation.name, arguments, context)
+        if self._persistence_path is not None:
+            arguments["authorizedPath"] = self._persistence_path
+        result = self._execute(operation.name, arguments, context)
+        if operation.name == 'save_as_artifact':
+            if result.get('artifact', {}).get('path') != operation.arguments['outputPath']:
+                raise ValueError('Save As returned another output path')
+            self._persistence_path = operation.arguments['outputPath']
+        return result
 
     def close(self):
         return self._bridge.close()

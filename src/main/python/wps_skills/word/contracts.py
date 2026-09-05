@@ -1143,7 +1143,7 @@ _WORD_CONSTRAINTS = {
         "An already-saved document may succeed only after the same artifact verification.",
     ),
     "saveAs": (
-        "Output is fixed .docx and overwrite policy is explicit with no default.",
+        "Output is fixed .docx; only failIfExists is supported, with no overwrite.",
         "The same live document remains bound while destination Lease migration has no gap.",
     ),
     "exportPdf": (
@@ -2481,7 +2481,7 @@ WORD_TARGET_CONTRACT_SET = ApplicationContractSet(
             parameters=_object(
                 {
                     "outputPath": DOCX_PATH,
-                    "overwritePolicy": OVERWRITE_POLICY,
+                    "overwritePolicy": {"const": "failIfExists"},
                 },
                 ("outputPath", "overwritePolicy"),
             ),
@@ -2501,7 +2501,7 @@ WORD_TARGET_CONTRACT_SET = ApplicationContractSet(
                     "replacedExisting",
                 ),
             ),
-            stable_errors=BINDING_ERRORS + (
+            stable_errors=MUTATION_ERRORS + (
                 "OUTPUT_ALREADY_EXISTS",
                 "OUTPUT_MATCHES_BOUND_DOCUMENT",
                 "OUTPUT_PARENT_NOT_FOUND",
@@ -2574,10 +2574,9 @@ WORD_TARGET_CONTRACT_SET = ApplicationContractSet(
 WORD_TARGET_ACTION_INDEX = WORD_TARGET_CONTRACT_SET.action_index()
 
 
-# Production deliberately omits only saveAs, whose same-object locator and
-# Lease migration remains a separate architecture milestone.  Every admitted
-# Action below has a real handler and live Word Backend implementation.
+# All target Actions admitted; persistence evidence: tests/persistence/live_acceptance.py.
 _WORD_PRODUCTION_ACTIONS = frozenset({
+    'saveAs',
     "createDocument",
     "openDocument",
     "writeContent",
