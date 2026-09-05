@@ -16,12 +16,12 @@ from wps_skills.core.action_session import (
 from wps_skills.word.contracts import WORD_TARGET_CONTRACT_SET
 from wps_skills.word.adapter import (
     WordAdapter,
-    WriterBackend,
-    WriterBackendAcquisition,
-    WriterBackendOperation,
-    WriterBackendPreparation,
-    WriterDefiniteEstablishFailure,
-    WriterUnprovableEstablishFailure,
+    WordBackend,
+    WordBackendAcquisition,
+    WordBackendOperation,
+    WordBackendPreparation,
+    WordDefiniteEstablishFailure,
+    WordUnprovableEstablishFailure,
 )
 
 
@@ -37,7 +37,7 @@ def command(action, params=None):
     )
 
 
-class RecordingWriterBackend:
+class RecordingWordBackend:
     def __init__(self, document=None):
         self.document = document if document is not None else object()
         self.calls = []
@@ -46,13 +46,13 @@ class RecordingWriterBackend:
         self.open_failure = None
 
     def prepare_create_document(self, context):
-        return WriterBackendPreparation(
+        return WordBackendPreparation(
             coordination_identity="new-document-1",
             state=self,
         )
 
     def prepare_open_document(self, path, context):
-        return WriterBackendPreparation(
+        return WordBackendPreparation(
             coordination_identity="file-document-1",
             state=self,
         )
@@ -61,7 +61,7 @@ class RecordingWriterBackend:
         self.calls.append(("create_document", context))
         if self.create_failure is not None:
             raise self.create_failure
-        return WriterBackendAcquisition(
+        return WordBackendAcquisition(
             document=self.document,
             revision="revision-1",
             persistence_state="unsaved",
@@ -72,7 +72,7 @@ class RecordingWriterBackend:
         self.calls.append(("open_document", path, context))
         if self.open_failure is not None:
             raise self.open_failure
-        return WriterBackendAcquisition(
+        return WordBackendAcquisition(
             document=self.document,
             revision="revision-1",
             persistence_state="saved",
@@ -113,16 +113,16 @@ class RecordingCoordinator:
 
 class WordAdapterBoundaryTests(unittest.TestCase):
     def test_word_adapter_and_backend_satisfy_their_formal_seams(self):
-        backend = RecordingWriterBackend()
+        backend = RecordingWordBackend()
         adapter = WordAdapter(backend=backend, handlers={})
 
-        self.assertIsInstance(backend, WriterBackend)
+        self.assertIsInstance(backend, WordBackend)
         self.assertIsInstance(adapter, ApplicationAdapter)
         self.assertEqual("word", adapter.application)
         self.assertIs(WORD_TARGET_CONTRACT_SET, adapter.contracts)
 
     def test_establish_dispatches_create_and_open_without_forwarding_address(self):
-        backend = RecordingWriterBackend()
+        backend = RecordingWordBackend()
         adapter = WordAdapter(backend=backend, handlers={})
 
         create_command = command("createDocument")
@@ -152,12 +152,12 @@ class WordAdapterBoundaryTests(unittest.TestCase):
     def test_required_handler_receives_exact_document_without_action_address(self):
         bound_document = object()
         other_document = object()
-        backend = RecordingWriterBackend(document=other_document)
+        backend = RecordingWordBackend(document=other_document)
         observed = []
 
         def inspect_handler(backend, document, params, context):
             observed.append((document, params, context))
-            operation = WriterBackendOperation(
+            operation = WordBackendOperation(
                 name="read_body_snapshot",
                 arguments={"scope": params["scope"]},
             )
@@ -184,7 +184,7 @@ class WordAdapterBoundaryTests(unittest.TestCase):
         self.assertNotEqual("inspectDocument", backend.calls[0][2].name)
 
     def test_missing_handler_reports_capability_unavailable_without_backend_call(self):
-        backend = RecordingWriterBackend()
+        backend = RecordingWordBackend()
         adapter = WordAdapter(backend=backend, handlers={})
 
         result = adapter.handle(object(), command("save", {}))
@@ -197,7 +197,7 @@ class WordAdapterBoundaryTests(unittest.TestCase):
 
     def test_liveness_requires_a_boolean_observation_for_the_exact_document(self):
         document = object()
-        backend = RecordingWriterBackend()
+        backend = RecordingWordBackend()
         adapter = WordAdapter(backend=backend, handlers={})
         self.assertTrue(adapter.is_live(document))
         self.assertIs(document, backend.calls[0][1])
@@ -207,9 +207,9 @@ class WordAdapterBoundaryTests(unittest.TestCase):
             adapter.is_live(document)
 
     def test_missing_handler_is_a_declared_nonterminal_action_failure_in_core(self):
-        class ContractBackend(RecordingWriterBackend):
+        class ContractBackend(RecordingWordBackend):
             def create_document(self, preparation, context):
-                return WriterBackendAcquisition(
+                return WordBackendAcquisition(
                     document=self.document,
                     revision="revision-1",
                     persistence_state="unsaved",
@@ -253,9 +253,9 @@ class WordAdapterBoundaryTests(unittest.TestCase):
         self.assertEqual("continue", unavailable.continuation)
 
     def test_backend_establish_failures_map_to_core_establish_failures(self):
-        backend = RecordingWriterBackend()
+        backend = RecordingWordBackend()
         adapter = WordAdapter(backend=backend, handlers={})
-        backend.open_failure = WriterDefiniteEstablishFailure(
+        backend.open_failure = WordDefiniteEstablishFailure(
             code="DOCUMENT_NOT_FOUND",
             message="missing document",
         )
@@ -274,7 +274,7 @@ class WordAdapterBoundaryTests(unittest.TestCase):
             )
 
         partial = object()
-        backend.create_failure = WriterUnprovableEstablishFailure(
+        backend.create_failure = WordUnprovableEstablishFailure(
             outcome="unknown",
             code="RESPONSE_LOST",
             message="creation response lost",
@@ -290,8 +290,8 @@ class WordAdapterBoundaryTests(unittest.TestCase):
 
     def test_backend_operations_are_immutable_and_acquisition_is_closed(self):
         arguments = {"nested": {"values": [1]}}
-        operation = WriterBackendOperation("read", arguments)
-        acquisition = WriterBackendAcquisition(
+        operation = WordBackendOperation("read", arguments)
+        acquisition = WordBackendAcquisition(
             document=object(),
             revision="revision-1",
             persistence_state="unsaved",
@@ -309,10 +309,10 @@ class WordAdapterBoundaryTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             acquisition.revision = "revision-2"
         with self.assertRaisesRegex(ValueError, "public Action name"):
-            WriterBackendOperation("inspectDocument", {})
+            WordBackendOperation("inspectDocument", {})
 
     def test_adapter_rejects_foreign_commands_and_establish_handlers(self):
-        backend = RecordingWriterBackend()
+        backend = RecordingWordBackend()
         with self.assertRaisesRegex(ValueError, "invalid Word Action handler"):
             WordAdapter(
                 backend=backend,
@@ -333,7 +333,7 @@ class WordAdapterBoundaryTests(unittest.TestCase):
             def create_document(self, context):
                 return None
 
-        with self.assertRaisesRegex(ValueError, "Writer Backend seam"):
+        with self.assertRaisesRegex(ValueError, "Word Backend seam"):
             WordAdapter(backend=IncompleteBackend(), handlers={})
 
 

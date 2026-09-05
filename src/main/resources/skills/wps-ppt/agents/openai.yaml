@@ -1,0 +1,3 @@
+interface:
+  display_name: "WPS PPT"
+  short_description: "在 Windows WPS 演示中编辑幻灯片、图片表格、排版与备注并验证保存"

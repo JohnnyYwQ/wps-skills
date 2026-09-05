@@ -4,10 +4,8 @@ from types import MappingProxyType
 from typing import Mapping
 
 from wps_skills.core.action_session import ActionError, ControllerResult
-from wps_skills.word.adapter import (
-    WriterBackendActionFailure,
-    WriterBackendOperation,
-)
+from wps_skills.windows.bridge_types import BackendActionFailure
+from wps_skills.word.adapter import WordBackendOperation
 
 
 def _failure_result(failure):
@@ -33,10 +31,10 @@ def _failure_result(failure):
 def _invoke(backend, document, operation, context):
     try:
         data = backend.invoke(document, operation, context)
-    except WriterBackendActionFailure as failure:
+    except BackendActionFailure as failure:
         return _failure_result(failure)
     if not isinstance(data, Mapping):
-        raise TypeError("Writer Backend Action result must be an object")
+        raise TypeError("Word Backend Action result must be an object")
     return ControllerResult.succeeded(
         data=data,
         controller_state="usable",
@@ -64,7 +62,7 @@ def _handler(operation_name):
         return _invoke(
             backend,
             document,
-            WriterBackendOperation(
+            WordBackendOperation(
                 name=operation_name,
                 arguments=params,
             ),

@@ -2,9 +2,111 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-本项目为智能体提供 WPS 自动化能力，采用独立 Application Skill、明确的 Action Contracts 和单文档 Action Session 架构。目前已完成 Windows WPS Writer 的 Word 实现，并提供可独立安装的 `wps-word` Skill。
+本项目为智能体提供 WPS 自动化能力，采用独立 Application Skill、明确的 Action Contracts 和单文档 Action Session 架构。目前已接入 Windows WPS Writer、表格和演示，分别提供可独立安装的 `wps-word`、`wps-excel` 和 `wps-ppt` Skill。
 
 智能体可以通过 Skill 了解可用能力，再用 Python Session Client 创建或打开文档、执行编辑、验证结果并按需保存。Python Session Host 负责请求校验和会话管理，PowerShell bridge 通过 WPS COM 操作同一个实际文档。
+
+## PPT
+
+PPT 已提供 **33 个原生动作**，覆盖已有 `.pptx` 的读取、编辑、排版与保存。
+本次新增 18 项常用能力：
+
+| 类别 | 新动作 |
+| --- | --- |
+| 形状样式与排版 | getShapeStyle、formatShape、renameShape、setShapeOrder、alignShapes、distributeShapes |
+| 段落与文本框 | formatParagraph、setTextBoxLayout |
+| 背景、隐藏和页名称 | getSlideSettings、setSlideSettings |
+| 演讲备注 | getSlideNotes、setSlideNotes |
+| 查找替换 | findText、replaceText |
+| 图片与表格 | addImage、addTable、readTable、writeTable |
+
+每次编辑使用对应读取结果的 token 并返回实际读回内容；一场会话始终绑定一个确切文稿。
+需要 Windows 和注册为 `KWPP.Application` 的 WPS 演示。结构操作最多 200 页，
+单页最多读取 100 个顶层形状，单形状文字最多 10000 UTF-16 单元。
+表格最多 100 格，图片只嵌入 PNG/JPEG；具体上限和 token 来源见 Skill 参考。
+新建文稿、首次保存、另存为、图表、动画和导出尚未提供。
+原生形状复制尚未通过验证，不在正式能力集内。
+
+```powershell
+python scripts/build/ppt.py --output build/skills/wps-ppt
+python build/skills/wps-ppt/scripts/ppt.py --app ppt --index
+python scripts/call.py --app ppt --resolve openPresentation listSlides getSlideInfo setShapeText save
+```
+
+在已同步的 Windows 测试机上，从**普通桌面 PowerShell** 粘贴下面完整命令。
+它复制空白模板，所有可见内容编辑都通过正式 PPT 会话完成，最后保存并保留 WPS 窗口；
+不会额外弹出 cmd/PowerShell 黑窗口：
+
+```powershell
+$repo = Join-Path $env:LOCALAPPDATA 'Temp\wps-ppt-20260905'
+$python = Join-Path $env:USERPROFILE '.conda\envs\yolov8app\python.exe'
+$launcher = Join-Path $repo 'src\main\resources\wps_skills\ppt\windows\demo_launcher.ps1'
+& ([scriptblock]::Create([IO.File]::ReadAllText($launcher))) -RepositoryRoot $repo -PythonPath $python -Delay 1.5
+```
+
+其他机器将 `$repo`、`$python` 改为实际仓库和 Python 路径。
+允许执行 `.ps1` 时也可在仓库根目录运行 `./scripts/demo/ppt.ps1 -PythonPath <python.exe绝对路径>`。
+演示模板复制不是正式的新建文稿动作。输出目录和文件名每次唯一，报告随文件保存。
+
+真机验收会生成自己的测试文稿：
+
+```powershell
+python scripts/validate/ppt.py --output-dir build/ppt-acceptance
+python scripts/validate/ppt_common.py --output-dir build/ppt-common-acceptance
+```
+
+输出目录必须不存在。参见 [PPT Skill](src/main/resources/skills/wps-ppt/SKILL.md)
+及[原生能力证据](src/test/resources/wps_skills/ppt/type_library/EVIDENCE.md)。
+
+## Excel
+
+支持已有 `.xlsx` 工作簿的 31 个 Actions：
+
+| 类别 | Actions |
+| --- | --- |
+| 工作簿 | `openWorkbook`、`getWorkbookInfo`、`save` |
+| 工作表 | `listWorksheets`、`getWorksheetInfo`、`addWorksheet`、`renameWorksheet`、`copyWorksheet`、`moveWorksheet`、`deleteWorksheet` |
+| 数据与公式 | `readRange`、`writeRange`、`setFormulas`、`calculateRange`、`clearRange`、`copyRange`、`findInRange`、`replaceInRange` |
+| 排序筛选 | `sortRange`、`filterRange`、`clearFilter` |
+| 格式与尺寸 | `formatRange`、`mergeRange`、`unmergeRange`、`setRowHeight`、`setColumnWidth`、`autoFitColumns` |
+| 行列结构 | `insertRows`、`deleteRows`、`insertColumns`、`deleteColumns` |
+
+每次指定准确工作表名称和最多 1000 个单元格的 A1 矩形。区域修改先 `readRange`，
+工作表和行列结构修改先 `getWorksheetInfo`，使用对应 token 并回读验证。格式支持
+字号、粗斜体、颜色、对齐、换行和数字格式，公式支持常用统计、查找和文本函数。
+原位保存期间持续保护文档占用。新建工作簿、另存为、图表、透视表和 PDF 导出尚未开放。
+结构操作也要求整表已用区域不超过 1000 个单元格。细节见 Excel Skill 的参考文档。
+
+```bash
+python scripts/build/excel.py --output build/skills/wps-excel
+python build/skills/wps-excel/scripts/excel.py --app excel --index
+python scripts/call.py --app excel --resolve openWorkbook readRange writeRange save
+```
+
+运行要求为 Windows、Python 3.8+、原生 Windows PowerShell 和注册为 `KET.Application`
+的 WPS 表格。已在 WPS 12.0.0.28505 上真机验收。参见 [Excel Skill](src/main/resources/skills/wps-excel/SKILL.md)
+和[能力验证记录](src/test/resources/wps_skills/excel/type_library/EVIDENCE.md)。
+
+在 Windows 桌面的**普通 PowerShell（非管理员）**中运行演示，会打开 WPS 窗口，展示填写、公式和格式，保存后保留窗口。无控制台启动器在创建 Python 进程时设置 `CreateNoWindow`，将进度和错误转发到现有终端；不经额外 `cmd` 窗口。下面是本次 Windows 测试目录和 Python 环境对应的完整命令，其他安装位置需替换前面两个路径：
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$repo = Join-Path $env:LOCALAPPDATA 'Temp\wps-excel-20260905'
+$python = Join-Path $env:USERPROFILE '.conda\envs\yolov8app\python.exe'
+$launcher = Join-Path $repo 'src\main\resources\wps_skills\excel\windows\demo_launcher.ps1'
+
+& ([scriptblock]::Create([IO.File]::ReadAllText($launcher))) `
+    -RepositoryRoot $repo -PythonPath $python -Delay 2
+```
+
+如果运行环境允许执行 `.ps1` 文件，也可在仓库根目录运行 `./scripts/demo/excel.ps1 -PythonPath <python.exe绝对路径> -Delay 2`。Python 入口 `scripts/demo/excel.py` 仍可直接运行。每次演示使用唯一工作簿名，可以连续运行并保留之前的窗口。SSH 的非交互会话不能直接用于观察桌面演示。
+
+Windows 真机验收使用一个尚不存在的输出目录，仅修改脚本生成的测试工作簿，结束后保留打开：
+
+```powershell
+python scripts/validate/excel.py --output-dir build/excel-acceptance --wps-version 12.0.0.28505
+python scripts/validate/excel_common.py --output-dir build/excel-common-acceptance
+```
 
 ## 当前能力
 
@@ -28,7 +130,7 @@ Word 正式 Application Contract Set 包含 13 个可执行 Action：
 
 支持分别设置西文字体与东亚字体，并在操作后读回验证。内容范围带有 Content Revision，避免后续操作误用文档修改前的旧位置。
 
-`saveAs` 已有目标契约，但尚未进入正式能力集：保持同一个实际文档时，目标文件的 Document Lease 迁移机制仍待实现。因此，`save` 不能用于将新建文档首次保存到一个新路径。Excel 和 PPT 尚未接入正式 CLI。
+`saveAs` 已有目标契约，但尚未进入正式能力集：保持同一个实际文档时，目标文件的 Document Lease 迁移机制仍待实现。因此，`save` 不能用于将新建文档首次保存到一个新路径。Excel 和 PPT 分别通过 `--app excel`、`--app ppt` 接入正式 CLI。
 
 ## 环境要求
 
@@ -44,7 +146,7 @@ Word 正式 Application Contract Set 包含 13 个可执行 Action：
 在仓库根目录运行，将 `<输出目录>` 替换为实际目标目录：
 
 ```bash
-python scripts/build_word_skill.py --output "<输出目录>/wps-word"
+python scripts/build/word.py --output "<输出目录>/wps-word"
 python "<输出目录>/wps-word/scripts/word.py" --app word --index
 python "<输出目录>/wps-word/scripts/word.py" --app word --resolve createDocument writeContent inspectDocument
 ```
@@ -147,22 +249,45 @@ python -m unittest discover -s src/test/python -p "test_*.py"
 src/
   main/
     python/wps_skills/
-      cli/          # 命令行入口的实际实现和程序组装
+      cli/          # 命令解析、能力发现和构建入口
       client/       # 调用方的 Session Client
       core/         # 应用无关的契约和 Action Session 机制
       host/         # JSONL Session Host
-      word/         # Word 契约、handlers、Adapter 和 Skill 组装
-      windows/      # Windows 进程管理、文档协调和桥接实现
+      word/         # Word 契约、Adapter；windows/ 包拥有后端与会话组装
+      excel/        # Excel 契约、Adapter；windows/ 包拥有后端与会话组装
+      ppt/          # PPT 契约、Adapter；windows/ 包拥有后端与会话组装
+      windows/      # 共享进程、文档协调、传输和桌面支持
     resources/
       wps_skills/word/windows/  # PowerShell bridge 和 Word 操作实现
-      skills/wps-word/         # Skill 源文件、参考文档和薄入口
+      skills/wps-word/         # Word Skill 源文件、参考文档和薄入口
+      skills/wps-excel/        # Excel Skill 源文件、参考文档和薄入口
+      wps_skills/excel/windows/ # Excel 操作实现
+      wps_skills/ppt/windows/   # PPT 原生操作实现
+      skills/wps-ppt/          # PPT Skill 源文件、参考文档和薄入口
+      wps_skills/windows/      # 共享桥接、原生文件身份和文档协调
   test/
-    python/tests/   # 与生产模块对应的测试
-    resources/      # 测试资源与能力证据
+    python/tests/   # 单元测试、真实验收和可执行 Python 测试辅助程序
+    resources/      # PowerShell 测试资源与类型库能力证据
 scripts/            # 仓库级薄入口
+build/              # 生成的安装包和验收产物（忽略提交）
 ```
 
 测试使用独立的 `tests` 命名空间，避免在测试发现时用另一个顶层 `wps_skills` 包遮蔽生产实现。
+
+完整的目录约定、每个维护文件的作用与执行流程见 [文件结构说明](FILE_STRUCTURE.md)。
+
+## Word 可见演示
+
+在 Windows 桌面普通 PowerShell 的仓库根目录运行：
+
+```powershell
+$python = (Get-Command python.exe).Source
+./scripts/demo/word.ps1 -PythonPath $python -Delay 1.5
+```
+
+演示依次写入标题、正文和原生表格，读回验证后显式保存，保留文档窗口。输出使用独立目录和唯一文件名；空白 DOCX 由演示夹具准备，全部内容通过正式 Action 写入。原生闭环验收使用 `python scripts/validate/word.py --output-dir build/word-acceptance`。
+
+脚本已按 `build/`、`demo/`、`validate/` 分组，完整入口和参数见 [scripts/README.md](scripts/README.md)。
 
 ## Skill 与能力参考
 

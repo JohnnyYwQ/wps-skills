@@ -1,1 +1,1 @@
-"""Windows process, coordination, and WPS Writer adapters."""
+"""Shared Windows process ownership, coordination, transport and desktop support."""

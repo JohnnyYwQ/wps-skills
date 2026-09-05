@@ -25,7 +25,7 @@ from wps_skills.core.action_session import (
 )
 
 
-class FakeWriterAdapter:
+class FakeWordAdapter:
     application = "word"
 
     def __init__(
@@ -186,7 +186,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 parameters={"type": "object"},
                 result={"type": "object"},
             )),
-            adapter=FakeWriterAdapter(),
+            adapter=FakeWordAdapter(),
             coordinator=FakeDocumentCoordinator(),
             session_id="session-1",
             launcher=launcher,
@@ -314,11 +314,11 @@ class ActionSessionBindingTests(unittest.TestCase):
                     contracts=(contract,),
                     allow_incomplete=True,
                 ),
-                adapter=FakeWriterAdapter(),
+                adapter=FakeWordAdapter(),
                 coordinator=FakeDocumentCoordinator(),
                 session_id="session-1",
             )
-        adapter = FakeWriterAdapter()
+        adapter = FakeWordAdapter()
         adapter.application = "excel"
         with self.assertRaisesRegex(ValueError, "Adapter application"):
             ActionSession(
@@ -343,7 +343,7 @@ class ActionSessionBindingTests(unittest.TestCase):
             )
 
     def test_fresh_session_rejects_required_action_without_dispatch(self):
-        adapter = FakeWriterAdapter()
+        adapter = FakeWordAdapter()
         coordinator = FakeDocumentCoordinator()
         session = ActionSession(
             application="word",
@@ -377,7 +377,7 @@ class ActionSessionBindingTests(unittest.TestCase):
         self.assertEqual([], coordinator.calls)
 
     def test_session_rejects_different_application_without_dispatch(self):
-        adapter = FakeWriterAdapter()
+        adapter = FakeWordAdapter()
         coordinator = FakeDocumentCoordinator()
         session = ActionSession(
             application="word",
@@ -408,7 +408,7 @@ class ActionSessionBindingTests(unittest.TestCase):
         self.assertEqual([], coordinator.calls)
 
     def test_unknown_local_action_is_a_nonterminal_action_failure(self):
-        adapter = FakeWriterAdapter()
+        adapter = FakeWordAdapter()
         coordinator = FakeDocumentCoordinator()
         session = ActionSession(
             application="word",
@@ -433,7 +433,7 @@ class ActionSessionBindingTests(unittest.TestCase):
         self.assertEqual([], coordinator.calls)
 
     def test_none_action_executes_without_document_resources_and_preserves_unbound_state(self):
-        adapter = FakeWriterAdapter()
+        adapter = FakeWordAdapter()
         coordinator = FakeDocumentCoordinator()
         session = ActionSession(
             application="word",
@@ -491,7 +491,7 @@ class ActionSessionBindingTests(unittest.TestCase):
     def test_successful_establish_commits_document_and_lease_before_response(self):
         events = []
         document = object()
-        adapter = FakeWriterAdapter(document=document, events=events)
+        adapter = FakeWordAdapter(document=document, events=events)
         coordinator = FakeDocumentCoordinator(events=events)
         session = ActionSession(
             application="word",
@@ -543,7 +543,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 parameters={"type": "object"},
                 result={"type": "object"},
             )),
-            adapter=FakeWriterAdapter(document=object(), events=events),
+            adapter=FakeWordAdapter(document=object(), events=events),
             coordinator=FakeDocumentCoordinator(events=events),
             session_id="session-1",
         )
@@ -567,7 +567,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_required_request_rejects_all_document_routing_decoys(self):
         document = object()
-        adapter = FakeWriterAdapter(document=document)
+        adapter = FakeWordAdapter(document=document)
         session = ActionSession(
             application="word",
             contracts=word_contracts(
@@ -639,7 +639,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_required_action_rejects_illegal_controller_binding_matrix(self):
         document = object()
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             document=document,
             handler_script=[ControllerResult.succeeded(
                 data={"text": "wrong transition"},
@@ -691,7 +691,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_read_only_invalid_success_data_maps_to_failed_without_losing_binding(self):
         document = object()
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             document=document,
             handler_script=[
                 ControllerResult.succeeded(
@@ -762,7 +762,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_invalid_establish_data_is_unknown_terminal_after_binding_commit(self):
         document = object()
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             document=document,
             establish_script=[AcquiredDocument(document=document, data={})],
         )
@@ -807,7 +807,7 @@ class ActionSessionBindingTests(unittest.TestCase):
     def test_required_handler_receives_bound_document_after_active_document_changes(self):
         bound_document = object()
         other_document = object()
-        adapter = FakeWriterAdapter(document=bound_document)
+        adapter = FakeWordAdapter(document=bound_document)
         coordinator = FakeDocumentCoordinator()
         session = ActionSession(
             application="word",
@@ -858,7 +858,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_adapter_receives_one_immutable_controller_command_per_action(self):
         document = object()
-        adapter = FakeWriterAdapter(document=document)
+        adapter = FakeWordAdapter(document=document)
         request_ids = iter(["request-1", "request-2"])
         session = ActionSession(
             application="word",
@@ -927,7 +927,7 @@ class ActionSessionBindingTests(unittest.TestCase):
             required_command.params["nested"]["new"] = True
 
     def test_bound_session_rejects_second_establish_without_dispatch(self):
-        adapter = FakeWriterAdapter(document=object())
+        adapter = FakeWordAdapter(document=object())
         coordinator = FakeDocumentCoordinator()
         session = ActionSession(
             application="word",
@@ -977,7 +977,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_definite_establish_failure_releases_resources_and_allows_retry(self):
         document = object()
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             document=document,
             establish_script=[
                 DefiniteEstablishFailure(
@@ -1043,7 +1043,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 parameters={"type": "object"},
                 result={"type": "object"},
             )),
-            adapter=FakeWriterAdapter(establish_script=[
+            adapter=FakeWordAdapter(establish_script=[
                 DefiniteEstablishFailure(
                     code="DOCUMENT_NOT_FOUND",
                     message="The requested document was not found",
@@ -1091,7 +1091,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 parameters={"type": "object"},
                 result={"type": "object"},
             )),
-            adapter=FakeWriterAdapter(establish_script=[
+            adapter=FakeWordAdapter(establish_script=[
                 DefiniteEstablishFailure(
                     code="DOCUMENT_NOT_FOUND",
                     message="The requested document was not found",
@@ -1134,7 +1134,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 message="Another Session owns this document",
             ),
         )
-        adapter = FakeWriterAdapter(document=object())
+        adapter = FakeWordAdapter(document=object())
         session = ActionSession(
             application="word",
             contracts=word_contracts(ActionContract(
@@ -1170,7 +1170,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_unknown_unprovable_establish_is_terminal_and_cleanup_releases_partial_guard(self):
         partial_document = object()
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             establish_script=[UnprovableEstablishFailure(
                 outcome="unknown",
                 code="RESPONSE_LOST",
@@ -1216,7 +1216,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_failed_unprovable_establish_normalizes_binding_error_and_terminates(self):
         partial_document = object()
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             establish_script=[UnprovableEstablishFailure(
                 outcome="failed",
                 code="OPEN_FAILED",
@@ -1274,7 +1274,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 parameters={"type": "object"},
                 result={"type": "object"},
             )),
-            adapter=FakeWriterAdapter(document=document),
+            adapter=FakeWordAdapter(document=document),
             coordinator=coordinator,
             session_id="session-1",
         )
@@ -1302,7 +1302,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_required_binding_loss_preserves_failure_and_terminates(self):
         document = object()
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             document=document,
             handler_script=[RequiredBindingFailure(
                 disposition="lost",
@@ -1362,7 +1362,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_read_only_required_unprovable_unknown_maps_to_failed_and_terminates(self):
         document = object()
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             document=document,
             handler_script=[RequiredBindingFailure(
                 disposition="unprovable",
@@ -1415,7 +1415,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_closed_bound_document_prevents_required_handler_and_terminates(self):
         document = object()
-        adapter = FakeWriterAdapter(document=document)
+        adapter = FakeWordAdapter(document=document)
         session = ActionSession(
             application="word",
             contracts=word_contracts(
@@ -1469,7 +1469,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_bound_cleanup_reports_quarantine_failure_and_releases_once(self):
         document = object()
-        adapter = FakeWriterAdapter(document=document)
+        adapter = FakeWordAdapter(document=document)
         coordinator = FakeDocumentCoordinator(release_state="quarantined")
         session = ActionSession(
             application="word",
@@ -1506,7 +1506,7 @@ class ActionSessionBindingTests(unittest.TestCase):
 
     def test_cleanup_release_exception_is_reported_and_not_retried(self):
         document = object()
-        adapter = FakeWriterAdapter(document=document)
+        adapter = FakeWordAdapter(document=document)
         coordinator = FakeDocumentCoordinator(
             release_error=RuntimeError("coordinator unavailable"),
         )
@@ -1551,7 +1551,7 @@ class ActionSessionBindingTests(unittest.TestCase):
         resume = threading.Event()
         document = object()
 
-        class BlockingAdapter(FakeWriterAdapter):
+        class BlockingAdapter(FakeWordAdapter):
             def establish(self, prepared, command):
                 self.calls.append(("establish", command))
                 entered.set()
@@ -1621,7 +1621,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 parameters={"type": "object"},
                 result={"type": "object"},
             )),
-            adapter=FakeWriterAdapter(document=object()),
+            adapter=FakeWordAdapter(document=object()),
             coordinator=coordinator,
             session_id="session-1",
         )
@@ -1662,7 +1662,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 parameters={"type": "object"},
                 result={"type": "object"},
             )),
-            adapter=FakeWriterAdapter(document=object()),
+            adapter=FakeWordAdapter(document=object()),
             coordinator=coordinator,
             session_id="session-1",
             cleanup_timeout_seconds=0.02,
@@ -1688,7 +1688,7 @@ class ActionSessionBindingTests(unittest.TestCase):
         )
 
     def test_unbound_cleanup_is_idempotent_and_stops_new_dispatch(self):
-        adapter = FakeWriterAdapter()
+        adapter = FakeWordAdapter()
         coordinator = FakeDocumentCoordinator()
         session = ActionSession(
             application="word",
@@ -1745,7 +1745,7 @@ class ActionSessionBindingTests(unittest.TestCase):
         session = ActionSession(
             application="word",
             contracts=contracts,
-            adapter=FakeWriterAdapter(document=object()),
+            adapter=FakeWordAdapter(document=object()),
             coordinator=FakeDocumentCoordinator(),
             session_id="session-1",
         )
@@ -1797,7 +1797,7 @@ class ActionSessionBindingTests(unittest.TestCase):
                 stable_errors=("APPLICATION_FAILURE",),
             ),
         )
-        adapter = FakeWriterAdapter(
+        adapter = FakeWordAdapter(
             document=object(),
             handler_script=[ControllerResult.failed(
                 error=ActionError(
@@ -1871,7 +1871,7 @@ class ActionSessionBindingTests(unittest.TestCase):
         session = ActionSession(
             application="word",
             contracts=contracts,
-            adapter=FakeWriterAdapter(
+            adapter=FakeWordAdapter(
                 document=object(),
                 handler_script=[
                     ControllerResult.succeeded(
@@ -1929,7 +1929,7 @@ class ActionSessionBindingTests(unittest.TestCase):
             resume_request_id.wait(timeout=2)
             return "request-1"
 
-        adapter = FakeWriterAdapter()
+        adapter = FakeWordAdapter()
         session = ActionSession(
             application="word",
             contracts=word_contracts(ActionContract(

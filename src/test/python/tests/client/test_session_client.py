@@ -10,7 +10,7 @@ from wps_skills.client.session_client import ActionFailed, SessionClient, Sessio
 
 
 SOURCE = Path(session_client.__file__).resolve().parents[2]
-FIXTURE = Path(__file__).resolve().parents[3] / "resources/wps_skills/client/session_host_fixture.py"
+FIXTURE = Path(__file__).with_name("session_host_fixture.py")
 
 
 class SessionClientTests(unittest.TestCase):

@@ -27,7 +27,7 @@ class WordSkillBuildTests(unittest.TestCase):
             result = subprocess.run([sys.executable, str(entry), "--app", "word", "--resolve", "createDocument", "writeContent", "inspectDocument"], cwd=root, env=environment, capture_output=True, text=True, check=True)
             self.assertEqual("complete", json.loads(result.stdout)["status"])
             # The packaged Runtime must also resolve the actual PowerShell resources.
-            code = "import sys; sys.path.insert(0, sys.argv[1]); import word; from wps_skills.cli.call import WRITER_BRIDGE_SCRIPT; assert WRITER_BRIDGE_SCRIPT.is_file(); assert WRITER_BRIDGE_SCRIPT.with_name('writer_actions.ps1').is_file(); c=word.open_session(); assert not c.can_execute"
+            code = "import sys; sys.path.insert(0, sys.argv[1]); import word; from wps_skills.word.windows.session import BRIDGE_SCRIPT; assert BRIDGE_SCRIPT.is_file(); assert BRIDGE_SCRIPT.with_name('word_actions.ps1').is_file(); c=word.open_session(); assert not c.can_execute"
             subprocess.run([sys.executable, "-c", code, str(entry.parent)], cwd=root, env=environment, check=True)
             manifest = json.loads((installed / "runtime/files.sha256.json").read_text())
             for name, digest in manifest.items():

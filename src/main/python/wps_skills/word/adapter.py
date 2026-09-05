@@ -1,4 +1,4 @@
-"""Word Application Adapter and platform Writer Backend seam."""
+"""Word Application Adapter and platform Word Backend seam."""
 
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -39,7 +39,7 @@ def _freeze_value(value):
 
 
 @dataclass(frozen=True)
-class WriterBackendOperation:
+class WordBackendOperation:
     """Backend-local operation produced by a Word Action handler."""
 
     name: str
@@ -47,18 +47,18 @@ class WriterBackendOperation:
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
-            raise ValueError("Writer Backend operation name must be non-empty")
+            raise ValueError("Word Backend operation name must be non-empty")
         if self.name in _WORD_ACTION_NAMES:
             raise ValueError(
-                "Writer Backend operation must not reuse a public Action name"
+                "Word Backend operation must not reuse a public Action name"
             )
         if not isinstance(self.arguments, Mapping):
-            raise ValueError("Writer Backend operation arguments must be an object")
+            raise ValueError("Word Backend operation arguments must be an object")
         object.__setattr__(self, "arguments", _freeze_value(self.arguments))
 
 
 @dataclass(frozen=True)
-class WriterBackendAcquisition:
+class WordBackendAcquisition:
     """One exact document plus platform observations needed by establish."""
 
     document: Any
@@ -70,18 +70,18 @@ class WriterBackendAcquisition:
 
     def __post_init__(self) -> None:
         if self.document is None:
-            raise ValueError("Writer Backend acquisition requires a document")
+            raise ValueError("Word Backend acquisition requires a document")
         if not isinstance(self.revision, str) or not self.revision:
-            raise ValueError("Writer Backend acquisition requires a revision")
+            raise ValueError("Word Backend acquisition requires a revision")
         if self.persistence_state not in {"unsaved", "saved", "modified"}:
-            raise ValueError("invalid Writer Backend persistence state")
+            raise ValueError("invalid Word Backend persistence state")
         if not isinstance(self.read_only, bool):
-            raise ValueError("Writer Backend read-only state must be Boolean")
+            raise ValueError("Word Backend read-only state must be Boolean")
         if (
             self.artifact_format is not None
             and self.artifact_format != "docx"
         ):
-            raise ValueError("Writer establish artifacts must use docx")
+            raise ValueError("Word establish artifacts must use docx")
         if (
             self.artifact_size_bytes is not None
             and (
@@ -90,11 +90,11 @@ class WriterBackendAcquisition:
                 or self.artifact_size_bytes < 1
             )
         ):
-            raise ValueError("Writer establish artifact size must be positive")
+            raise ValueError("Word establish artifact size must be positive")
 
 
 @dataclass(frozen=True)
-class WriterBackendPreparation:
+class WordBackendPreparation:
     """Opaque platform preparation plus its cross-process identity."""
 
     coordination_identity: str
@@ -105,10 +105,10 @@ class WriterBackendPreparation:
             not isinstance(self.coordination_identity, str)
             or not self.coordination_identity
         ):
-            raise ValueError("Writer coordination identity must be non-empty")
+            raise ValueError("Word coordination identity must be non-empty")
 
 
-class WriterDefiniteEstablishFailure(Exception):
+class WordDefiniteEstablishFailure(Exception):
     """Backend proved that establish produced no document or binding effect."""
 
     def __init__(self, *, code: str, message: str):
@@ -117,7 +117,7 @@ class WriterDefiniteEstablishFailure(Exception):
         self.message = message
 
 
-class WriterUnprovableEstablishFailure(Exception):
+class WordUnprovableEstablishFailure(Exception):
     """Backend cannot prove the complete establish effect."""
 
     def __init__(
@@ -130,77 +130,43 @@ class WriterUnprovableEstablishFailure(Exception):
     ):
         super().__init__(message)
         if outcome not in {"failed", "unknown"}:
-            raise ValueError("invalid Writer establish outcome")
+            raise ValueError("invalid Word establish outcome")
         self.outcome = outcome
         self.code = code
         self.message = message
         self.partial_document = partial_document
 
 
-class WriterBackendActionFailure(Exception):
-    """Closed operation failure reported by a Writer Backend."""
-
-    def __init__(
-        self,
-        *,
-        outcome: str,
-        code: str,
-        message: str,
-        binding_disposition: str,
-    ):
-        super().__init__(message)
-        if outcome not in {"failed", "unknown"}:
-            raise ValueError("invalid Writer Action failure outcome")
-        if not isinstance(code, str) or not code:
-            raise ValueError("Writer Action failure code must be non-empty")
-        if not isinstance(message, str) or not message:
-            raise ValueError("Writer Action failure message must be non-empty")
-        if binding_disposition not in {
-            "unchanged",
-            "lost",
-            "unprovable",
-        }:
-            raise ValueError("invalid Writer Action binding disposition")
-        if outcome == "unknown" and binding_disposition == "lost":
-            raise ValueError(
-                "an unknown Writer Action cannot prove binding loss"
-            )
-        self.outcome = outcome
-        self.code = code
-        self.message = message
-        self.binding_disposition = binding_disposition
-
-
 @runtime_checkable
-class WriterBackend(Protocol):
+class WordBackend(Protocol):
     """Platform seam used inside the Word Adapter implementation."""
 
     def prepare_create_document(
         self,
         context: ControllerContext,
-    ) -> WriterBackendPreparation:
+    ) -> WordBackendPreparation:
         ...
 
     def prepare_open_document(
         self,
         path: str,
         context: ControllerContext,
-    ) -> WriterBackendPreparation:
+    ) -> WordBackendPreparation:
         ...
 
     def create_document(
         self,
-        preparation: WriterBackendPreparation,
+        preparation: WordBackendPreparation,
         context: ControllerContext,
-    ) -> WriterBackendAcquisition:
+    ) -> WordBackendAcquisition:
         ...
 
     def open_document(
         self,
-        preparation: WriterBackendPreparation,
+        preparation: WordBackendPreparation,
         path: str,
         context: ControllerContext,
-    ) -> WriterBackendAcquisition:
+    ) -> WordBackendAcquisition:
         ...
 
     def is_document_live(self, document: Any) -> bool:
@@ -209,7 +175,7 @@ class WriterBackend(Protocol):
     def invoke(
         self,
         document: Any,
-        operation: WriterBackendOperation,
+        operation: WordBackendOperation,
         context: ControllerContext,
     ) -> Mapping[str, Any]:
         ...
@@ -219,13 +185,13 @@ class WriterBackend(Protocol):
 
 
 WordActionHandler = Callable[
-    [WriterBackend, Any, Mapping[str, Any], ControllerContext],
+    [WordBackend, Any, Mapping[str, Any], ControllerContext],
     ControllerResult,
 ]
 
 
 class WordAdapter:
-    """Core-facing Word Adapter; platform behavior stays behind WriterBackend."""
+    """Core-facing Word Adapter; platform behavior stays behind WordBackend."""
 
     application = "word"
     contracts = WORD_TARGET_CONTRACT_SET
@@ -239,12 +205,12 @@ class WordAdapter:
     def __init__(
         self,
         *,
-        backend: WriterBackend,
+        backend: WordBackend,
         handlers: Mapping[str, WordActionHandler],
         contracts=WORD_TARGET_CONTRACT_SET,
     ):
-        if not isinstance(backend, WriterBackend):
-            raise ValueError("backend must satisfy the Writer Backend seam")
+        if not isinstance(backend, WordBackend):
+            raise ValueError("backend must satisfy the Word Backend seam")
         if not isinstance(handlers, Mapping):
             raise ValueError("Word handlers must be a mapping")
         if getattr(contracts, "application", None) != "word":
@@ -281,9 +247,9 @@ class WordAdapter:
             raise ValueError("Word Adapter received another application")
 
     @staticmethod
-    def _require_acquisition(acquisition) -> WriterBackendAcquisition:
-        if not isinstance(acquisition, WriterBackendAcquisition):
-            raise TypeError("Writer Backend returned an invalid acquisition")
+    def _require_acquisition(acquisition) -> WordBackendAcquisition:
+        if not isinstance(acquisition, WordBackendAcquisition):
+            raise TypeError("Word Backend returned an invalid acquisition")
         return acquisition
 
     @classmethod
@@ -295,7 +261,7 @@ class WordAdapter:
             or acquisition.artifact_format is not None
             or acquisition.artifact_size_bytes is not None
         ):
-            raise TypeError("Writer Backend returned invalid create observations")
+            raise TypeError("Word Backend returned invalid create observations")
         return AcquiredDocument(
             document=acquisition.document,
             data={
@@ -315,7 +281,7 @@ class WordAdapter:
             or acquisition.artifact_format != "docx"
             or acquisition.artifact_size_bytes is None
         ):
-            raise TypeError("Writer Backend returned invalid open observations")
+            raise TypeError("Word Backend returned invalid open observations")
         return AcquiredDocument(
             document=acquisition.document,
             data={
@@ -334,12 +300,12 @@ class WordAdapter:
 
     @staticmethod
     def _translate_establish_failure(exc):
-        if isinstance(exc, WriterDefiniteEstablishFailure):
+        if isinstance(exc, WordDefiniteEstablishFailure):
             raise DefiniteEstablishFailure(
                 code=exc.code,
                 message=exc.message,
             ) from exc
-        if isinstance(exc, WriterUnprovableEstablishFailure):
+        if isinstance(exc, WordUnprovableEstablishFailure):
             raise UnprovableEstablishFailure(
                 outcome=exc.outcome,
                 code=exc.code,
@@ -368,10 +334,10 @@ class WordAdapter:
                     code="INVALID_PARAMS",
                     message="Action is not a Word establish Action",
                 )
-        except (WriterDefiniteEstablishFailure, WriterUnprovableEstablishFailure) as exc:
+        except (WordDefiniteEstablishFailure, WordUnprovableEstablishFailure) as exc:
             self._translate_establish_failure(exc)
-        if not isinstance(preparation, WriterBackendPreparation):
-            raise TypeError("Writer Backend returned an invalid preparation")
+        if not isinstance(preparation, WordBackendPreparation):
+            raise TypeError("Word Backend returned an invalid preparation")
         return PreparedDocumentAcquisition(
             coordination_identity=preparation.coordination_identity,
             application_state=preparation,
@@ -385,7 +351,7 @@ class WordAdapter:
         self._require_word_command(command)
         if not isinstance(prepared, PreparedDocumentAcquisition) or not isinstance(
             prepared.application_state,
-            WriterBackendPreparation,
+            WordBackendPreparation,
         ):
             raise TypeError("Word Adapter requires its prepared acquisition")
         preparation = prepared.application_state
@@ -410,14 +376,14 @@ class WordAdapter:
                     code="INVALID_PARAMS",
                     message="Action is not a Word establish Action",
                 )
-        except (WriterDefiniteEstablishFailure, WriterUnprovableEstablishFailure) as exc:
+        except (WordDefiniteEstablishFailure, WordUnprovableEstablishFailure) as exc:
             self._translate_establish_failure(exc)
         return acquired
 
     def is_live(self, document: Any) -> bool:
         live = self._backend.is_document_live(document)
         if not isinstance(live, bool):
-            raise TypeError("Writer Backend liveness observation must be Boolean")
+            raise TypeError("Word Backend liveness observation must be Boolean")
         return live
 
     def handle(

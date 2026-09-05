@@ -3,72 +3,11 @@
 
 import argparse
 import json
-from pathlib import Path
 import sys
 import uuid
 
 from wps_skills.core.trace_journal import JsonlTraceJournal
 from wps_skills.host.session_host import SessionHost, SessionStartupError
-
-
-MAIN_SOURCE_SET = Path(__file__).resolve().parents[3]
-WRITER_BRIDGE_SCRIPT = (
-    MAIN_SOURCE_SET
-    / "resources"
-    / "wps_skills"
-    / "word"
-    / "windows"
-    / "writer_bridge.ps1"
-)
-
-
-def _build_word_session(
-    *,
-    session_id,
-    debug_close_created_document=False,
-):
-    from wps_skills.core.action_session import ActionSession
-    from wps_skills.windows.powershell_writer_bridge import JsonLineWriterBridgeTransport
-    from wps_skills.windows.document_coordinator import WindowsDocumentCoordinator
-    from wps_skills.windows.owned_process import WindowsOwnedProcessLauncher
-    from wps_skills.windows.writer_backend import WindowsWriterBackend
-    from wps_skills.windows.writer_runtime import LazyWindowsWriterBridge
-    from wps_skills.word.adapter import WordAdapter
-    from wps_skills.word.contracts import WORD_PRODUCTION_CONTRACT_SET
-    from wps_skills.word.handlers import WORD_HANDLERS
-
-    launcher = None
-    try:
-        launcher = WindowsOwnedProcessLauncher()
-        bridge = LazyWindowsWriterBridge(
-            launcher=launcher,
-            script_path=WRITER_BRIDGE_SCRIPT,
-            transport_factory=JsonLineWriterBridgeTransport,
-            debug_close_created_document=debug_close_created_document,
-        )
-        backend = WindowsWriterBackend(bridge=bridge)
-        adapter = WordAdapter(
-            backend=backend,
-            handlers=WORD_HANDLERS,
-            contracts=WORD_PRODUCTION_CONTRACT_SET,
-        )
-        return ActionSession(
-            application="word",
-            contracts=WORD_PRODUCTION_CONTRACT_SET,
-            adapter=adapter,
-            coordinator=WindowsDocumentCoordinator(bridge=bridge),
-            session_id=session_id,
-            launcher=launcher,
-        )
-    except Exception as exc:
-        if launcher is not None:
-            try:
-                launcher.close()
-            except Exception:
-                pass
-        raise SessionStartupError(
-            "the production Word Action Session could not be constructed"
-        ) from exc
 
 
 def _parser():
@@ -94,13 +33,21 @@ def _parser():
 
 
 def _discover(args, output_stream, error_stream):
-    if args.app != "word":
+    from wps_skills.core.action_session import ActionAddress
+    if args.app == "word":
+        from wps_skills.word.contracts import WORD_PRODUCTION_CONTRACT_SET
+        contracts = WORD_PRODUCTION_CONTRACT_SET
+    elif args.app == "excel":
+        from wps_skills.excel.contracts import EXCEL_PRODUCTION_CONTRACT_SET
+        contracts = EXCEL_PRODUCTION_CONTRACT_SET
+    elif args.app == "ppt":
+        from wps_skills.ppt.contracts import PPT_PRODUCTION_CONTRACT_SET
+        contracts = PPT_PRODUCTION_CONTRACT_SET
+    else:
+        contracts = None
+    if contracts is None:
         error_stream.write(f"WPS_DISCOVERY_UNAVAILABLE app={args.app}\n")
         return 4
-    from wps_skills.core.action_session import ActionAddress
-    from wps_skills.word.contracts import WORD_PRODUCTION_CONTRACT_SET
-
-    contracts = WORD_PRODUCTION_CONTRACT_SET
     if args.index:
         value = {
             "app": args.app,
@@ -121,10 +68,24 @@ def _production_session_factory(
     debug_close_created_document=False,
 ):
     if application == "word":
-        return _build_word_session(
+        from wps_skills.word.windows.session import build_session
+
+        return build_session(
             session_id=session_id,
             debug_close_created_document=debug_close_created_document,
         )
+    if application == "excel":
+        from wps_skills.excel.windows.session import build_session
+
+        if debug_close_created_document:
+            raise SessionStartupError("Excel only opens existing workbooks; debug document cleanup is unavailable")
+        return build_session(session_id=session_id)
+    if application == "ppt":
+        from wps_skills.ppt.windows.session import build_session
+
+        if debug_close_created_document:
+            raise SessionStartupError("PPT only opens existing presentations; debug cleanup is unavailable")
+        return build_session(session_id=session_id)
     raise SessionStartupError(
         f"no production {application} Application Contract Set is installed"
     )

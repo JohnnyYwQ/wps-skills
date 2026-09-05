@@ -1,7 +1,7 @@
 import unittest
 
 from wps_skills.core.action_session import ControllerContext
-from wps_skills.word.adapter import WriterBackendActionFailure
+from wps_skills.windows.bridge_types import BackendActionFailure
 from wps_skills.word.contracts import WORD_PRODUCTION_CONTRACT_SET
 from wps_skills.word.handlers import WORD_HANDLERS
 
@@ -140,7 +140,7 @@ class WordHandlerTests(unittest.TestCase):
         self.assertEqual({}, dict(operation.arguments))
 
     def test_closed_backend_failure_maps_to_controller_result(self):
-        backend = RecordingBackend(failure=WriterBackendActionFailure(
+        backend = RecordingBackend(failure=BackendActionFailure(
             outcome="failed",
             code="DOCUMENT_READ_ONLY",
             message="read only",
@@ -160,7 +160,7 @@ class WordHandlerTests(unittest.TestCase):
         self.assertEqual("unchanged", result.binding_disposition)
 
     def test_unprovable_backend_failure_breaks_the_controller(self):
-        backend = RecordingBackend(failure=WriterBackendActionFailure(
+        backend = RecordingBackend(failure=BackendActionFailure(
             outcome="unknown",
             code="OUTPUT_WRITE_FAILED",
             message="save result unknown",

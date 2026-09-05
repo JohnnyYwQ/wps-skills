@@ -5,8 +5,8 @@ from wps_skills.core.action_session import (
     DefiniteEstablishFailure,
 )
 from wps_skills.windows.document_coordinator import WindowsDocumentCoordinator
-from wps_skills.windows.writer_backend import WindowsWriterDocument
-from wps_skills.word.adapter import WriterBackendActionFailure
+from wps_skills.windows.bridge_types import WindowsDocument
+from wps_skills.windows.bridge_types import BackendActionFailure
 
 
 def context():
@@ -38,7 +38,7 @@ class WindowsDocumentCoordinatorTests(unittest.TestCase):
             "release_document_resources": {"state": "released"},
         })
         coordinator = WindowsDocumentCoordinator(bridge=bridge)
-        document = WindowsWriterDocument(
+        document = WindowsDocument(
             bridge_document_id="document-1",
             authorized_path="C:/docs/report.docx",
         )
@@ -62,7 +62,7 @@ class WindowsDocumentCoordinatorTests(unittest.TestCase):
 
     def test_conflict_is_a_definite_not_established_failure(self):
         bridge = RecordingBridge({
-            "acquire_coordination_guard": WriterBackendActionFailure(
+            "acquire_coordination_guard": BackendActionFailure(
                 outcome="failed",
                 code="DOCUMENT_LEASE_CONFLICT",
                 message="owned elsewhere",

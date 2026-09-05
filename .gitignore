@@ -9,6 +9,7 @@ docs/
 WPS接口API/
 planplan.md
 CONTEXT.md
+FILE_STRUCTURE.md
 
 
 # 包管理器锁文件 (可选保留)

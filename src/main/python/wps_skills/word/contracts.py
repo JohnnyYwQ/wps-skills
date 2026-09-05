@@ -2576,7 +2576,7 @@ WORD_TARGET_ACTION_INDEX = WORD_TARGET_CONTRACT_SET.action_index()
 
 # Production deliberately omits only saveAs, whose same-object locator and
 # Lease migration remains a separate architecture milestone.  Every admitted
-# Action below has a real handler and live Writer Backend implementation.
+# Action below has a real handler and live Word Backend implementation.
 _WORD_PRODUCTION_ACTIONS = frozenset({
     "createDocument",
     "openDocument",

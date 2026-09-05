@@ -28,29 +28,58 @@ class CallSessionHostTests(unittest.TestCase):
 
     def test_unavailable_application_discovery_has_no_word_fallback(self):
         output, errors = io.StringIO(), io.StringIO()
-        code = call.main(["--app", "ppt", "--index"], output_stream=output, error_stream=errors)
+        with patch("wps_skills.ppt.contracts.PPT_PRODUCTION_CONTRACT_SET", None):
+            code = call.main(["--app", "ppt", "--index"], output_stream=output, error_stream=errors)
         self.assertEqual(4, code)
         self.assertEqual("", output.getvalue())
         self.assertIn("WPS_DISCOVERY_UNAVAILABLE", errors.getvalue())
 
-    def test_production_writer_bridge_resource_is_in_main_resource_set(self):
-        self.assertTrue(call.WRITER_BRIDGE_SCRIPT.is_file())
-        self.assertTrue(
-            call.WRITER_BRIDGE_SCRIPT.with_name("writer_actions.ps1").is_file()
-        )
+    def test_excel_discovery_and_resolution_use_its_production_set_without_launching(self):
+        output = io.StringIO()
+        with patch.object(call, "_production_session_factory", side_effect=AssertionError("discovery must not launch")):
+            code = call.main(["--app", "excel", "--index"], output_stream=output)
+        self.assertEqual(0, code)
+        index = json.loads(output.getvalue())
+        self.assertEqual("excel", index["app"])
+        self.assertEqual(31, len(index["actions"]))
+        self.assertNotIn("writeContent", [entry["action"] for entry in index["actions"]])
+        output = io.StringIO()
+        code = call.main(["--app", "excel", "--resolve", "readRange", "createWorkbook"], output_stream=output)
+        self.assertEqual(2, code)
+        self.assertEqual("partial", json.loads(output.getvalue())["status"])
+
+    def test_excel_assembly_has_no_word_fallback(self):
+        sentinel = object()
+        with patch("wps_skills.excel.windows.session.build_session", return_value=sentinel) as build:
+            self.assertIs(sentinel, call._production_session_factory(application="excel", session_id="excel-1"))
+        build.assert_called_once_with(session_id="excel-1")
+
+    def test_ppt_discovery_and_assembly_are_application_scoped(self):
+        output = io.StringIO()
+        with patch.object(call, "_production_session_factory", side_effect=AssertionError("must not launch")):
+            self.assertEqual(0, call.main(["--app", "ppt", "--index"], output_stream=output))
+        index = json.loads(output.getvalue())
+        self.assertEqual("ppt", index["app"])
+        self.assertEqual(33, len(index["actions"]))
+        self.assertNotIn("createPresentation", [entry["action"] for entry in index["actions"]])
+        sentinel = object()
+        with patch("wps_skills.ppt.windows.session.build_session", return_value=sentinel) as build:
+            self.assertIs(sentinel, call._production_session_factory(application="ppt", session_id="ppt-1"))
+        build.assert_called_once_with(session_id="ppt-1")
 
     def test_apps_without_a_production_slice_fail_before_protocol_output(self):
-        for application in ("excel", "ppt"):
+        for application in ("ppt",):
             with self.subTest(application=application):
                 output = io.StringIO()
                 errors = io.StringIO()
 
-                exit_code = call.main(
-                    ["--session", "--app", application],
-                    input_stream=io.StringIO(""),
-                    output_stream=output,
-                    error_stream=errors,
-                )
+                with patch("wps_skills.ppt.contracts.PPT_PRODUCTION_CONTRACT_SET", None):
+                    exit_code = call.main(
+                        ["--session", "--app", application],
+                        input_stream=io.StringIO(""),
+                        output_stream=output,
+                        error_stream=errors,
+                    )
 
                 self.assertEqual(4, exit_code)
                 self.assertEqual("", output.getvalue())
@@ -67,9 +96,8 @@ class CallSessionHostTests(unittest.TestCase):
         self.assertTrue(parsed.debug_close_created_document)
 
         sentinel = object()
-        with patch.object(
-            call,
-            "_build_word_session",
+        with patch(
+            "wps_skills.word.windows.session.build_session",
             return_value=sentinel,
         ) as build:
             result = call._production_session_factory(

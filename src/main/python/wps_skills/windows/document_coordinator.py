@@ -1,4 +1,4 @@
-"""Cross-process Word document guard and Lease over the owned bridge."""
+"""Cross-process WPS document guard and Lease over the owned bridge."""
 
 from dataclasses import dataclass
 
@@ -7,8 +7,8 @@ from wps_skills.core.action_session import (
     DocumentResourceCleanup,
     UnprovableEstablishFailure,
 )
-from wps_skills.word.adapter import WriterBackendActionFailure
-from wps_skills.windows.writer_backend import WindowsWriterDocument
+from wps_skills.windows.bridge_types import BackendActionFailure
+from wps_skills.windows.bridge_types import WindowsDocument
 
 
 @dataclass(frozen=True)
@@ -21,7 +21,7 @@ class WindowsDocumentGuard:
 class WindowsDocumentLease:
     lease_id: str
     guard: WindowsDocumentGuard
-    document: WindowsWriterDocument
+    document: WindowsDocument
 
 
 def _nonempty(value, description):
@@ -70,7 +70,7 @@ class WindowsDocumentCoordinator:
                     {"coordinationIdentity": coordination_identity},
                     context,
                 )
-            except WriterBackendActionFailure as failure:
+            except BackendActionFailure as failure:
                 self._establish_failure(failure)
             if not isinstance(result, dict) or set(result) != {"guardId"}:
                 raise TypeError("coordination guard result has invalid fields")
@@ -86,7 +86,7 @@ class WindowsDocumentCoordinator:
     def commit(self, guard, document, context):
         if guard is not self._guard or not isinstance(
             document,
-            WindowsWriterDocument,
+            WindowsDocument,
         ):
             raise ValueError("another guard or document cannot be committed")
         try:
@@ -98,7 +98,7 @@ class WindowsDocumentCoordinator:
                 },
                 context,
             )
-        except WriterBackendActionFailure as failure:
+        except BackendActionFailure as failure:
             raise UnprovableEstablishFailure(
                 outcome=failure.outcome,
                 code=failure.code,

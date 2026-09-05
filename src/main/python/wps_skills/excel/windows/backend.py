@@ -1,0 +1,82 @@
+"""Exact-workbook backend over the shared Windows bridge."""
+
+from dataclasses import dataclass
+from typing import Mapping
+
+from wps_skills.core.action_session import DefiniteEstablishFailure, UnprovableEstablishFailure
+from wps_skills.windows.bridge_types import BackendActionFailure, WindowsDocument
+
+
+@dataclass(frozen=True)
+class ExcelPreparation:
+    preparation_id: str
+    coordination_identity: str
+    path: str
+
+
+def _fields(value, keys):
+    if not isinstance(value, Mapping) or set(value) != set(keys):
+        raise TypeError('Excel bridge returned invalid fields')
+    return value
+
+
+def _text(value):
+    if not isinstance(value, str) or not value:
+        raise TypeError('Excel bridge returned an invalid identifier')
+    return value
+
+
+def _establish_failure(exc):
+    if exc.outcome == 'failed' and exc.binding_disposition == 'unchanged':
+        raise DefiniteEstablishFailure(code=exc.code, message=exc.message) from exc
+    raise UnprovableEstablishFailure(outcome=exc.outcome, code=exc.code, message=exc.message) from exc
+
+
+class WindowsExcelBackend:
+    def __init__(self, *, bridge):
+        self._bridge = bridge
+        self._preparation = None
+        self._document = None
+
+    def prepare_open(self, path, context):
+        if self._document is not None:
+            raise ValueError('Excel backend is already bound')
+        try:
+            result = _fields(self._bridge.execute('prepare_existing_document', {'path': path}, context),
+                             {'preparationId', 'coordinationIdentity'})
+        except BackendActionFailure as exc:
+            _establish_failure(exc)
+        self._preparation = ExcelPreparation(_text(result['preparationId']), _text(result['coordinationIdentity']), path)
+        return self._preparation
+
+    def open(self, preparation, context):
+        if preparation is not self._preparation or self._document is not None:
+            raise ValueError('Excel backend requires its own unused preparation')
+        try:
+            result = _fields(self._bridge.execute('acquire_existing_document',
+                             {'preparationId': preparation.preparation_id}, context),
+                             {'documentId', 'artifact', 'documentState'})
+        except BackendActionFailure as exc:
+            _establish_failure(exc)
+        self._document = WindowsDocument(_text(result['documentId']), preparation.path)
+        return self._document, {'artifact': result['artifact'], 'documentState': result['documentState']}
+
+    def _bound(self, document):
+        if document is not self._document:
+            raise ValueError('Excel backend received another workbook reference')
+
+    def is_live(self, document):
+        self._bound(document)
+        result = _fields(self._bridge.execute('probe_bound_document',
+                         {'documentId': document.bridge_document_id}, None), {'live'})
+        if not isinstance(result['live'], bool):
+            raise TypeError('Excel liveness must be Boolean')
+        return result['live']
+
+    def invoke(self, document, operation, params, context):
+        self._bound(document)
+        return self._bridge.execute(operation, {'documentId': document.bridge_document_id,
+                                    'operationArguments': dict(params)}, context)
+
+    def close(self):
+        return self._bridge.close()
