@@ -1,8 +1,10 @@
 """Real SessionHost with fake document operations and explicit channel faults."""
 
 import json
+import os
 from pathlib import Path
 import sys
+import time
 
 from wps_skills.core.action_session import (
     ActionError, ActionResponse, ActionTurn, CleanupOutcome,
@@ -20,6 +22,10 @@ class Session:
         with events.open("a", encoding="utf-8") as stream:
             stream.write(request.address.action + "\n")
         action = request.address.action
+        if action == "drop":
+            os._exit(4)
+        if action == "slow":
+            time.sleep(1)
         outcome = "unknown" if action == "terminal" else "failed" if action == "fail" else "succeeded"
         return ActionTurn(
             response=ActionResponse(
@@ -31,6 +37,7 @@ class Session:
         )
 
     def close(self):
+        events.with_suffix(".closed").write_text("closed", encoding="utf-8")
         return CleanupOutcome(
             outcome="failed" if mode == "cleanup_failed" else "succeeded",
             cleanup=CleanupReport(document_resources=DocumentResourceCleanup(state="released")),

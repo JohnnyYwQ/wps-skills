@@ -26,7 +26,7 @@ python "<skill-dir>/scripts/excel.py" --app excel --resolve openWorkbook listWor
 
 ## 使用一个会话
 
-执行前读 [references/session.md](references/session.md)，通过 `open_session()` 和 `client.call({"app":"excel","action":"..."}, params)` 操作。每次收到完整响应后决定下一步，不预先管道提交动作列表。
+执行前读 [references/session.md](references/session.md)。直接调用包内 `scripts/excel.py` 的 `--start`、`--call`、`--status`、`--close`；Agent 只提供 Action 和 JSON 参数，无需编写任务脚本。一个任务复用返回的 `handle`，每次读取完整响应后才使用 `nextStep` 决定下一步。
 
 先用 `getWorkbookInfo` 和 `listWorksheets` 了解工作簿；工作表名称必须使用返回的准确名称。区域操作前读 [references/ranges.md](references/ranges.md)，先 `readRange`，再把返回的 `token` 作为同一区域修改的 `expectedToken`。使用明确的工作表名称和 A1 矩形；不使用当前选区。
 
@@ -38,4 +38,6 @@ python "<skill-dir>/scripts/excel.py" --app excel --resolve openWorkbook listWor
 
 结束 Session 仅释放资源，不保存或关闭工作簿。报告修改、验证、保存路径和仍然打开的状态。Session 清理结果与用户文档任务结果分别判断。
 
-`ActionFailed.response` 保留实际失败结果。`unknown` 或丢失响应表示可能部分写入，不自动重试；会话可用时先只读检查。`STALE_RANGE` 需要重新读取、重新判断用户目标后再决定修改。文档关闭、桥接损坏或绑定身份变化会结束 Session，不跟随新路径、不重建丢失内容、不绕过 Lease 或 Quarantine。
+命令 JSON 中的 `response.error` 保留实际失败结果。`unknown` 或丢失响应表示可能部分写入，不自动重试；会话可用时先只读检查。`STALE_RANGE` 需要重新读取、重新判断用户目标后再决定修改。文档关闭、桥接损坏或绑定身份变化会结束 Session，不跟随新路径、不重建丢失内容、不绕过 Lease 或 Quarantine。
+
+运行日志位置和自定义方法见 [references/logging.md](references/logging.md)。

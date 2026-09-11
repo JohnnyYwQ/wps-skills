@@ -39,9 +39,9 @@ python "<skill-dir>/scripts/word.py" --app word --resolve createDocument writeCo
 
 ## 3. 在一个会话中执行
 
-执行前读 [references/session.md](references/session.md)，其中提供可直接运行的 Python 任务脚本和 Session Client 的用法。使用 `open_session()` 与 `client.call(address, params)`；每次调用都传入显式的 `{"app":"word","action":"..."}`。
+执行前读 [references/session.md](references/session.md)。直接调用包内 `scripts/word.py` 的 `--start`、`--call`、`--status`、`--close`；Agent 只提供 Action 和 JSON 参数，无需编写任务脚本。一个任务复用返回的 `handle`，每次读取完整响应后才使用 `nextStep` 决定下一步。
 
-每次完整响应返回后，再根据结果决定下一步。`call` 在 `failed` 或 `unknown` 时抛出 `ActionFailed`，其 `response` 保留完整真实错误；不要捕获后无条件继续后续修改。不要将一份预写好的 JSONL 动作列表整体管道输入 Session。
+每次调用的 `response` 保留完整 Action 结果；`failed` 或 `unknown` 不授权继续后续修改。命令超时先用 `--status` 查询或取回同一步回执，不换步骤号重放，不预提交动作列表。
 
 需要文字、范围或格式操作时，读 [references/content.md](references/content.md)。已有文件的编辑先检查相关内容；替换优先使用有明确匹配数量约束的查找/替换，而不是猜测字符位置。
 
@@ -58,3 +58,5 @@ python "<skill-dir>/scripts/word.py" --app word --resolve createDocument writeCo
 `unknown` 或响应丢失意味着操作可能已部分发生，不能自动重试写入、创建替代文档或切换路径。先进行可用的只读验证。Session 已终止时，只能在仍能明确定位同一文档且能安全重新绑定的情况下建立新 Session；无法定位的未保存文档需要用户协助，不能重建来掩盖原任务状态。
 
 不要绕过 Document Lease/Quarantine 或直接写 COM 来绕过失败。`--debug-close-created-document` 只用于明确可丢弃的受控测试，不用于用户文档任务。
+
+运行日志位置和自定义方法见 [references/logging.md](references/logging.md)。

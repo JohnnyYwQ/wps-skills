@@ -32,7 +32,7 @@ python scripts/call.py --app word --index
 python scripts/call.py --app ppt --resolve openPresentation listSlides save
 ```
 
-构建不覆盖已有目录；再次构建时使用新的输出位置。Session Host 使用 `python scripts/call.py --app <应用> --session`，其标准输入输出属于 JSONL Session Protocol。
+构建不覆盖已有目录；再次构建时使用新的输出位置。Agent 任务使用 `python scripts/call.py --app <应用> --start` 开始，再通过 `--call <handle> --step <nextStep> --action <Action> --params-file <JSON文件>` 逐次执行，`--status <handle>` 查询，`--close <handle>` 结束；详见各 Skill 的会话说明。原始 Session Host 使用 `python scripts/call.py --app <应用> --session`，其标准输入输出属于 JSONL Session Protocol。
 
 ## 可见演示
 

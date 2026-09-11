@@ -44,7 +44,7 @@ python "C:\path\to\wps-word\scripts\word.py" --app word --resolve openDocument i
 
 Successful resolution exits 0; a `partial` or `failed` batch exits 2 while still reporting every requested Action. An unavailable application exits 4 without publishing another application's contracts.
 
-Follow `SKILL.md` and `references/session.md` to execute a task with the Python Session Client. If visible WPS output is needed, execute in the logged-in user's desktop session. SSH execution by itself does not establish desktop visibility; remote desktop launch is environment-specific and is not part of the Skill installer.
+Follow `SKILL.md` and `references/session.md` to use the packaged `--start`, `--call`, `--status`, and `--close` commands. The Agent supplies JSON parameters; no task script or persistent terminal stdin is required. If visible WPS output is needed, execute in the logged-in user's desktop session. SSH execution by itself does not establish desktop visibility; remote desktop launch is environment-specific and is not part of the Skill installer.
 
 ## Local verification
 

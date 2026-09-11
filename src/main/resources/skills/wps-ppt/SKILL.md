@@ -24,7 +24,7 @@ python "<skill-dir>/scripts/ppt.py" --app ppt --resolve openPresentation listSli
 
 查询不启动 WPS。以解析的完整契约为准；`WPS_DISCOVERY_UNAVAILABLE` 表示尚未生产准入，不调用候选契约，也不绕过 Runtime 直接操作 COM。
 
-执行前读 [references/session.md](references/session.md)。通过 `open_session()` 保留一个会话，每次 `client.call({"app":"ppt","action":"..."}, params)` 返回后再决定下一步。
+执行前读 [references/session.md](references/session.md)。直接调用包内 `scripts/ppt.py` 的 `--start`、`--call`、`--status`、`--close`；Agent 只提供 Action 和 JSON 参数，无需编写任务脚本。一个任务复用返回的 `handle`，每次读取完整响应后才使用 `nextStep` 决定下一步。
 
 先 `getPresentationInfo`、`listSlides`，再按返回的 `slideId` 调用 `getSlideInfo`。幻灯片位置是 1 起始的顺序；内容定位使用原生 ID，避免移动后按旧位置改错页。形状 ID 只在指定幻灯片内解释。
 
@@ -32,6 +32,8 @@ python "<skill-dir>/scripts/ppt.py" --app ppt --resolve openPresentation listSli
 
 ## 异常与结束
 
-`ActionFailed.response` 保留失败事实。`STALE_CONTENT` 需要重新读取并重新判断修改；`unknown` 或响应丢失表示可能已经部分执行，不自动重试。文稿关闭、绑定身份变化或桥接损坏会结束会话，不跟随新路径、不绕过 Lease 或 Quarantine。
+命令 JSON 中的 `response.error` 保留失败事实。`STALE_CONTENT` 需要重新读取并重新判断修改；`unknown` 或响应丢失表示可能已经部分执行，不自动重试。文稿关闭、绑定身份变化或桥接损坏会结束会话，不跟随新路径、不绕过 Lease 或 Quarantine。
 
 结束 Session 只释放资源，不保存或关闭文稿。报告实际修改、验证、保存路径以及窗口仍然打开的状态；分别判断文稿结果与会话清理结果。
+
+运行日志位置和自定义方法见 [references/logging.md](references/logging.md)。

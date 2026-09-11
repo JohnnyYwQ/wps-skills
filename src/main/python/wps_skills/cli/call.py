@@ -2,7 +2,10 @@
 """Run one canonical application-scoped WPS Session Host."""
 
 import argparse
+import importlib.util
 import json
+import math
+from pathlib import Path
 import sys
 import uuid
 
@@ -16,6 +19,17 @@ def _parser():
     mode.add_argument("--session", action="store_true")
     mode.add_argument("--index", action="store_true", help="Print the production Action Index without starting WPS")
     mode.add_argument("--resolve", nargs="+", metavar="ACTION", help="Resolve complete production Action Contracts without executing them")
+    mode.add_argument("--start", action="store_true", help="Start a task-local managed Session Client")
+    mode.add_argument("--call", metavar="HANDLE", help="Submit one Action or retrieve its existing step receipt")
+    mode.add_argument("--status", metavar="HANDLE", help="Read Session status or a retained --step receipt")
+    mode.add_argument("--close", metavar="HANDLE", help="End the Session without saving or closing the document")
+    parser.add_argument("--step", type=int, help="Use nextStep from the previous result; required with --call")
+    parser.add_argument("--action", help="Application-local Action name for --call")
+    params = parser.add_mutually_exclusive_group()
+    params.add_argument("--params-json", help="One JSON parameter object (default: {})")
+    params.add_argument("--params-file", help="UTF-8 JSON parameter file; data only, no executable code")
+    params.add_argument("--params-stdin", action="store_true", help="Read one JSON parameter object from stdin")
+    parser.add_argument("--timeout", type=float, default=60, help="Managed startup/Action timeout or command wait in seconds (default: 60)")
     parser.add_argument(
         "--app",
         choices=("excel", "ppt", "word"),
@@ -34,6 +48,9 @@ def _parser():
 
 def _discover(args, output_stream, error_stream):
     from wps_skills.core.action_session import ActionAddress
+    if importlib.util.find_spec("wps_skills." + args.app) is None:
+        error_stream.write(f"WPS_DISCOVERY_UNAVAILABLE app={args.app}\n")
+        return 4
     if args.app == "word":
         from wps_skills.word.contracts import WORD_PRODUCTION_CONTRACT_SET
         contracts = WORD_PRODUCTION_CONTRACT_SET
@@ -102,9 +119,39 @@ def main(
     args = parser.parse_args(argv)
     if args.debug_close_created_document and not args.session:
         parser.error("--debug-close-created-document requires --session")
+    managed = args.start or args.call or args.status or args.close
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error("--timeout must be a positive finite number")
+    if args.call and (not args.action or args.step is None):
+        parser.error("--call requires --action and --step")
+    if args.step is not None and (args.step < 1 or not (args.call or args.status)):
+        parser.error("--step must be positive and requires --call or --status")
+    if not args.call and (args.action or args.params_json is not None or args.params_file or args.params_stdin):
+        parser.error("--action and parameter options require --call")
     input_stream = input_stream or sys.stdin
     output_stream = output_stream or sys.stdout
     error_stream = error_stream or sys.stderr
+    if managed:
+        from wps_skills.client import managed_session
+        try:
+            if importlib.util.find_spec("wps_skills." + args.app) is None:
+                raise ValueError("Requested application is not installed in this Skill")
+            if args.start:
+                value = managed_session.start(args.app, timeout=args.timeout)
+            elif args.call:
+                raw = (Path(args.params_file).read_text(encoding="utf-8-sig") if args.params_file
+                       else input_stream.read() if args.params_stdin
+                       else args.params_json if args.params_json is not None else "{}")
+                value = managed_session.call(args.call, args.app, step=args.step,
+                                             action=args.action, params=managed_session.decode(raw), timeout=args.timeout)
+            elif args.status:
+                value = managed_session.status(args.status, args.app, step=args.step)
+            else:
+                value = managed_session.close(args.close, args.app, timeout=args.timeout)
+        except (OSError, ValueError) as exc:
+            value = {"error": {"code": "CLI_REQUEST_FAILED", "message": str(exc)}}
+        output_stream.write(json.dumps(value, ensure_ascii=True, allow_nan=False) + "\n")
+        return managed_session.exit_code(value, action_result=bool(args.call or (args.status and args.step)))
     if not args.session:
         return _discover(args, output_stream, error_stream)
     trace_journal = JsonlTraceJournal.default()

@@ -174,7 +174,7 @@ wps-word/
 
 `--index` 返回由正式契约生成的紧凑 Action Index；`--resolve` 一次返回所需 Actions 的完整契约。这两个命令不会启动 Session、PowerShell 或 WPS。批量解析结果为 `partial` 或 `failed` 时，先调整操作计划，再执行文档修改。
 
-阅读 [Word Skill](src/main/resources/skills/wps-word/SKILL.md) 了解完整工作流程。[会话使用说明](src/main/resources/skills/wps-word/references/session.md) 提供可运行的 Python 示例，使用 `open_session()` 和 `client.call(address, params)` 逐条执行操作，并在每次响应后决定下一步。
+阅读 [Word Skill](src/main/resources/skills/wps-word/SKILL.md) 了解完整工作流程。[会话使用说明](src/main/resources/skills/wps-word/references/session.md) 提供包内 `--start`、`--call`、`--status`、`--close` 命令和 JSON 参数示例；Agent 无需编写任务脚本，多次独立命令复用同一个 Session，并在每次响应后决定下一步。
 
 源码中的 `src/main/resources/skills/wps-word/scripts/word.py` 也可以直接使用。更多安装说明见 [INSTALL.md](INSTALL.md)。
 

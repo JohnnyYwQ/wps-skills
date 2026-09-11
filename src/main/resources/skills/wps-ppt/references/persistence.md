@@ -4,13 +4,20 @@
 
 输出父目录必须已存在，目标文件必须不存在。同名文件、目录、当前文件及其硬链接不会被覆盖；另一个会话占用或隔离的目标也不能接管。已有授权仍不能使本版 `saveAs` 支持覆盖：换用用户接受的新路径，不能自行删除已有文件。
 
-```python
-saved = client.call({"app": "ppt", "action": "saveAs"}, {
-    "outputPath": r"C:\work\new.pptx",
-    "overwritePolicy": "failIfExists",
-})["data"]
-assert saved["documentState"]["persistenceState"] == "saved"
+将以下参数保存为 UTF-8 JSON 数据文件 `save.json`（替换为用户授权的输出路径）：
+
+```json
+{
+  "outputPath": "C:\\work\\new.pptx",
+  "overwritePolicy": "failIfExists"
+}
 ```
+
+```powershell
+python "<skill-dir>/scripts/ppt.py" --app ppt --call <handle> --step <nextStep> --action saveAs --params-file "<absolute-path>/save.json"
+```
+
+检查 `response.outcome` 为 `succeeded`，并核对 `response.data.artifact` 和 `response.data.documentState.persistenceState` 为 `saved`。
 
 成功后仍是同一个实际文档；可继续编辑，`save` 写入刚确认的新路径。旧文件保持另存为前的内容。旧路径及新旧文件身份的会话占用一直保留到清理，其他会话不能在迁移间隙插入。新建未保存时调用 `save` 会返回 `PERSISTENCE_LOCATOR_REQUIRED`。
 

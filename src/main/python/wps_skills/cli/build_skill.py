@@ -23,8 +23,23 @@ def build_application_skill(application, destination):
         ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
         shutil.copytree(MAIN / "resources" / "skills" / skill_name, stage, ignore=ignore)
         runtime = stage / "runtime" / "src" / "main"
-        shutil.copytree(MAIN / "python" / "wps_skills", runtime / "python" / "wps_skills", ignore=ignore)
-        shutil.copytree(MAIN / "resources" / "wps_skills", runtime / "resources" / "wps_skills", ignore=ignore)
+        python_source = MAIN / "python" / "wps_skills"
+        python_target = runtime / "python" / "wps_skills"
+        python_target.mkdir(parents=True)
+        shutil.copy2(python_source / "__init__.py", python_target / "__init__.py")
+        # Each independently installed Skill carries its own shared runtime copy.
+        # Other applications and repository build/demo tools are not dependencies.
+        runtime_ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store", "demo.py", "desktop.py")
+        for package in ("core", "client", "host", "windows", application):
+            shutil.copytree(python_source / package, python_target / package, ignore=runtime_ignore)
+        (python_target / "cli").mkdir()
+        for name in ("__init__.py", "call.py"):
+            shutil.copy2(python_source / "cli" / name, python_target / "cli" / name)
+        resource_source = MAIN / "resources" / "wps_skills"
+        resource_target = runtime / "resources" / "wps_skills"
+        resource_ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store", "demo_launcher.ps1", "demo-template.pptx")
+        for package in ("windows", application):
+            shutil.copytree(resource_source / package, resource_target / package, ignore=resource_ignore)
         files = {
             path.relative_to(stage).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in sorted(stage.rglob("*")) if path.is_file()
