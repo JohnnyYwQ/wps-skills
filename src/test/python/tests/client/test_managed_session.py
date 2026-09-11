@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from wps_skills.client import managed_session as managed
 
@@ -125,10 +125,32 @@ class ManagedSessionTests(unittest.TestCase):
         results = []
         for process in processes:
             stdout, stderr = process.communicate(timeout=10)
-            self.assertEqual(0, process.returncode, stderr)
+            self.assertEqual(0, process.returncode, stdout + stderr)
             results.append(json.loads(stdout))
         self.assertEqual(results[0], results[1])
         self.assertEqual(["slow"], self.events.read_text().splitlines())
+
+    def test_published_request_survives_temporary_windows_reader_lock(self):
+        handle = self.start()["handle"]
+        unlink = Path.unlink
+        blocked = []
+
+        def unlink_with_reader_lock(path, *args, **kwargs):
+            if path.name.startswith(".write-") and not blocked:
+                blocked.append(path)
+                raise PermissionError("Windows reader holds the published file open")
+            return unlink(path, *args, **kwargs)
+
+        windows_os = Mock(wraps=os)
+        windows_os.name = "nt"
+        with patch.object(managed, "os", windows_os), patch.object(Path, "unlink", unlink_with_reader_lock):
+            first = managed.call(handle, "word", step=1, action="slow", params={})
+        duplicate = managed.call(handle, "word", step=1, action="slow", params={})
+        self.assertEqual(0, managed.exit_code(first), first)
+        self.assertEqual(first, duplicate)
+        self.assertEqual(["slow"], self.events.read_text().splitlines())
+        self.assertEqual(1, len(blocked))
+        self.assertFalse(blocked[0].exists())
 
     def test_startup_failure_is_reported_without_a_usable_session(self):
         result = self.start("startup")

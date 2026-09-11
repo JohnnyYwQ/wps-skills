@@ -20,7 +20,7 @@ class RepositoryEntryTests(unittest.TestCase):
             for entry in entries:
                 with self.subTest(entry=entry.relative_to(root)):
                     result = subprocess.run([sys.executable, str(entry), '--help'], cwd=cwd,
-                                            env=dict(os.environ, PYTHONPATH='', PYTHONNOUSERSITE='1'),
-                                            capture_output=True, text=True, timeout=15)
+                                            env=dict(os.environ, PYTHONPATH='', PYTHONNOUSERSITE='1', PYTHONUTF8='1'),
+                                            capture_output=True, text=True, encoding='utf-8', timeout=15)
                     self.assertEqual(0, result.returncode, result.stderr)
                     self.assertIn('usage:', result.stdout)
