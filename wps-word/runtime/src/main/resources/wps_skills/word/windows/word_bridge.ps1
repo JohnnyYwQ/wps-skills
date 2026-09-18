@@ -1,0 +1,1725 @@
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+
+$script:Application = $null
+$script:Documents = $null
+$script:Document = $null
+$script:DocumentId = $null
+$script:AuthorizedPath = $null
+$script:Revision = $null
+$script:Fingerprint = $null
+$script:PreparationId = $null
+$script:PreparedIdentity = $null
+$script:PreparedPath = $null
+$script:PreparedCanonicalPath = $null
+$script:PreparedLocator = $null
+$script:BoundFileIdentity = $null
+$script:CoordinationMutex = $null
+$script:CoordinationMutexName = $null
+$script:CoordinationStatePath = $null
+$script:CoordinationGuardId = $null
+$script:CoordinationLeaseId = $null
+
+class StaleDocumentRevisionException : System.Exception {
+    StaleDocumentRevisionException([string]$message) : base($message) {}
+}
+
+class PersistenceLocatorRequiredException : System.Exception {
+    PersistenceLocatorRequiredException([string]$message) : base($message) {}
+}
+
+class ContentAnchorBoundaryException : System.Exception {
+    ContentAnchorBoundaryException([string]$message) : base($message) {}
+}
+
+class ContentVerificationException : System.Exception {
+    ContentVerificationException([string]$message) : base($message) {}
+}
+
+class DocumentLeaseConflictException : System.Exception {
+    DocumentLeaseConflictException([string]$message) : base($message) {}
+}
+
+class DocumentQuarantinedException : System.Exception {
+    DocumentQuarantinedException([string]$message) : base($message) {}
+}
+
+. (Join-Path $PSScriptRoot '../../windows/bridge_common.ps1')
+. (Join-Path $PSScriptRoot '../../windows/window_presentation.ps1')
+. (Join-Path $PSScriptRoot '../../windows/output_persistence.ps1')
+. (Join-Path $PSScriptRoot 'word_story_xml.ps1')
+. (Join-Path $PSScriptRoot 'word_font_names.ps1')
+
+function Connect-WpsApplication {
+    $created = $false
+    try {
+        $script:Application = [Runtime.InteropServices.Marshal]::GetActiveObject('KWPS.Application')
+    }
+    catch {
+        $script:Application = New-Object -ComObject 'KWPS.Application'
+        $created = $true
+    }
+    $script:Application.Visible = $true
+    $script:Documents = $script:Application.Documents
+    return $created
+}
+
+function Show-BoundDocument {
+    param([Parameter(Mandatory = $true)][bool]$UseNormalWindowState)
+
+    $script:Document.Activate()
+    $window = $null
+    try {
+        $window = $script:Document.ActiveWindow
+        if ($UseNormalWindowState) {
+            # 0 is wdWindowStateNormal on the outer WPS application. The
+            # document child remains free to fill that normal application.
+            $script:Application.WindowState = 0
+        }
+        Repair-WpsWindowBounds -Window $window
+    }
+    catch {
+        # Window presentation must not invalidate an exact document binding.
+    }
+    finally {
+        Release-ComReference -Value $window
+    }
+}
+
+function New-ContentRevision {
+    return 'word-' + [guid]::NewGuid().ToString('N')
+}
+
+function Normalize-WordText {
+    param([AllowNull()][string]$Text)
+
+    if ($null -eq $Text) {
+        return ''
+    }
+
+    # WPS exposes table structure through private control markers in Range.Text:
+    # every cell ends with CR+BEL and every row adds another CR+BEL.  Translate
+    # the doubled row marker first so the portable representation is TSV-like.
+    $normalized = $Text.Replace("`r`a`r`a", "`n")
+    $normalized = $normalized.Replace("`r`a", "`t")
+    $normalized = $normalized.Replace("`r", "`n")
+
+    # Keep the caller-facing text independent of host-specific Word markers.
+    $normalized = $normalized.Replace(
+        ([string][char]11),
+        ([string][char]0x2028)
+    )
+    $normalized = $normalized.Replace(
+        ([string][char]1),
+        ([string][char]0xFFFC)
+    )
+    $normalized = $normalized.Replace(
+        ([string][char]7),
+        "`t"
+    )
+    $normalized = $normalized.Replace(
+        ([string][char]0x2029),
+        "`n"
+    )
+
+    # Field delimiters and any other remaining C0/C1 controls are structural
+    # implementation details, not document text.  Preserve only the controls
+    # admitted by wordNormalizedText; surrogate pairs remain untouched.
+    foreach ($code in 0..31) {
+        if ($code -notin @(9, 10, 12)) {
+            $normalized = $normalized.Replace(
+                ([string][char]$code),
+                ''
+            )
+        }
+    }
+    foreach ($code in 127..159) {
+        $normalized = $normalized.Replace(
+            ([string][char]$code),
+            ''
+        )
+    }
+    return $normalized
+}
+
+function Normalize-StoryText {
+    param([AllowNull()][string]$Text)
+
+    $normalized = Normalize-WordText -Text $Text
+    $normalized = $normalized.Replace(([string][char]12), "`n")
+    $normalized = $normalized.Replace(([string][char]0x2028), "`n")
+    $normalized = $normalized.Replace(([string][char]0xFFFC), '')
+    while ($normalized.EndsWith("`n")) {
+        $normalized = $normalized.Substring(0, $normalized.Length - 1)
+    }
+    return $normalized
+}
+
+function Get-DocumentPersistenceState {
+    if ([string]::IsNullOrEmpty([string]$script:Document.Path)) {
+        return 'unsaved'
+    }
+    if ([bool]$script:Document.Saved) {
+        return 'saved'
+    }
+    return 'modified'
+}
+
+function Get-DocumentEnd {
+    $range = $null
+    try {
+        $range = $script:Document.Content
+        return [Math]::Max(0, ([int]$range.End - 1))
+    }
+    finally {
+        Release-ComReference -Value $range
+    }
+}
+
+function Get-DocumentFingerprint {
+    $content = $null
+    try {
+        $content = $script:Document.Content
+        $sectionFacts = @(
+            Get-SectionSnapshots
+        ) | ConvertTo-Json -Compress -Depth 12
+        $facts = @(
+            [string]$content.Text,
+            [string]$script:Document.Paragraphs.Count,
+            [string]$script:Document.Sections.Count,
+            [string]$script:Document.Tables.Count,
+            [string]$script:Document.InlineShapes.Count,
+            [string]$script:Document.Shapes.Count,
+            $sectionFacts
+        ) -join ([char]0x1f)
+        $bytes = [Text.Encoding]::UTF8.GetBytes($facts)
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try {
+            return ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
+        }
+        finally {
+            $sha.Dispose()
+        }
+    }
+    finally {
+        Release-ComReference -Value $content
+    }
+}
+
+function Sync-ContentRevision {
+    $observed = Get-DocumentFingerprint
+    if ($null -eq $script:Fingerprint) {
+        $script:Fingerprint = $observed
+    }
+    elseif ($observed -ne $script:Fingerprint) {
+        $script:Fingerprint = $observed
+        $script:Revision = New-ContentRevision
+    }
+    return $observed
+}
+
+function Assert-BoundDocument {
+    param([Parameter(Mandatory = $true)][string]$DocumentId)
+
+    if (
+        $null -eq $script:Document -or
+        [string]::IsNullOrEmpty($script:DocumentId) -or
+        $DocumentId -ne $script:DocumentId
+    ) {
+        throw 'The bridge document reference is not bound.'
+    }
+}
+
+function Test-BoundDocumentLive {
+    if ($null -eq $script:Document) {
+        return $false
+    }
+    $application = $null
+    try {
+        $null = $script:Document.Name
+        $application = $script:Document.Application
+        $null = $application.Name
+        Assert-WordPersistenceBinding
+        return $true
+    }
+    catch {
+        return $false
+    }
+    # Application is retained by the Task; release it only at bridge exit.
+}
+
+function New-RangeValue {
+    param(
+        [Parameter(Mandatory = $true)][int]$Start,
+        [Parameter(Mandatory = $true)][int]$End
+    )
+
+    return [ordered]@{
+        start = $Start
+        end = $End
+        revision = $script:Revision
+    }
+}
+
+function Resolve-BodyAnchor {
+    param([Parameter(Mandatory = $true)]$Anchor)
+
+    $documentEnd = Get-DocumentEnd
+    switch ([string]$Anchor.kind) {
+        'documentStart' { return 0 }
+        'documentEnd' { return $documentEnd }
+        'before' {
+            if ([string]$Anchor.range.revision -ne $script:Revision) {
+                throw [StaleDocumentRevisionException]::new(
+                    'The requested Content Range has a stale revision.'
+                )
+            }
+            $start = [int]$Anchor.range.start
+            $end = [int]$Anchor.range.end
+            if ($start -lt 0 -or $end -lt $start -or $end -gt $documentEnd) {
+                throw 'The requested Content Range is outside the document body.'
+            }
+            return $start
+        }
+        'after' {
+            if ([string]$Anchor.range.revision -ne $script:Revision) {
+                throw [StaleDocumentRevisionException]::new(
+                    'The requested Content Range has a stale revision.'
+                )
+            }
+            $start = [int]$Anchor.range.start
+            $end = [int]$Anchor.range.end
+            if ($start -lt 0 -or $end -lt $start -or $end -gt $documentEnd) {
+                throw 'The requested Content Range is outside the document body.'
+            }
+            return $end
+        }
+        default { throw 'Unsupported body anchor.' }
+    }
+}
+
+function Test-ParagraphBoundary {
+    param([Parameter(Mandatory = $true)][int]$Position)
+
+    if ($Position -eq 0) {
+        return $true
+    }
+    $probe = $null
+    try {
+        $probe = $script:Document.Range($Position - 1, $Position)
+        return ([string]$probe.Text) -eq "`r"
+    }
+    finally {
+        Release-ComReference -Value $probe
+    }
+}
+
+function Convert-HexColorToOle {
+    param([Parameter(Mandatory = $true)][string]$Color)
+
+    $red = [Convert]::ToInt32($Color.Substring(1, 2), 16)
+    $green = [Convert]::ToInt32($Color.Substring(3, 2), 16)
+    $blue = [Convert]::ToInt32($Color.Substring(5, 2), 16)
+    return $red -bor ($green -shl 8) -bor ($blue -shl 16)
+}
+
+function Set-TextFormatPatch {
+    param(
+        [Parameter(Mandatory = $true)]$Range,
+        [Parameter(Mandatory = $true)]$Patch
+    )
+
+    $font = $null
+    try {
+        $font = $Range.Font
+        $names = @(Get-ObjectPropertyNames -Value $Patch)
+        if ($names -contains 'fontFamily') {
+            $font.Name = [string]$Patch.fontFamily
+        }
+        if ($names -contains 'westernFontFamily') {
+            $font.NameAscii = [string]$Patch.westernFontFamily
+            $font.NameOther = [string]$Patch.westernFontFamily
+        }
+        if ($names -contains 'eastAsiaFontFamily') {
+            $font.NameFarEast = [string]$Patch.eastAsiaFontFamily
+        }
+        if ($names -contains 'fontSizePt') {
+            $font.Size = [double]$Patch.fontSizePt
+        }
+        if ($names -contains 'bold') { $font.Bold = [bool]$Patch.bold }
+        if ($names -contains 'italic') { $font.Italic = [bool]$Patch.italic }
+        if ($names -contains 'underline') {
+            $font.Underline = if (
+                [string]$Patch.underline -eq 'single'
+            ) { 1 } else { 0 }
+        }
+        if ($names -contains 'color') {
+            $font.Color = Convert-HexColorToOle `
+                -Color ([string]$Patch.color)
+        }
+    }
+    finally {
+        Release-ComReference -Value $font
+    }
+}
+
+function Set-ParagraphFormatPatch {
+    param(
+        [Parameter(Mandatory = $true)]$Range,
+        [Parameter(Mandatory = $true)]$Patch
+    )
+
+    $format = $null
+    try {
+        $format = $Range.ParagraphFormat
+        $names = @(Get-ObjectPropertyNames -Value $Patch)
+        if ($names -contains 'alignment') {
+            $format.Alignment = switch ([string]$Patch.alignment) {
+                'left' { 0 }
+                'center' { 1 }
+                'right' { 2 }
+                'justify' { 3 }
+            }
+        }
+        if ($names -contains 'lineSpacing') {
+            $lineSpacing = $Patch.lineSpacing
+            switch ([string]$lineSpacing.kind) {
+                'single' { $format.LineSpacingRule = 0 }
+                'oneAndHalf' { $format.LineSpacingRule = 1 }
+                'double' { $format.LineSpacingRule = 2 }
+                'atLeast' {
+                    $format.LineSpacingRule = 3
+                    $format.LineSpacing = [double]$lineSpacing.points
+                }
+                'exact' {
+                    $format.LineSpacingRule = 4
+                    $format.LineSpacing = [double]$lineSpacing.points
+                }
+                'multiple' {
+                    $format.LineSpacingRule = 5
+                    $format.LineSpacing = 12.0 * [double]$lineSpacing.value
+                }
+            }
+        }
+        if ($names -contains 'spaceBeforePt') { $format.SpaceBefore = [double]$Patch.spaceBeforePt }
+        if ($names -contains 'spaceAfterPt') { $format.SpaceAfter = [double]$Patch.spaceAfterPt }
+        if ($names -contains 'leftIndentPt') { $format.LeftIndent = [double]$Patch.leftIndentPt }
+        if ($names -contains 'rightIndentPt') { $format.RightIndent = [double]$Patch.rightIndentPt }
+        if ($names -contains 'firstLineIndentPt') { $format.FirstLineIndent = [double]$Patch.firstLineIndentPt }
+    }
+    finally {
+        Release-ComReference -Value $format
+    }
+}
+
+function Get-BooleanFormatValue {
+    param($Value)
+
+    if ($Value -eq -1 -or $Value -eq $true) {
+        return $true
+    }
+    if ($Value -eq 0 -or $Value -eq $false) {
+        return $false
+    }
+    return $null
+}
+
+function Get-TextFormatSnapshot {
+    param([Parameter(Mandatory = $true)]$Range)
+
+    $font = $null
+    try {
+        $font = $Range.Font
+        $underline = switch ([int]$font.Underline) {
+            0 { 'none' }
+            1 { 'single' }
+            default { 'other' }
+        }
+        $colorValue = [long]$font.Color
+        $color = if ($colorValue -eq -16777216 -or $colorValue -eq 9999999) {
+            if ($colorValue -eq -16777216) { 'automatic' } else { $null }
+        }
+        else {
+            $red = $colorValue -band 0xff
+            $green = ($colorValue -shr 8) -band 0xff
+            $blue = ($colorValue -shr 16) -band 0xff
+            '#{0:X2}{1:X2}{2:X2}' -f $red, $green, $blue
+        }
+        $fontName = [string]$font.Name
+        $westernFontName = [string]$font.NameAscii
+        $eastAsiaFontName = [string]$font.NameFarEast
+        $fontSize = [double]$font.Size
+        return [ordered]@{
+            fontFamily = if ($fontName) { $fontName } else { $null }
+            westernFontFamily = if ($westernFontName) {
+                $westernFontName
+            }
+            else {
+                $null
+            }
+            eastAsiaFontFamily = if ($eastAsiaFontName) {
+                $eastAsiaFontName
+            }
+            else {
+                $null
+            }
+            fontSizePt = if ($fontSize -ge 0 -and $fontSize -ne 9999999) { $fontSize } else { $null }
+            bold = Get-BooleanFormatValue -Value $font.Bold
+            italic = Get-BooleanFormatValue -Value $font.Italic
+            underline = $underline
+            color = $color
+        }
+    }
+    finally {
+        Release-ComReference -Value $font
+    }
+}
+
+function Get-LineSpacingSnapshot {
+    param([Parameter(Mandatory = $true)]$ParagraphFormat)
+
+    $rule = [int]$ParagraphFormat.LineSpacingRule
+    $spacing = [double]$ParagraphFormat.LineSpacing
+    switch ($rule) {
+        0 { return [ordered]@{ kind = 'single' } }
+        1 { return [ordered]@{ kind = 'oneAndHalf' } }
+        2 { return [ordered]@{ kind = 'double' } }
+        3 { return [ordered]@{ kind = 'atLeast'; points = $spacing } }
+        4 { return [ordered]@{ kind = 'exact'; points = $spacing } }
+        5 {
+            return [ordered]@{
+                kind = 'multiple'
+                value = $spacing / 12.0
+            }
+        }
+        default { return [ordered]@{ kind = 'other' } }
+    }
+}
+
+function Get-LineSpacingMultiple {
+    param([Parameter(Mandatory = $true)]$Spacing)
+
+    switch ([string]$Spacing.kind) {
+        'single' { return 1.0 }
+        'oneAndHalf' { return 1.5 }
+        'double' { return 2.0 }
+        'multiple' { return [double]$Spacing.value }
+        default { return $null }
+    }
+}
+
+function Test-LineSpacingEquivalent {
+    param(
+        [Parameter(Mandatory = $true)]$Expected,
+        [Parameter(Mandatory = $true)]$Observed
+    )
+
+    # WPS may canonicalize multiple=1/1.5/2 to a named rule (and vice versa).
+    # Compare line multiples by effect; fixed/minimum point spacing is distinct.
+    $expectedMultiple = Get-LineSpacingMultiple -Spacing $Expected
+    $observedMultiple = Get-LineSpacingMultiple -Spacing $Observed
+    if ($null -ne $expectedMultiple -and $null -ne $observedMultiple) {
+        return [Math]::Abs($expectedMultiple - $observedMultiple) -le 0.01
+    }
+    if (
+        @('exact', 'atLeast') -contains [string]$Expected.kind -and
+        [string]$Expected.kind -eq [string]$Observed.kind
+    ) {
+        return [Math]::Abs([double]$Expected.points - [double]$Observed.points) -le 0.05
+    }
+    return $false
+}
+
+function Get-ParagraphFormatSnapshot {
+    param([Parameter(Mandatory = $true)]$Range)
+
+    $format = $null
+    try {
+        $format = $Range.ParagraphFormat
+        $alignment = switch ([int]$format.Alignment) {
+            0 { 'left' }
+            1 { 'center' }
+            2 { 'right' }
+            3 { 'justify' }
+            default { 'other' }
+        }
+        return [ordered]@{
+            alignment = $alignment
+            lineSpacing = Get-LineSpacingSnapshot -ParagraphFormat $format
+            spaceBeforePt = [double]$format.SpaceBefore
+            spaceAfterPt = [double]$format.SpaceAfter
+            leftIndentPt = [double]$format.LeftIndent
+            rightIndentPt = [double]$format.RightIndent
+            firstLineIndentPt = [double]$format.FirstLineIndent
+        }
+    }
+    finally {
+        Release-ComReference -Value $format
+    }
+}
+
+function Get-StorySnapshot {
+    param(
+        [Parameter(Mandatory = $true)]$Collection,
+        [Parameter(Mandatory = $true)][string]$Area,
+        [Parameter(Mandatory = $true)][string]$Variant,
+        [Parameter(Mandatory = $true)][int]$Index,
+        [Parameter(Mandatory = $true)][int]$SectionIndex,
+        [Parameter(Mandatory = $true)][hashtable]$StoryTextMap
+    )
+
+    $story = $null
+    try {
+        $story = $Collection.Item($Index)
+        $exists = [bool]$story.Exists
+        $link = if ($SectionIndex -eq 0) {
+            $false
+        }
+        else {
+            [bool]$story.LinkToPrevious
+        }
+        $text = ''
+        if ($exists) {
+            $text = [string]$StoryTextMap["$SectionIndex/$Area/$Variant"]
+        }
+        if ($text.Length -gt 32768) {
+            throw 'Header or footer text exceeds the supported limit.'
+        }
+        return [ordered]@{
+            area = $Area
+            variant = $Variant
+            exists = $exists
+            linkToPrevious = $link
+            text = $text
+        }
+    }
+    finally {
+        Release-ComReference -Value $story
+    }
+}
+
+function Get-SectionSnapshots {
+    $count = [int]$script:Document.Sections.Count
+    if ($count -lt 1 -or $count -gt 64) {
+        throw 'Section count exceeds the supported limit.'
+    }
+    # Snapshot live memory once; never obtain HeaderFooter.Range while reading.
+    $storyTextMap = Get-WordXmlStoryTextMap `
+        -WordOpenXml ([string]$script:Document.WordOpenXML) `
+        -ExpectedSectionCount $count
+    $snapshots = @()
+    for ($sectionIndex = 0; $sectionIndex -lt $count; $sectionIndex++) {
+        $section = $null
+        $pageSetup = $null
+        $headers = $null
+        $footers = $null
+        try {
+            $section = $script:Document.Sections.Item($sectionIndex + 1)
+            $pageSetup = $section.PageSetup
+            $headers = $section.Headers
+            $footers = $section.Footers
+            $stories = @(
+                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'primary' -Index 1 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'firstPage' -Index 2 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'evenPages' -Index 3 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'primary' -Index 1 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'firstPage' -Index 2 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'evenPages' -Index 3 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+            )
+            $snapshots += [ordered]@{
+                index = $sectionIndex
+                layout = [ordered]@{
+                    orientation = if ([int]$pageSetup.Orientation -eq 1) { 'landscape' } else { 'portrait' }
+                    margins = [ordered]@{
+                        top = [ordered]@{ value = [double]$pageSetup.TopMargin; unit = 'pt' }
+                        right = [ordered]@{ value = [double]$pageSetup.RightMargin; unit = 'pt' }
+                        bottom = [ordered]@{ value = [double]$pageSetup.BottomMargin; unit = 'pt' }
+                        left = [ordered]@{ value = [double]$pageSetup.LeftMargin; unit = 'pt' }
+                    }
+                }
+                headerFooter = [ordered]@{
+                    firstPageEnabled = [bool]$pageSetup.DifferentFirstPageHeaderFooter
+                    evenPagesEnabled = [bool]$pageSetup.OddAndEvenPagesHeaderFooter
+                    stories = $stories
+                }
+            }
+        }
+        finally {
+            Release-ComReference -Value $footers
+            Release-ComReference -Value $headers
+            Release-ComReference -Value $pageSetup
+            Release-ComReference -Value $section
+        }
+    }
+    return $snapshots
+}
+
+function Resolve-BodyScope {
+    param([Parameter(Mandatory = $true)]$Scope)
+
+    $documentEnd = Get-DocumentEnd
+    if ($Scope.kind -eq 'document') {
+        return @(0, $documentEnd)
+    }
+    if ($Scope.kind -ne 'range') {
+        throw 'Unsupported body scope.'
+    }
+    if ([string]$Scope.range.revision -ne $script:Revision) {
+        throw [StaleDocumentRevisionException]::new(
+            'The requested Content Range has a stale revision.'
+        )
+    }
+    $start = [int]$Scope.range.start
+    $end = [int]$Scope.range.end
+    if ($start -lt 0 -or $end -lt $start -or $end -gt $documentEnd) {
+        throw 'The requested Content Range is outside the document body.'
+    }
+    return @($start, $end)
+}
+
+function Get-ParagraphSnapshots {
+    param(
+        [Parameter(Mandatory = $true)][int]$ScopeStart,
+        [Parameter(Mandatory = $true)][int]$ScopeEnd,
+        [Parameter(Mandatory = $true)][int]$ReturnedEnd,
+        [Parameter(Mandatory = $true)][int]$MaxParagraphs,
+        [Parameter(Mandatory = $true)][int]$MaxRuns
+    )
+
+    $snapshots = @()
+    $runCount = 0
+    $coveredEnd = $ScopeStart
+    $limited = $false
+    $paragraphs = $script:Document.Paragraphs
+    try {
+        for ($index = 1; $index -le [int]$paragraphs.Count; $index++) {
+            $paragraph = $null
+            $paragraphRange = $null
+            $clipped = $null
+            try {
+                $paragraph = $paragraphs.Item($index)
+                $paragraphRange = $paragraph.Range
+                $paragraphStart = [Math]::Max($ScopeStart, [int]$paragraphRange.Start)
+                $paragraphEnd = [Math]::Min(
+                    $ReturnedEnd,
+                    [Math]::Min($ScopeEnd, [int]$paragraphRange.End)
+                )
+                if ($paragraphEnd -le $paragraphStart) {
+                    continue
+                }
+                if ($paragraphStart -ge $ReturnedEnd) {
+                    break
+                }
+                if ($snapshots.Count -ge $MaxParagraphs) {
+                    $limited = $true
+                    break
+                }
+                $clipped = $script:Document.Range($paragraphStart, $paragraphEnd)
+                $text = Normalize-WordText -Text ([string]$clipped.Text)
+                $runs = @()
+                if ($text.Length -gt 0 -and $runCount -lt $MaxRuns) {
+                    $runs += [ordered]@{
+                        range = New-RangeValue -Start $paragraphStart -End $paragraphEnd
+                        text = $text
+                        format = Get-TextFormatSnapshot -Range $clipped
+                    }
+                    $runCount++
+                }
+                elseif ($text.Length -gt 0) {
+                    $limited = $true
+                    break
+                }
+                $outlineLevel = [int]$paragraph.OutlineLevel
+                $snapshot = [ordered]@{
+                    kind = if ($outlineLevel -ge 1 -and $outlineLevel -le 9) { 'heading' } else { 'paragraph' }
+                    range = New-RangeValue -Start $paragraphStart -End $paragraphEnd
+                    complete = (
+                        $paragraphStart -eq [int]$paragraphRange.Start -and
+                        $paragraphEnd -eq [Math]::Min(
+                            (Get-DocumentEnd),
+                            [int]$paragraphRange.End
+                        )
+                    )
+                    text = $text
+                    runs = $runs
+                    format = Get-ParagraphFormatSnapshot -Range $clipped
+                }
+                if ($snapshot.kind -eq 'heading') {
+                    $snapshot['level'] = $outlineLevel
+                }
+                $snapshots += $snapshot
+                $coveredEnd = $paragraphEnd
+            }
+            finally {
+                Release-ComReference -Value $clipped
+                Release-ComReference -Value $paragraphRange
+                Release-ComReference -Value $paragraph
+            }
+        }
+    }
+    finally {
+        Release-ComReference -Value $paragraphs
+    }
+    if (-not $limited) {
+        $coveredEnd = $ReturnedEnd
+    }
+    return [ordered]@{
+        paragraphs = @($snapshots)
+        returnedEnd = $coveredEnd
+    }
+}
+
+function Get-DocumentHeadingCount {
+    $headingCount = 0
+    $paragraphs = $script:Document.Paragraphs
+    try {
+        for ($index = 1; $index -le [int]$paragraphs.Count; $index++) {
+            $paragraph = $null
+            try {
+                $paragraph = $paragraphs.Item($index)
+                $outlineLevel = [int]$paragraph.OutlineLevel
+                if ($outlineLevel -ge 1 -and $outlineLevel -le 9) {
+                    $headingCount++
+                }
+            }
+            finally {
+                Release-ComReference -Value $paragraph
+            }
+        }
+    }
+    finally {
+        Release-ComReference -Value $paragraphs
+    }
+    return $headingCount
+}
+
+function Assert-TextFormatPatch {
+    param(
+        [Parameter(Mandatory = $true)]$Range,
+        [Parameter(Mandatory = $true)]$Patch
+    )
+
+    $observed = Get-TextFormatSnapshot -Range $Range
+    $names = @(Get-ObjectPropertyNames -Value $Patch)
+    foreach ($property in @('fontFamily', 'westernFontFamily', 'eastAsiaFontFamily')) {
+        if ($names -contains $property) {
+            Assert-WordFontName -Property $property `
+                -Requested ([string]$Patch.$property) `
+                -Observed ([string]$observed.$property)
+        }
+    }
+    if ($names -contains 'westernFontFamily') {
+        $font = $null
+        try {
+            $font = $Range.Font
+            Assert-WordFontName -Property 'westernFontFamily.NameOther' `
+                -Requested ([string]$Patch.westernFontFamily) `
+                -Observed ([string]$font.NameOther)
+        }
+        finally {
+            Release-ComReference -Value $font
+        }
+    }
+    if ($names -contains 'fontSizePt' -and [Math]::Abs([double]$observed.fontSizePt - [double]$Patch.fontSizePt) -gt 0.05) {
+        throw [ContentVerificationException]::new('The inserted font size did not read back exactly.')
+    }
+    if ($names -contains 'bold' -and $observed.bold -ne [bool]$Patch.bold) {
+        throw [ContentVerificationException]::new('The inserted bold state did not read back exactly.')
+    }
+    if ($names -contains 'italic' -and $observed.italic -ne [bool]$Patch.italic) {
+        throw [ContentVerificationException]::new('The inserted italic state did not read back exactly.')
+    }
+    if ($names -contains 'underline' -and [string]$observed.underline -ne [string]$Patch.underline) {
+        throw [ContentVerificationException]::new('The inserted underline state did not read back exactly.')
+    }
+    if ($names -contains 'color' -and [string]$observed.color -ne ([string]$Patch.color).ToUpperInvariant()) {
+        throw [ContentVerificationException]::new('The inserted color did not read back exactly.')
+    }
+}
+
+function Assert-ParagraphFormatPatch {
+    param(
+        [Parameter(Mandatory = $true)]$Range,
+        [Parameter(Mandatory = $true)]$Patch
+    )
+
+    $observed = Get-ParagraphFormatSnapshot -Range $Range
+    $names = @(Get-ObjectPropertyNames -Value $Patch)
+    if ($names -contains 'alignment' -and [string]$observed.alignment -ne [string]$Patch.alignment) {
+        throw [ContentVerificationException]::new('The inserted paragraph alignment did not read back exactly.')
+    }
+    foreach ($field in @('spaceBeforePt', 'spaceAfterPt', 'leftIndentPt', 'rightIndentPt', 'firstLineIndentPt')) {
+        if ($names -contains $field -and [Math]::Abs([double]$observed.$field - [double]$Patch.$field) -gt 0.05) {
+            throw [ContentVerificationException]::new("The inserted paragraph field $field did not read back exactly.")
+        }
+    }
+    if ($names -contains 'lineSpacing') {
+        if (-not (Test-LineSpacingEquivalent -Expected $Patch.lineSpacing -Observed $observed.lineSpacing)) {
+            throw [ContentVerificationException]::new('The inserted line spacing did not read back equivalently.')
+        }
+    }
+}
+
+function Invoke-WriteContent {
+    param([Parameter(Mandatory = $true)]$Arguments)
+
+    Assert-BoundDocument -DocumentId ([string]$Arguments.documentId)
+    if ([bool]$script:Document.ReadOnly) {
+        throw [UnauthorizedAccessException]::new('The bound document is read-only.')
+    }
+    $operationArguments = $Arguments.operationArguments
+    $beforeFingerprint = Sync-ContentRevision
+    $revisionBefore = $script:Revision
+    $position = Resolve-BodyAnchor -Anchor $operationArguments.anchor
+    $blocks = @($operationArguments.blocks)
+    $paragraphBlocks = [string]$blocks[0].kind -ne 'text'
+    $atDocumentEnd = $position -eq (Get-DocumentEnd)
+
+    $builder = [Text.StringBuilder]::new()
+    if ($paragraphBlocks -and -not (Test-ParagraphBoundary -Position $position)) {
+        if ($atDocumentEnd) {
+            # Content.End-1 precedes Word's final paragraph mark.  Separate a
+            # requested paragraph sequence from a non-empty last paragraph.
+            [void]$builder.Append("`r")
+        }
+        else {
+            throw [ContentAnchorBoundaryException]::new(
+                'Structured paragraphs require a paragraph-boundary Body Anchor.'
+            )
+        }
+    }
+    $runPlans = @()
+    $blockPlans = @()
+    foreach ($block in $blocks) {
+        $blockStart = $builder.Length
+        foreach ($run in @($block.runs)) {
+            $runStart = $builder.Length
+            [void]$builder.Append([string]$run.text)
+            $runPlans += [ordered]@{
+                start = $runStart
+                end = $builder.Length
+                format = $run.format
+            }
+        }
+        if ($paragraphBlocks) {
+            [void]$builder.Append("`r")
+        }
+        $blockPlans += [ordered]@{
+            start = $blockStart
+            end = $builder.Length
+            kind = [string]$block.kind
+            level = if ([string]$block.kind -eq 'heading') { [int]$block.level } else { 0 }
+            format = $block.format
+        }
+    }
+    if ($paragraphBlocks -and $atDocumentEnd -and $builder.Length -gt 1) {
+        # Reuse the document's mandatory final paragraph mark instead of
+        # inserting another one before it. Interior block separators remain.
+        # Keep a lone CR: an explicitly requested blank insertion must still
+        # add a paragraph, rather than becoming a zero-length write.
+        $builder.Length--
+        $blockPlans[-1].end--
+    }
+    $insertedText = $builder.ToString()
+    if ($insertedText.Length -lt 1) {
+        throw 'The structured content must produce a non-empty insertion.'
+    }
+
+    $insertion = $null
+    try {
+        $insertion = $script:Document.Range($position, $position)
+        $insertion.Text = $insertedText
+    }
+    finally {
+        Release-ComReference -Value $insertion
+    }
+
+    foreach ($plan in $runPlans) {
+        if ($plan.end -le $plan.start -or $null -eq $plan.format) { continue }
+        $runRange = $null
+        try {
+            $runRange = $script:Document.Range(
+                $position + [int]$plan.start,
+                $position + [int]$plan.end
+            )
+            Set-TextFormatPatch -Range $runRange -Patch $plan.format
+        }
+        finally {
+            Release-ComReference -Value $runRange
+        }
+    }
+    if ($paragraphBlocks) {
+        foreach ($plan in $blockPlans) {
+            $blockRange = $null
+            $paragraph = $null
+            try {
+                $blockRange = $script:Document.Range(
+                    $position + [int]$plan.start,
+                    $position + [int]$plan.end
+                )
+                if ($null -ne $plan.format) {
+                    Set-ParagraphFormatPatch -Range $blockRange -Patch $plan.format
+                }
+                $paragraph = $blockRange.Paragraphs.Item(1)
+                $paragraph.OutlineLevel = if ($plan.kind -eq 'heading') { [int]$plan.level } else { 10 }
+            }
+            finally {
+                Release-ComReference -Value $paragraph
+                Release-ComReference -Value $blockRange
+            }
+        }
+    }
+
+    $insertedEnd = $position + $insertedText.Length
+    $readBack = $null
+    try {
+        $readBack = $script:Document.Range($position, $insertedEnd)
+        if ([string]$readBack.Text -ne $insertedText) {
+            throw [ContentVerificationException]::new('The inserted text did not read back exactly.')
+        }
+    }
+    finally {
+        Release-ComReference -Value $readBack
+    }
+    foreach ($plan in $runPlans) {
+        if ($plan.end -le $plan.start -or $null -eq $plan.format) { continue }
+        $runRange = $null
+        try {
+            $runRange = $script:Document.Range(
+                $position + [int]$plan.start,
+                $position + [int]$plan.end
+            )
+            Assert-TextFormatPatch -Range $runRange -Patch $plan.format
+        }
+        finally {
+            Release-ComReference -Value $runRange
+        }
+    }
+    if ($paragraphBlocks) {
+        foreach ($plan in $blockPlans) {
+            $blockRange = $null
+            $paragraph = $null
+            try {
+                $blockRange = $script:Document.Range(
+                    $position + [int]$plan.start,
+                    $position + [int]$plan.end
+                )
+                $paragraph = $blockRange.Paragraphs.Item(1)
+                $observedLevel = [int]$paragraph.OutlineLevel
+                $expectedLevel = if ($plan.kind -eq 'heading') { [int]$plan.level } else { 10 }
+                if ($observedLevel -ne $expectedLevel) {
+                    throw [ContentVerificationException]::new('The inserted semantic paragraph kind did not read back exactly.')
+                }
+                if ($null -ne $plan.format) {
+                    Assert-ParagraphFormatPatch -Range $blockRange -Patch $plan.format
+                }
+            }
+            finally {
+                Release-ComReference -Value $paragraph
+                Release-ComReference -Value $blockRange
+            }
+        }
+    }
+
+    $afterFingerprint = Get-DocumentFingerprint
+    if ($afterFingerprint -eq $beforeFingerprint) {
+        throw [ContentVerificationException]::new('The write did not change the document revision.')
+    }
+    $script:Fingerprint = $afterFingerprint
+    $script:Revision = New-ContentRevision
+    return [ordered]@{
+        revisionBefore = $revisionBefore
+        revisionAfter = $script:Revision
+        range = New-RangeValue -Start $position -End $insertedEnd
+    }
+}
+
+function Invoke-PrepareExistingDocument {
+    param([Parameter(Mandatory = $true)]$Arguments)
+
+    if ($null -ne $script:Document -or $null -ne $script:CoordinationMutex) {
+        throw 'The bridge is already bound or coordinated.'
+    }
+    $path = [string]$Arguments.path
+    if (
+        [string]::IsNullOrEmpty($path) -or
+        -not [IO.Path]::IsPathRooted($path) -or
+        -not $path.EndsWith('.docx', [StringComparison]::OrdinalIgnoreCase)
+    ) {
+        throw 'The document path must be an absolute .docx path.'
+    }
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw [IO.FileNotFoundException]::new('The document does not exist.', $path)
+    }
+    $canonicalPath = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $path).Path)
+    $file = Get-Item -LiteralPath $canonicalPath
+    if ($file.Length -lt 1) {
+        throw 'The document artifact is empty.'
+    }
+    $script:PreparationId = 'preparation-' + [guid]::NewGuid().ToString('N')
+    $script:PreparedIdentity = Get-StableFileIdentity -Path $canonicalPath
+    $script:PreparedPath = $path
+    $script:PreparedCanonicalPath = $canonicalPath
+    $script:PreparedLocator = Get-NormalizedFileLocator $canonicalPath
+    return [ordered]@{
+        preparationId = $script:PreparationId
+        coordinationIdentity = $script:PreparedIdentity
+    }
+}
+
+function Invoke-PrepareNewDocument {
+    if ($null -ne $script:Document -or $null -ne $script:CoordinationMutex) {
+        throw 'The bridge is already bound or coordinated.'
+    }
+    $script:PreparationId = 'preparation-' + [guid]::NewGuid().ToString('N')
+    $script:PreparedIdentity = 'new-' + [guid]::NewGuid().ToString('N')
+    $script:PreparedPath = $null
+    $script:PreparedCanonicalPath = $null
+    $script:PreparedLocator = $null
+    $script:BoundFileIdentity = $null
+    return [ordered]@{
+        preparationId = $script:PreparationId
+        coordinationIdentity = $script:PreparedIdentity
+    }
+}
+
+function Invoke-AcquireExistingDocument {
+    param([Parameter(Mandatory = $true)]$Arguments)
+
+    if ($null -ne $script:Document) {
+        throw 'The bridge is already bound.'
+    }
+    if (
+        [string]$Arguments.preparationId -ne $script:PreparationId -or
+        $null -eq $script:CoordinationMutex
+    ) {
+        throw 'The document was not prepared and guarded.'
+    }
+    $path = $script:PreparedPath
+    $canonicalPath = $script:PreparedCanonicalPath
+    if ((Get-StableFileIdentity -Path $canonicalPath) -ne $script:PreparedIdentity) {
+        throw 'The document file identity changed after preparation.'
+    }
+    $file = Get-Item -LiteralPath $canonicalPath
+    if ($file.Length -lt 1) {
+        throw 'The document artifact is empty.'
+    }
+
+    $applicationCreated = Connect-WpsApplication
+    # WPS COM activation can create a hidden application even in an
+    # interactive Windows session. Establish is user-facing: reveal the
+    # application, then activate only the exact document selected below.
+    $matches = @()
+    for ($index = 1; $index -le [int]$script:Documents.Count; $index++) {
+        $candidate = $script:Documents.Item($index)
+        try {
+            if (-not [string]::IsNullOrEmpty([string]$candidate.Path)) {
+                $candidatePath = [IO.Path]::GetFullPath([string]$candidate.FullName)
+                if ((Get-StableFileIdentity -Path $candidatePath) -eq $script:PreparedIdentity) {
+                    $matches += $candidate
+                    $candidate = $null
+                }
+            }
+        }
+        finally {
+            Release-ComReference -Value $candidate
+        }
+    }
+    if ($matches.Count -gt 1) {
+        foreach ($match in $matches) {
+            Release-ComReference -Value $match
+        }
+        throw 'More than one live document claims the requested file.'
+    }
+    if ($matches.Count -eq 1) {
+        $script:Document = $matches[0]
+    }
+    else {
+        $script:Document = $script:Documents.Open($canonicalPath)
+    }
+
+    $actualPath = [IO.Path]::GetFullPath([string]$script:Document.FullName)
+    if ((Get-StableFileIdentity -Path $actualPath) -ne $script:PreparedIdentity) {
+        throw 'WPS returned a different document than the requested file.'
+    }
+    Show-BoundDocument -UseNormalWindowState $applicationCreated
+    $script:DocumentId = 'document-' + [guid]::NewGuid().ToString('N')
+    $script:AuthorizedPath = $path
+    $script:BoundFileIdentity = Get-StableFileIdentity $actualPath
+    $script:Revision = New-ContentRevision
+    $script:Fingerprint = Get-DocumentFingerprint
+
+    return [ordered]@{
+        documentId = $script:DocumentId
+        revision = $script:Revision
+        persistenceState = Get-DocumentPersistenceState
+        readOnly = [bool]$script:Document.ReadOnly
+        artifactFormat = 'docx'
+        artifactSizeBytes = [long]$file.Length
+    }
+}
+
+function Invoke-AcquireNewDocument {
+    param([Parameter(Mandatory = $true)]$Arguments)
+
+    if ($null -ne $script:Document) {
+        throw 'The bridge is already bound.'
+    }
+    if (
+        [string]$Arguments.preparationId -ne $script:PreparationId -or
+        $null -eq $script:CoordinationMutex
+    ) {
+        throw 'The new document was not prepared and guarded.'
+    }
+    $applicationCreated = Connect-WpsApplication
+    $script:Document = $script:Documents.Add()
+    $script:UnsavedName = [string]$script:Document.Name
+    Show-BoundDocument -UseNormalWindowState $applicationCreated
+    $script:DocumentId = 'document-' + [guid]::NewGuid().ToString('N')
+    $script:Revision = New-ContentRevision
+    $script:Fingerprint = Get-DocumentFingerprint
+    return [ordered]@{
+        documentId = $script:DocumentId
+        revision = $script:Revision
+        persistenceState = 'unsaved'
+        readOnly = $false
+    }
+}
+
+function Invoke-InspectDocument {
+    param([Parameter(Mandatory = $true)]$Arguments)
+
+    Assert-BoundDocument -DocumentId ([string]$Arguments.documentId)
+    $operationArguments = $Arguments.operationArguments
+    $before = Sync-ContentRevision
+    $scope = Resolve-BodyScope -Scope $operationArguments.scope
+    $scopeStart = [int]$scope[0]
+    $scopeEnd = [int]$scope[1]
+    $maxText = [int]$operationArguments.limits.maxTextCharacters
+    $maxParagraphs = [int]$operationArguments.limits.maxParagraphs
+    $maxRuns = [int]$operationArguments.limits.maxRuns
+    $returnedEnd = [Math]::Min($scopeEnd, $scopeStart + $maxText)
+    if ($returnedEnd -gt $scopeStart) {
+        $probe = $script:Document.Range($scopeStart, $returnedEnd)
+        try {
+            $textProbe = [string]$probe.Text
+            if (
+                $textProbe.Length -gt 0 -and
+                [char]::IsHighSurrogate($textProbe[$textProbe.Length - 1])
+            ) {
+                $returnedEnd--
+            }
+        }
+        finally {
+            Release-ComReference -Value $probe
+        }
+    }
+    $paragraphResult = Get-ParagraphSnapshots `
+        -ScopeStart $scopeStart `
+        -ScopeEnd $scopeEnd `
+        -ReturnedEnd $returnedEnd `
+        -MaxParagraphs $maxParagraphs `
+        -MaxRuns $maxRuns
+    $returnedEnd = [int]$paragraphResult.returnedEnd
+    $paragraphs = @($paragraphResult.paragraphs)
+    $bodyRange = $script:Document.Range($scopeStart, $returnedEnd)
+    try {
+        $text = Normalize-WordText -Text ([string]$bodyRange.Text)
+    }
+    finally {
+        Release-ComReference -Value $bodyRange
+    }
+
+    $sections = @(Get-SectionSnapshots)
+    $headingCount = Get-DocumentHeadingCount
+    $completeText = $null
+    $completeRange = $script:Document.Content
+    try {
+        $completeText = [string]$completeRange.Text
+    }
+    finally {
+        Release-ComReference -Value $completeRange
+    }
+    $after = Get-DocumentFingerprint
+    if ($before -ne $after) {
+        throw 'The document changed while it was being inspected.'
+    }
+
+    $truncated = $returnedEnd -lt $scopeEnd
+    return [ordered]@{
+        revision = $script:Revision
+        scopeRange = New-RangeValue -Start $scopeStart -End $scopeEnd
+        returnedRange = New-RangeValue -Start $scopeStart -End $returnedEnd
+        text = $text
+        paragraphs = $paragraphs
+        structure = [ordered]@{
+            paragraphCount = [int]$script:Document.Paragraphs.Count
+            headingCount = $headingCount
+            tableCount = [int]$script:Document.Tables.Count
+            inlineImageCount = [int]$script:Document.InlineShapes.Count
+            floatingImageCount = [int]$script:Document.Shapes.Count
+            sectionCount = $sections.Count
+            pageBreakCount = ([regex]::Matches($completeText, "`f")).Count
+            sectionBreakCount = [Math]::Max(0, $sections.Count - 1)
+            sections = $sections
+        }
+        documentState = [ordered]@{
+            persistenceState = Get-DocumentPersistenceState
+            readOnly = [bool]$script:Document.ReadOnly
+        }
+        truncated = $truncated
+        remainingRange = if ($truncated) {
+            New-RangeValue -Start $returnedEnd -End $scopeEnd
+        }
+        else {
+            $null
+        }
+    }
+}
+
+function Invoke-SaveDocument {
+    param([Parameter(Mandatory = $true)]$Arguments)
+
+    Assert-BoundDocument -DocumentId ([string]$Arguments.documentId)
+    if ([string]::IsNullOrEmpty($script:AuthorizedPath)) {
+        throw [PersistenceLocatorRequiredException]::new(
+            'The bound document has no persistence locator.'
+        )
+    }
+    if ([bool]$script:Document.ReadOnly) {
+        throw [UnauthorizedAccessException]::new('The bound document is read-only.')
+    }
+    $authorizedPath = [string]$Arguments.authorizedPath
+    if ($authorizedPath -ne $script:AuthorizedPath) {
+        throw 'The save locator does not match the bound document.'
+    }
+    $actual = [IO.Path]::GetFullPath([string]$script:Document.FullName)
+    if ((Get-NormalizedFileLocator $actual) -cne $script:PreparedLocator) {
+        throw 'The bound document no longer has its established locator.'
+    }
+
+    $before = Sync-ContentRevision
+    $revision = $script:Revision
+    Assert-WordPersistenceBinding
+    $script:Document.Save()
+    $identity=Get-StableFileIdentity $actual
+    Add-CoordinationFence -Identity $identity
+    $script:BoundFileIdentity=$identity
+    Assert-WordPersistenceBinding
+    $after = Get-DocumentFingerprint
+    if ($before -ne $after) {
+        throw 'The document content changed while it was being saved.'
+    }
+    if (-not [bool]$script:Document.Saved) {
+        throw 'WPS did not report the document as saved.'
+    }
+    $file = Get-Item -LiteralPath $actual
+    if ($file.Length -lt 1) {
+        throw 'The saved document artifact is empty.'
+    }
+    return [ordered]@{
+        revisionBefore = $revision
+        revisionAfter = $revision
+        artifact = [ordered]@{
+            path = $script:AuthorizedPath
+            format = 'docx'
+            sizeBytes = [long]$file.Length
+        }
+        documentState = [ordered]@{
+            persistenceState = 'saved'
+            readOnly = [bool]$script:Document.ReadOnly
+        }
+    }
+}
+
+$wordActionsPath = Join-Path $PSScriptRoot 'word_actions.ps1'
+if (-not (Test-Path -LiteralPath $wordActionsPath -PathType Leaf)) {
+    throw 'The Word Action implementation resource is missing.'
+}
+. $wordActionsPath
+
+
+function Assert-WordPersistenceBinding {
+    if ([string]::IsNullOrEmpty($script:AuthorizedPath)) {
+        if (-not [string]::IsNullOrEmpty([string]$script:Document.Path) -or [string]$script:Document.Name -cne $script:UnsavedName) { throw 'The new document was saved outside this Task.' }
+    } else {
+        $actual=[IO.Path]::GetFullPath([string]$script:Document.FullName)
+        if ((Get-NormalizedFileLocator $actual) -cne $script:PreparedLocator -or (Get-StableFileIdentity $actual) -cne $script:BoundFileIdentity) { throw 'The document backing identity changed outside this Task.' }
+    }
+}
+
+function Invoke-WordSaveAs {
+    param($Arguments)
+    Assert-BoundDocument -DocumentId $Arguments.documentId
+    Assert-WordPersistenceBinding
+    if ([bool]$script:Document.ReadOnly) { throw [PersistenceActionException]::new('DOCUMENT_READ_ONLY','The document is read-only.') }
+    $params=$Arguments.operationArguments
+    Assert-SaveAsNames $params.outputPath
+    $before=Sync-ContentRevision
+    $revision=$script:Revision
+    $reservation=$null
+    try {
+        $reservation=New-OutputReservation -Path $params.outputPath -Extension '.docx' -ReserveFile
+        $alerts=$script:Application.DisplayAlerts
+        try {
+            $script:Application.DisplayAlerts=0
+            $script:SaveAsStarted=$true
+            $script:Document.SaveAs($reservation.path,16)|Out-Null
+        } finally { $script:Application.DisplayAlerts=$alerts }
+        $size=Complete-SaveAsBinding $reservation $params.outputPath
+        if ((Get-DocumentFingerprint) -cne $before) { throw [PersistenceActionException]::new('OUTPUT_VERIFICATION_FAILED','Observed Word content changed during Save As.') }
+        if ([int]$script:Document.SaveFormat -notin @(12,16)) { throw [PersistenceActionException]::new('OUTPUT_VERIFICATION_FAILED','Expected ordinary DOCX format.') }
+        return [ordered]@{revisionBefore=$revision;revisionAfter=$revision;artifact=[ordered]@{path=[string]$params.outputPath;format='docx';sizeBytes=$size};documentState=[ordered]@{persistenceState='saved';readOnly=[bool]$script:Document.ReadOnly};replacedExisting=$false}
+    } finally {
+        if($null -ne $reservation) {
+            if(-not $script:SaveAsStarted -and [IO.File]::Exists($reservation.path) -and (Get-StableFileIdentity $reservation.path) -eq $reservation.identity){[IO.File]::Delete($reservation.path)}
+            $reservation.handle.Dispose()
+        }
+    }
+}
+
+function Invoke-BridgeOperation {
+    param(
+        [Parameter(Mandatory = $true)][string]$RequestId,
+        [Parameter(Mandatory = $true)][string]$Operation,
+        [Parameter(Mandatory = $true)]$Arguments
+    )
+
+    try {
+        switch ($Operation) {
+            'prepare_existing_document' {
+                try {
+                    $data = Invoke-PrepareExistingDocument -Arguments $Arguments
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [IO.FileNotFoundException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_NOT_FOUND' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [UnauthorizedAccessException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_ACCESS_DENIED' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_OPEN_FAILED' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+            }
+            'prepare_new_document' {
+                try {
+                    $data = Invoke-PrepareNewDocument
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_CREATE_FAILED' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+            }
+            'acquire_coordination_guard' {
+                try {
+                    if ($script:PreparedLocator) { Add-CoordinationFence -Identity ('locator-'+$script:PreparedLocator) }
+                    $data = Invoke-AcquireCoordinationGuard -Arguments $Arguments
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [DocumentLeaseConflictException] {
+                    Release-AdditionalFences -Clean $true
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_LEASE_CONFLICT' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [DocumentQuarantinedException] {
+                    Release-AdditionalFences -Clean $true
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_QUARANTINED' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'DOCUMENT_BINDING_UNAVAILABLE' -Message $_.Exception.Message -BindingDisposition unprovable
+                }
+            }
+            'commit_document_lease' {
+                try {
+                    $data = Invoke-CommitDocumentLease -Arguments $Arguments
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'DOCUMENT_BINDING_UNAVAILABLE' -Message $_.Exception.Message -BindingDisposition unprovable
+                }
+            }
+            'release_document_resources' {
+                try {
+                    $data = Invoke-ReleaseDocumentResources -Arguments $Arguments
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'DOCUMENT_BINDING_UNAVAILABLE' -Message $_.Exception.Message -BindingDisposition unprovable
+                }
+            }
+            'acquire_existing_document' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-AcquireExistingDocument -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [IO.FileNotFoundException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_NOT_FOUND' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'DOCUMENT_OPEN_FAILED' -Message $_.Exception.Message -BindingDisposition unprovable
+                }
+            }
+            'acquire_new_document' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-AcquireNewDocument -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'DOCUMENT_CREATE_FAILED' -Message $_.Exception.Message -BindingDisposition unprovable
+                }
+            }
+            'probe_bound_document' {
+                $live = Invoke-CoordinatedWpsCall {
+                    return (
+                        [string]$Arguments.documentId -eq $script:DocumentId -and
+                        (Test-BoundDocumentLive)
+                    )
+                }
+                return New-SuccessRecord -RequestId $RequestId -Data ([ordered]@{ live = $live })
+            }
+            'insert_structured_body_content' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-WriteContent -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_CONTENT_RANGE' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [ContentAnchorBoundaryException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'CONTENT_ANCHOR_NOT_PARAGRAPH_BOUNDARY' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [UnauthorizedAccessException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_READ_ONLY' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [ContentVerificationException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'CONTENT_VERIFICATION_FAILED' -Message $_.Exception.Message -BindingDisposition unprovable
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'CONTENT_WRITE_FAILED' -Message $_.Exception.Message -BindingDisposition unprovable
+                }
+            }
+            'read_revision_coherent_snapshot' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-InspectDocument -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_DOCUMENT_REVISION' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'CONTENT_READ_FAILED' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+            }
+            'find_literal_body_content' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-FindContent -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_CONTENT_RANGE' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-WordOperationFailureRecord `
+                        -RequestId $RequestId `
+                        -ErrorRecord $_ `
+                        -DefaultCode 'CONTENT_READ_FAILED' `
+                        -DefaultOutcome failed `
+                        -DefaultBindingDisposition unchanged
+                }
+            }
+            'replace_body_content' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-ReplaceContent -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_CONTENT_RANGE' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-WordOperationFailureRecord `
+                        -RequestId $RequestId `
+                        -ErrorRecord $_ `
+                        -DefaultCode 'CONTENT_WRITE_FAILED' `
+                        -DefaultOutcome unknown `
+                        -DefaultBindingDisposition unprovable
+                }
+            }
+            'insert_plain_text_table' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-InsertTable -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_CONTENT_RANGE' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [ContentAnchorBoundaryException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'CONTENT_ANCHOR_NOT_PARAGRAPH_BOUNDARY' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-WordOperationFailureRecord `
+                        -RequestId $RequestId `
+                        -ErrorRecord $_ `
+                        -DefaultCode 'TABLE_APPLY_FAILED' `
+                        -DefaultOutcome unknown `
+                        -DefaultBindingDisposition unprovable
+                }
+            }
+            'insert_embedded_image' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-InsertImage -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_CONTENT_RANGE' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [ContentAnchorBoundaryException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'CONTENT_ANCHOR_NOT_PARAGRAPH_BOUNDARY' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-WordOperationFailureRecord `
+                        -RequestId $RequestId `
+                        -ErrorRecord $_ `
+                        -DefaultCode 'IMAGE_APPLY_FAILED' `
+                        -DefaultOutcome unknown `
+                        -DefaultBindingDisposition unprovable
+                }
+            }
+            'update_header_footer_stories' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-SetHeaderFooter -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_DOCUMENT_REVISION' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-WordOperationFailureRecord `
+                        -RequestId $RequestId `
+                        -ErrorRecord $_ `
+                        -DefaultCode 'HEADER_FOOTER_APPLY_FAILED' `
+                        -DefaultOutcome unknown `
+                        -DefaultBindingDisposition unprovable
+                }
+            }
+            'update_page_layout' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-SetPageLayout -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_DOCUMENT_REVISION' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-WordOperationFailureRecord `
+                        -RequestId $RequestId `
+                        -ErrorRecord $_ `
+                        -DefaultCode 'PAGE_LAYOUT_APPLY_FAILED' `
+                        -DefaultOutcome unknown `
+                        -DefaultBindingDisposition unprovable
+                }
+            }
+            'insert_body_break' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-InsertBreak -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [StaleDocumentRevisionException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'STALE_CONTENT_RANGE' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [ContentAnchorBoundaryException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'CONTENT_ANCHOR_NOT_PARAGRAPH_BOUNDARY' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-WordOperationFailureRecord `
+                        -RequestId $RequestId `
+                        -ErrorRecord $_ `
+                        -DefaultCode 'BREAK_APPLY_FAILED' `
+                        -DefaultOutcome unknown `
+                        -DefaultBindingDisposition unprovable
+                }
+            }
+            'save_as_artifact' {
+                $script:SaveAsStarted=$false
+                try {
+                    $data=Invoke-CoordinatedWpsCall { Invoke-WordSaveAs $Arguments }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                } catch {
+                    $code='OUTPUT_WRITE_FAILED';$outcome='failed';$binding='unchanged'
+                    if($_.Exception -is [PersistenceActionException]){$code=$_.Exception.Code}
+                    elseif($_.Exception -is [DocumentLeaseConflictException]){$code='DOCUMENT_LEASE_CONFLICT'}
+                    elseif($_.Exception -is [DocumentQuarantinedException]){$code='DOCUMENT_QUARANTINED'}
+                    elseif($_.Exception -is [UnauthorizedAccessException]){$code='OUTPUT_ACCESS_DENIED'}
+                    if($script:SaveAsStarted){$outcome='unknown';$binding='unprovable'}
+                    return New-FailureRecord -RequestId $RequestId -Outcome $outcome -Code $code -Message $_.Exception.Message -BindingDisposition $binding
+                }
+            }
+            'save_existing_artifact' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-SaveDocument -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch [PersistenceLocatorRequiredException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'PERSISTENCE_LOCATOR_REQUIRED' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch [UnauthorizedAccessException] {
+                    return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'DOCUMENT_READ_ONLY' -Message $_.Exception.Message -BindingDisposition unchanged
+                }
+                catch {
+                    return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'OUTPUT_WRITE_FAILED' -Message $_.Exception.Message -BindingDisposition unprovable
+                }
+            }
+            'export_pdf_artifact' {
+                try {
+                    $data = Invoke-CoordinatedWpsCall {
+                        Invoke-ExportPdf -Arguments $Arguments
+                    }
+                    return New-SuccessRecord -RequestId $RequestId -Data $data
+                }
+                catch {
+                    return New-WordOperationFailureRecord `
+                        -RequestId $RequestId `
+                        -ErrorRecord $_ `
+                        -DefaultCode 'OUTPUT_WRITE_FAILED' `
+                        -DefaultOutcome unknown `
+                        -DefaultBindingDisposition unchanged
+                }
+            }
+            default {
+                return New-FailureRecord -RequestId $RequestId -Outcome failed -Code 'WORD_CAPABILITY_UNAVAILABLE' -Message 'The Word bridge operation is not implemented.' -BindingDisposition unchanged
+            }
+        }
+    }
+    catch {
+        return New-FailureRecord -RequestId $RequestId -Outcome unknown -Code 'RESPONSE_LOST' -Message $_.Exception.Message -BindingDisposition unprovable
+    }
+}
+
+. (Join-Path $PSScriptRoot 'word_timing.ps1')
+. (Join-Path $PSScriptRoot '../../windows/bridge_loop.ps1')

@@ -1,0 +1,1 @@
+{"type":"object","properties":{"start":{"type":"integer","minimum":0},"end":{"type":"integer","minimum":0},"revision":{"type":"string","minLength":1,"maxLength":128}},"required":["start","end","revision"],"additionalProperties":false,"x-strictOrdered":["start","end"]}

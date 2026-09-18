@@ -1,0 +1,1 @@
+{"type":"object","properties":{"kind":{"const":"heading"},"level":{"type":"integer","minimum":1,"maximum":9},"runs":{"$ref":"#/$defs/TEXT_RUNS"},"format":{"$ref":"#/$defs/PARAGRAPH_FORMAT_PATCH"}},"required":["kind","level","runs"],"additionalProperties":false}

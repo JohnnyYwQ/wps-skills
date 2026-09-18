@@ -1,0 +1,1 @@
+{"type":"array","items":{"$ref":"#/$defs/TEXT_RUN"},"minItems":1,"maxItems":128,"x-maxUtf16Text":262144}

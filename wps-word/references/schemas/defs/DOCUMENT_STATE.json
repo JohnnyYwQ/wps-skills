@@ -1,0 +1,1 @@
+{"type":"object","properties":{"persistenceState":{"type":"string","minLength":0,"enum":["unsaved","saved","modified"]},"readOnly":{"type":"boolean"}},"required":["persistenceState","readOnly"],"additionalProperties":false}

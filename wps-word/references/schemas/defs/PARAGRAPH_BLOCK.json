@@ -1,0 +1,1 @@
+{"type":"object","properties":{"kind":{"const":"paragraph"},"runs":{"type":"array","items":{"$ref":"#/$defs/TEXT_RUN"},"minItems":0,"maxItems":128,"x-maxUtf16Text":262144},"format":{"$ref":"#/$defs/PARAGRAPH_FORMAT_PATCH"}},"required":["kind","runs"],"additionalProperties":false}

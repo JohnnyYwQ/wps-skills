@@ -1,0 +1,1 @@
+{"type":"object","properties":{"orientation":{"type":"string","minLength":0,"enum":["portrait","landscape"]},"margins":{"$ref":"#/$defs/MARGINS_SNAPSHOT"}},"required":["orientation","margins"],"additionalProperties":false}

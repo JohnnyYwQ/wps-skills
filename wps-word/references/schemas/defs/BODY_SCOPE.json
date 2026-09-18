@@ -1,0 +1,1 @@
+{"oneOf":[{"type":"object","properties":{"kind":{"const":"document"}},"required":["kind"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"range"},"range":{"$ref":"#/$defs/CONTENT_RANGE"}},"required":["kind","range"],"additionalProperties":false}]}

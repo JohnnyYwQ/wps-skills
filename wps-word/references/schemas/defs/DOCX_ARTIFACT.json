@@ -1,0 +1,1 @@
+{"type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":4096,"format":"absoluteDocxPath"},"format":{"const":"docx"},"sizeBytes":{"type":"integer","minimum":1}},"required":["path","format","sizeBytes"],"additionalProperties":false}

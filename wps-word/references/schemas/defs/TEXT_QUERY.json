@@ -1,0 +1,1 @@
+{"type":"object","properties":{"scope":{"$ref":"#/$defs/BODY_SCOPE"},"text":{"type":"string","minLength":1,"maxLength":4096,"format":"wordQueryText"},"caseSensitive":{"type":"boolean"},"wholeWord":{"type":"boolean"}},"required":["scope","text","caseSensitive","wholeWord"],"additionalProperties":false}
