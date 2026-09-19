@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repository entry point for the WPS Session Host."""
+"""Repository entry point for Task submission, receipts and Action discovery."""
 
 from pathlib import Path
 import sys

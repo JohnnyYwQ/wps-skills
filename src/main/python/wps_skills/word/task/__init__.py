@@ -1,0 +1,1 @@
+"""Word task package."""

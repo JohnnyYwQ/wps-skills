@@ -5,7 +5,17 @@
 # ============================================
 # 私有资料 (不同步到GitHub)
 # ============================================
-docs/
+# 独立设计实验仅在本地保留，不提交
+/experiments/
+/docs/*
+!/docs/README.md
+!/docs/build-layout.md
+!/docs/reports/
+!/docs/testing/
+!/docs/notes/
+/docs/notes/*
+!/docs/notes/PROJECTION_DECISION.md
+!/docs/notes/decision.md
 WPS接口API/
 planplan.md
 CONTEXT.md

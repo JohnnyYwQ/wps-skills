@@ -1,4 +1,4 @@
-"""Best-effort JSONL timing traces for Action Sessions and Actions."""
+"""Best-effort JSONL timing traces for Tasks and Actions."""
 
 from datetime import datetime, timezone
 import json
@@ -10,7 +10,7 @@ import threading
 from typing import Callable, Optional
 import uuid
 
-from wps_skills.core.action_session import TraceContext
+from wps_skills.core.action_runtime import TraceContext
 
 
 _SAFE_FILE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
@@ -66,7 +66,8 @@ class JsonlTraceJournal:
         self._write_lock = threading.Lock()
         if self._root is not None:
             try:
-                (self._root / "sessions").mkdir(parents=True, exist_ok=True)
+                (self._root / "requests").mkdir(parents=True, exist_ok=True)
+                (self._root / "tasks").mkdir(parents=True, exist_ok=True)
                 (self._root / "actions").mkdir(parents=True, exist_ok=True)
             except OSError:
                 self._root = None
@@ -82,14 +83,6 @@ class JsonlTraceJournal:
     @property
     def available(self) -> bool:
         return self._root is not None
-
-    def session_log(self, *, application: str, session_id: str):
-        del application
-        if self._root is None:
-            return None
-        return self._root / "sessions" / (
-            f"{_safe_file_name(session_id)}.jsonl"
-        )
 
     def _write(self, path: Optional[Path], row) -> bool:
         if path is None:
@@ -118,50 +111,20 @@ class JsonlTraceJournal:
         except (OSError, TypeError, ValueError):
             return False
 
-    def session_event(
-        self,
-        *,
-        application: str,
-        session_id: str,
-        event: str,
-        **fields,
-    ) -> bool:
-        return self._write(
-            self.session_log(
-                application=application,
-                session_id=session_id,
-            ),
-            {
-                "event": event,
-                "component": "session_host",
-                "sessionId": session_id,
-                "app": application,
-                **fields,
-            },
-        )
+    def task_event(self, *, task_id, event, application="word", **fields):
+        path = None if self._root is None else self._root / "tasks" / (_safe_file_name(task_id) + ".jsonl")
+        return self._write(path, {"event": event, "component": "task", "taskId": task_id,
+                                  "app": application, **fields})
 
-    def action_trace(self, *, application: str, session_id: str):
+    def task_action_trace(self, *, task_id, application="word"):
         trace_id = self._trace_id_factory()
-        path = (
-            None
-            if self._root is None
-            else self._root / "actions" / (
-                f"{_safe_file_name(trace_id)}.jsonl"
-            )
-        )
+        path = None if self._root is None else self._root / "actions" / (_safe_file_name(trace_id) + ".jsonl")
+        def emit(event, **fields):
+            self._write(path, {"event": event, "component": "action", "traceId": trace_id,
+                               "taskId": task_id, "app": application, **fields})
+        return TraceContext(trace_id=trace_id, trace_log=path, event_sink=emit)
 
-        def emit(event: str, **fields) -> None:
-            self._write(path, {
-                "event": event,
-                "component": "action",
-                "traceId": trace_id,
-                "sessionId": session_id,
-                "app": application,
-                **fields,
-            })
-
-        return TraceContext(
-            trace_id=trace_id,
-            trace_log=path,
-            event_sink=emit,
-        )
+    def request_event(self, *, request_id, event, application="word", **fields):
+        path = None if self._root is None else self._root / "requests" / (_safe_file_name(request_id) + ".jsonl")
+        return self._write(path, {"event": event, "component": application + "_timing", "requestId": request_id,
+                                  "app": application, **fields})

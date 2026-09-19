@@ -1,0 +1,1 @@
+{"type":"object","properties":{"text":{"type":"string","minLength":1,"maxLength":32768,"format":"wordRunText","x-maxUtf16Length":32768},"format":{"$ref":"#/$defs/TEXT_FORMAT_PATCH"}},"required":["text"],"additionalProperties":false}

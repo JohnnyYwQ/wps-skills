@@ -1,0 +1,1 @@
+{"type":"object","properties":{"mediaType":{"type":"string","minLength":0,"enum":["image/png","image/jpeg"]},"byteLength":{"type":"integer","minimum":1,"maximum":26214400},"sha256":{"type":"string","minLength":0,"pattern":"^[0-9a-f]{64}$"}},"required":["mediaType","byteLength","sha256"],"additionalProperties":false}

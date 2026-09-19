@@ -20,7 +20,7 @@ jobs:
           - ubuntu-latest
           - windows-latest
         python-version:
-          - "3.8"
+          - "3.10"
           - "3.13"
     steps:
       - name: Check out repository
@@ -31,8 +31,62 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Compile Python sources and script entries
+        run: python -m compileall -q src/main/python src/test/python scripts
+
       - name: Run non-WPS checks
         env:
           PYTHONPATH: src/main/python
           PYTHONUTF8: "1"
         run: python -m unittest discover -s src/test/python -p "test_*.py"
+
+      # Parse with the same Windows PowerShell edition used by the runtime.
+      # Parsing does not execute scripts, activate COM or open WPS documents.
+      - name: Check Windows PowerShell syntax
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $files = @(Get-ChildItem -Path scripts,src/main,src/test -Filter *.ps1 -File -Recurse)
+          if ($files.Count -eq 0) { throw 'No PowerShell sources found.' }
+          $failed = $false
+          foreach ($file in $files) {
+              $tokens = $null
+              $parseErrors = $null
+              $text = [IO.File]::ReadAllText($file.FullName)
+              $null = [Management.Automation.Language.Parser]::ParseInput(
+                  $text, $file.FullName, [ref]$tokens, [ref]$parseErrors)
+              foreach ($problem in $parseErrors) {
+                  Write-Output ('{0}:{1}:{2}: {3}' -f $file.FullName,
+                      $problem.Extent.StartLineNumber, $problem.Extent.StartColumnNumber,
+                      $problem.Message)
+                  $failed = $true
+              }
+          }
+          if ($failed) { throw 'PowerShell syntax check failed.' }
+          Write-Output ('Parsed {0} PowerShell files.' -f $files.Count)
+
+  plugin-package:
+    name: Build installable plugin
+    needs: non-wps-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Build Codex and Claude Code distribution
+        run: python scripts/build/plugin.py
+
+      - name: Upload plugin ZIP and checksum
+        uses: actions/upload-artifact@v7
+        with:
+          name: wps-skills-plugin
+          path: |
+            build/plugins/wps-skills.zip
+            build/plugins/wps-skills.zip.sha256
+          if-no-files-found: error

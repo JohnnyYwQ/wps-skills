@@ -1,0 +1,77 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "bilingual",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "中文字体 English 123，标点 punctuation.",
+                "format": {
+                  "eastAsiaFontFamily": "宋体",
+                  "westernFontFamily": "Times New Roman",
+                  "fontSizePt": 14
+                }
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "中文字体 English 123，标点 punctuation.",
+                "format": {
+                  "eastAsiaFontFamily": "黑体",
+                  "westernFontFamily": "Arial",
+                  "fontSizePt": 14
+                }
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "中文字体 English 123，标点 punctuation.",
+                "format": {
+                  "eastAsiaFontFamily": "楷体",
+                  "westernFontFamily": "Calibri",
+                  "fontSizePt": 14
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-29.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

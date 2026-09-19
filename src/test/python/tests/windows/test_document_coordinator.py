@@ -1,6 +1,6 @@
 import unittest
 
-from wps_skills.core.action_session import (
+from wps_skills.core.action_runtime import (
     ControllerContext,
     DefiniteEstablishFailure,
 )

@@ -75,7 +75,8 @@ function Get-ExcelSnapshot {
             for ($c = 1; $c -le $columnCount; $c++) {
                 $cell = $null; $font = $null; $interior = $null; $entireRow = $null; $entireColumn = $null
                 try {
-                    $cell = $rangeCells.GetType().InvokeMember('Item', [Reflection.BindingFlags]::GetProperty, $null, $rangeCells, [object[]]@($r, $c))
+                    # Reflection InvokeMember adds substantial per-cell dispatch overhead in WPS.
+                    $cell = $rangeCells.Item($r, $c)
                     $font = $cell.Font; $interior = $cell.Interior
                     $entireRow=$cell.EntireRow; $entireColumn=$cell.EntireColumn
                     $value = $cell.Value2
@@ -131,12 +132,32 @@ function Get-ExcelSnapshot {
 }
 
 function Assert-ExcelEditableRectangle {
-    param($Sheet, $Range)
+    param($Sheet, $Range, [switch]$AllowCompleteMergedAreas)
     if ([bool]$script:Document.ReadOnly) { throw [ExcelActionException]::new('DOCUMENT_READ_ONLY', 'The workbook is read-only.') }
     if ([bool]$Sheet.ProtectContents) { throw [ExcelActionException]::new('RANGE_UNSUPPORTED', 'Protected worksheets are outside this milestone.') }
     $merge = $Range.MergeCells; $array = $Range.HasArray
-    if ($null -eq $merge -or [bool]$merge -or $null -eq $array -or [bool]$array) {
+    if ($null -eq $array -or [bool]$array -or ((-not $AllowCompleteMergedAreas) -and ($null -eq $merge -or [bool]$merge))) {
         throw [ExcelActionException]::new('RANGE_UNSUPPORTED', 'Merged and array-formula cells are outside this milestone.')
+    }
+    if ($AllowCompleteMergedAreas -and ($null -eq $merge -or [bool]$merge)) {
+        $cells=$null; $rows=$null; $columns=$null
+        try {
+            $cells=$Range.Cells; $rows=$Range.Rows; $columns=$Range.Columns
+            $top=[int]$Range.Row; $left=[int]$Range.Column
+            $bottom=$top+[int]$rows.Count; $right=$left+[int]$columns.Count
+            foreach ($cell in $cells) {
+                $area=$null; $areaRows=$null; $areaColumns=$null
+                try {
+                    if (-not [bool]$cell.MergeCells) { continue }
+                    $area=$cell.MergeArea; $areaRows=$area.Rows; $areaColumns=$area.Columns
+                    if ([int]$area.Row -lt $top -or [int]$area.Column -lt $left -or
+                        [int]$area.Row+[int]$areaRows.Count -gt $bottom -or
+                        [int]$area.Column+[int]$areaColumns.Count -gt $right) {
+                        throw [ExcelActionException]::new('RANGE_UNSUPPORTED', 'Formatting must include every complete merged area.')
+                    }
+                } finally { Release-ExcelReference $areaColumns; Release-ExcelReference $areaRows; Release-ExcelReference $area; Release-ExcelReference $cell }
+            }
+        } finally { Release-ExcelReference $columns; Release-ExcelReference $rows; Release-ExcelReference $cells }
     }
 }
 
@@ -153,7 +174,7 @@ function Invoke-ExcelRegionAction {
             if ($before.token -cne $again.token) { throw [ExcelActionException]::new('STALE_RANGE', 'The region changed during reading.') }
             return $again
         }
-        Assert-ExcelEditableRectangle -Sheet $sheet -Range $range
+        Assert-ExcelEditableRectangle -Sheet $sheet -Range $range -AllowCompleteMergedAreas:($Operation -eq 'format_rectangle')
         if ([string]$Params.expectedToken -cne $before.token) {
             throw [ExcelActionException]::new('STALE_RANGE', 'Read this exact region again before editing it.')
         }
@@ -161,6 +182,20 @@ function Invoke-ExcelRegionAction {
         if ($Operation -eq 'calculate_rectangle') {
             $script:ActionMayHaveEffect = $true
             $range.Calculate() | Out-Null
+        }
+        elseif ($Operation -eq 'format_rectangle') {
+            Set-ExcelCellStyle -Cell $range -Patch $Params.format
+            if ($null -ne $Params.format.PSObject.Properties['numberFormat']) {
+                $script:ActionMayHaveEffect = $true
+                $range.NumberFormat = [string]$Params.format.numberFormat
+            }
+            if ($null -ne $Params.format.PSObject.Properties['bold']) {
+                $formatFont=$null
+                try {
+                    $formatFont=$range.Font; $script:ActionMayHaveEffect = $true
+                    $formatFont.Bold = [bool]$Params.format.bold
+                } finally { Release-ExcelReference $formatFont }
+            }
         }
         else {
             for ($r = 0; $r -lt $before.cells.Count; $r++) {
@@ -182,18 +217,7 @@ function Invoke-ExcelRegionAction {
                                 $script:ActionMayHaveEffect = $true
                                 $cell.Formula = [string]$Params.formulas[$r][$c]
                             }
-                            'format_rectangle' {
-                                Set-ExcelCellStyle -Cell $cell -Patch $Params.format
-                                if ($null -ne $Params.format.PSObject.Properties['numberFormat']) {
-                                    $script:ActionMayHaveEffect = $true
-                                    $cell.NumberFormat = [string]$Params.format.numberFormat
-                                }
-                                if ($null -ne $Params.format.PSObject.Properties['bold']) {
-                                    $font = $cell.Font
-                                    $script:ActionMayHaveEffect = $true
-                                    $font.Bold = [bool]$Params.format.bold
-                                }
-                            }
+
                         }
                     }
                     finally { Release-ExcelReference -Value $entireRow; Release-ExcelReference -Value $entireColumn; Release-ExcelReference -Value $interior; Release-ExcelReference -Value $font; Release-ExcelReference -Value $cell }

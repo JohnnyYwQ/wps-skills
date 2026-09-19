@@ -1,0 +1,166 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "openDocument"
+    },
+    "params": {
+      "path": "C:/wps-word-advanced/fixtures/advanced-input-25.docx"
+    }
+  },
+  "steps": [
+    {
+      "id": "initial",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "finalize",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "query",
+          "query": {
+            "scope": {
+              "kind": "document"
+            },
+            "text": "草稿",
+            "caseSensitive": true,
+            "wholeWord": false
+          },
+          "expectedMatchCount": 1
+        },
+        "replacement": {
+          "kind": "text",
+          "runs": [
+            {
+              "text": "定稿"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "append",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "复核完成"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "for_layout",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "appendix_layout",
+      "address": {
+        "app": "word",
+        "action": "setPageLayout"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            1
+          ],
+          "revision": {
+            "$ref": {
+              "step": "for_layout",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "layout": {
+          "orientation": "landscape",
+          "margins": {
+            "top": {
+              "value": 54,
+              "unit": "pt"
+            },
+            "right": {
+              "value": 54,
+              "unit": "pt"
+            },
+            "bottom": {
+              "value": 54,
+              "unit": "pt"
+            },
+            "left": {
+              "value": 54,
+              "unit": "pt"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-25.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    },
+    {
+      "address": {
+        "app": "word",
+        "action": "exportPdf"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-25.pdf",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

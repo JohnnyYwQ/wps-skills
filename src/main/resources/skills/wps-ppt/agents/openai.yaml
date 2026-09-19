@@ -1,3 +1,4 @@
 interface:
   display_name: "WPS PPT"
-  short_description: "在 Windows WPS 中新建或编辑 PPT，验证、保存、另存为和导出 PDF／PNG"
+  short_description: "在 Windows WPS 中创建编辑PPT文档，按任务回执报告保存与导出结果"
+  default_prompt: "使用 $wps-ppt 完成这个PPT任务，并说明完成情况和实际文件路径。"

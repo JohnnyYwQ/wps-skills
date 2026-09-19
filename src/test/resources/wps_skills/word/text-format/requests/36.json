@@ -1,0 +1,171 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "seed",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "保留开头",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "旧说明 ",
+                "format": {
+                  "fontSizePt": 10,
+                  "italic": true
+                }
+              },
+              {
+                "text": "Old description",
+                "format": {
+                  "fontSizePt": 18,
+                  "bold": true
+                }
+              }
+            ],
+            "format": {
+              "alignment": "right"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "保留结尾",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "locate",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "replace_para",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "range",
+          "range": {
+            "$ref": {
+              "step": "locate",
+              "path": [
+                "data",
+                "paragraphs",
+                1,
+                "range"
+              ]
+            }
+          }
+        },
+        "replacement": {
+          "kind": "blocks",
+          "blocks": [
+            {
+              "kind": "paragraph",
+              "runs": [
+                {
+                  "text": "新说明 New description",
+                  "format": {
+                    "westernFontFamily": "Arial",
+                    "eastAsiaFontFamily": "黑体",
+                    "fontSizePt": 16,
+                    "bold": true
+                  }
+                }
+              ],
+              "format": {
+                "alignment": "center",
+                "lineSpacing": {
+                  "kind": "double"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-36.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

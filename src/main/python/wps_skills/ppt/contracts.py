@@ -2,7 +2,7 @@
 
 import re
 import unicodedata
-from wps_skills.core.action_session import ActionContract, ApplicationContractSet
+from wps_skills.core.action_runtime import ActionContract, ApplicationContractSet
 
 
 def obj(properties, required=None, **extra):
@@ -41,6 +41,10 @@ ID = integer(1)
 TOKEN = text(128, minLength=1)
 NUMBER = {'type': 'number'}
 BOOL = {'type': 'boolean'}
+COLOR_INPUT = dict(integer(0, 16777215), description=(
+    'Encode RGB channels (0-255) as R + G*256 + B*65536 (0xBBGGRR). '
+    'Example: #1F3864 = 6567967; red #FF0000 = 255. '
+    'Do not use the ordinary 0xRRGGBB integer.'))
 STATE = obj({'persistenceState': text(enum=('unsaved', 'saved', 'modified')), 'readOnly': BOOL})
 ARTIFACT = obj({'path': text(format='absolutePptxPath'), 'format': {'const': 'pptx'}, 'sizeBytes': integer(1, 2**63-1)})
 FONT = obj({'latinName': nullable(text(256)), 'eastAsianName': nullable(text(256)), 'size': nullable(NUMBER), 'bold': nullable(BOOL),
@@ -56,11 +60,11 @@ GEOMETRY = {'left': {'type': 'number', 'minimum': -10000, 'maximum': 10000},
             'width': {'type': 'number', 'minimum': 1, 'maximum': 10000},
             'height': {'type': 'number', 'minimum': 1, 'maximum': 10000}}
 STYLE = obj({'latinName': text(128, minLength=1), 'eastAsianName': text(128, minLength=1), 'size': {'type': 'number', 'minimum': 1, 'maximum': 400},
-             'bold': BOOL, 'italic': BOOL, 'color': integer(0, 16777215)}, required=(), minProperties=1)
+             'bold': BOOL, 'italic': BOOL, 'color': COLOR_INPUT}, required=(), minProperties=1)
 SLIDE_READ = {'slideId': ID}
 SLIDE_EDIT = dict(SLIDE_READ, expectedToken=TOKEN)
 SHAPE_EDIT = dict(SLIDE_EDIT, shapeId=ID)
-ERRORS = ('PERSISTENCE_LOCATOR_REQUIRED', 'OUTPUT_ALREADY_EXISTS', 'OUTPUT_MATCHES_BOUND_DOCUMENT', 'OUTPUT_PARENT_NOT_FOUND', 'OUTPUT_PATH_INVALID', 'OUTPUT_IN_USE', 'OUTPUT_ACCESS_DENIED', 'DOCUMENT_CHANGED_DURING_ACTION', 'OUTPUT_WRITE_FAILED', 'INVALID_PARAMS', 'SESSION_APP_MISMATCH', 'SESSION_DOCUMENT_NOT_BOUND', 'SESSION_DOCUMENT_ALREADY_BOUND',
+ERRORS = ('PERSISTENCE_LOCATOR_REQUIRED', 'OUTPUT_ALREADY_EXISTS', 'OUTPUT_MATCHES_BOUND_DOCUMENT', 'OUTPUT_PARENT_NOT_FOUND', 'OUTPUT_PATH_INVALID', 'OUTPUT_IN_USE', 'OUTPUT_ACCESS_DENIED', 'DOCUMENT_CHANGED_DURING_ACTION', 'OUTPUT_WRITE_FAILED', 'INVALID_PARAMS', 'TASK_APP_MISMATCH', 'TASK_DOCUMENT_NOT_BOUND', 'TASK_DOCUMENT_ALREADY_BOUND',
           'DOCUMENT_NOT_FOUND', 'DOCUMENT_ACCESS_DENIED', 'DOCUMENT_OPEN_FAILED', 'DOCUMENT_BINDING_UNAVAILABLE',
           'DOCUMENT_LEASE_CONFLICT', 'DOCUMENT_QUARANTINED', 'DOCUMENT_CLOSED', 'DOCUMENT_READ_ONLY',
           'PPT_CAPABILITY_UNAVAILABLE', 'SLIDE_NOT_FOUND', 'SHAPE_NOT_FOUND', 'CONTENT_LIMIT_EXCEEDED',
@@ -114,10 +118,15 @@ def _result_error(name, params, result):
 
 
 def contract(name, purpose, category, params, result, example, verification, *, risk='read', role='required', constraint=''):
+    if "expectedToken" in params.get("properties", {}):
+        source = ("listSlides" if name in {"addSlide", "moveSlide"} else
+                  "getShapeStyle" if name in {"formatShape", "formatParagraph", "setTextBoxLayout"} else
+                  {"setSlideSettings": "getSlideSettings", "setSlideNotes": "getSlideNotes", "writeTable": "readTable"}.get(name, "getSlideInfo"))
+        params["properties"]["expectedToken"] = dict(TOKEN, description="Use data.token from the latest " + source + " for the same target; valid only in this Task and while its observed state is unchanged.")
     return ActionContract(name=name, purpose=purpose, category=category, binding_role=role, risk=risk,
         parameters=params, result=result, stable_errors=ERRORS,
-        prerequisites=('Explicit existing-file or new-document intent; UNBOUND Session.' if role == 'establish'
-                       else 'One exact live Presentation is bound to this PPT Session.',),
+        prerequisites=('Explicit existing-file or new-document intent; UNBOUND Task.' if role == 'establish'
+                       else 'One exact live Presentation is bound to this PPT Task.',),
         constraints=(constraint, 'No active-document or selection targeting. No implicit save or automatic replay.'),
         verification=verification, examples=({'params': example},),
         parameter_validator=lambda params: _common_params_error(name, params),
@@ -195,8 +204,8 @@ APPEARANCE = obj({'fillVisible': nullable(BOOL), 'fillType': integer(-2,6), 'fil
                   'fillTransparency': NUMBER, 'lineVisible': nullable(BOOL), 'lineColor': nullable(COLOR), 'lineWidth': NUMBER})
 SHAPE_STYLE = obj({'slideId':ID, 'shape':SHAPE, 'appearance':APPEARANCE, 'textBox':nullable(TEXTBOX),
                    'paragraphs':{'type':'array','maxItems':100,'items':PARAGRAPH}, 'token':TOKEN})
-APPEARANCE_PATCH = obj({'fillVisible':BOOL,'fillColor':COLOR,
-    'fillTransparency':{'type':'number','minimum':0,'maximum':1}, 'lineVisible':BOOL,'lineColor':COLOR,
+APPEARANCE_PATCH = obj({'fillVisible':BOOL,'fillColor':COLOR_INPUT,
+    'fillTransparency':{'type':'number','minimum':0,'maximum':1}, 'lineVisible':BOOL,'lineColor':COLOR_INPUT,
     'lineWidth':{'type':'number','minimum':0.1,'maximum':20}},required=(),minProperties=1)
 PARAGRAPH_PATCH = obj({'alignment':text(enum=('left','center','right','justify')), 'bulletVisible':BOOL,
     'spaceBefore':{'type':'number','minimum':0,'maximum':200}, 'spaceAfter':{'type':'number','minimum':0,'maximum':200}},required=(),minProperties=1)
@@ -205,7 +214,7 @@ TEXTBOX_PATCH = obj({**{k:{'type':'number','minimum':0,'maximum':200} for k in (
 SETTINGS = obj({'slideId':ID,'name':text(128), 'hidden':BOOL,'followMasterBackground':BOOL,
                 'backgroundType':integer(-2,6),'backgroundColor':nullable(COLOR),'token':TOKEN})
 SETTINGS_PATCH = obj({'name':text(128,minLength=1,format='pptName'),'hidden':BOOL,
-                      'followMasterBackground':BOOL,'backgroundColor':COLOR},required=(),minProperties=1)
+                      'followMasterBackground':BOOL,'backgroundColor':COLOR_INPUT},required=(),minProperties=1)
 NOTES = obj({'slideId':ID,'text':text(10000,format='pptText'),'token':TOKEN})
 SHAPE_IDS = {'type':'array','minItems':2,'maxItems':20,'uniqueItems':True,'items':ID}
 TABLE_VALUES = {'type':'array','minItems':1,'maxItems':20,
@@ -369,9 +378,9 @@ _TARGET_CONTRACTS += _COMMON_TARGET_CONTRACTS
 # Persistence readback is bounded to 200 slides, each at most 100 top-level shapes.
 _TARGET_CONTRACTS += (
     contract('createPresentation', 'Create one blank unsaved document; no file path.', 'persistence', obj({}), obj({'documentState': STATE}), {}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='', role='establish', risk='write'),
-    contract('saveAs', 'First-save or save the same live document to an absent destination.', 'persistence', obj({'outputPath': text(format='absolutePptxPath'), 'overwritePolicy': {'const': 'failIfExists'}}), obj({'artifact': ARTIFACT, 'documentState': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/new.pptx', 'overwritePolicy': 'failIfExists'}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='At most 200 slides and 100 top-level shapes per slide. Never replaces a preexisting destination. Retain old and new locator and identity fences until Session cleanup.', role='required', risk='write'),
+    contract('saveAs', 'First-save or save the same live document to an absent destination.', 'persistence', obj({'outputPath': text(format='absolutePptxPath'), 'overwritePolicy': {'const': 'failIfExists'}}), obj({'artifact': ARTIFACT, 'documentState': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/new.pptx', 'overwritePolicy': 'failIfExists'}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='At most 200 slides and 100 top-level shapes per slide. Never replaces a preexisting destination. Retain old and new locator and identity fences until Task cleanup.', role='required', risk='write'),
     contract('exportPdf', 'Export to an absent destination without saving the document.', 'persistence', obj({'outputPath': text(format='absolutePdfPath'), 'overwritePolicy': {'const': 'failIfExists'}}), obj({'artifact': obj({'path': text(format='absolutePdfPath'), 'format': {'const': 'pdf'}, 'sizeBytes': {'type': 'integer', 'minimum': 1}}), 'documentStateBefore': STATE, 'documentStateAfter': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/output.pdf', 'overwritePolicy': 'failIfExists'}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='Native PDF export defaults; PNG uses explicit pixels. At most 200 slides and 100 top-level shapes per slide. Verify exported format and unchanged bounded observations; no save or retargeting.', role='required', risk='write'),
-    contract('exportSlideImage', 'Export to an absent destination without saving the document.', 'persistence', obj({'outputPath': text(format='absolutePngPath'), 'overwritePolicy': {'const': 'failIfExists'}, 'slideId': ID, 'width': integer(1,4096), 'height': integer(1,4096)}), obj({'artifact': obj({'path': text(format='absolutePngPath'), 'format': {'const': 'png'}, 'sizeBytes': {'type': 'integer', 'minimum': 1}}), 'documentStateBefore': STATE, 'documentStateAfter': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/output.png', 'overwritePolicy': 'failIfExists', 'slideId': 256, 'width': 1280, 'height': 720}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='Native PDF export defaults; PNG uses explicit pixels. At most 200 slides and 100 top-level shapes per slide. Verify exported format and unchanged bounded observations; no save or retargeting.', role='required', risk='write'),
+    contract('exportSlideImage', 'Export one slide image to an absent destination without saving the presentation.', 'exports', obj({'outputPath': text(format='absolutePngPath'), 'overwritePolicy': {'const': 'failIfExists'}, 'slideId': ID, 'width': integer(1,4096), 'height': integer(1,4096)}), obj({'artifact': obj({'path': text(format='absolutePngPath'), 'format': {'const': 'png'}, 'sizeBytes': {'type': 'integer', 'minimum': 1}}), 'documentStateBefore': STATE, 'documentStateAfter': STATE, 'replacedExisting': {'const': False}}), {'outputPath': 'C:/work/output.png', 'overwritePolicy': 'failIfExists', 'slideId': 256, 'width': 1280, 'height': 720}, 'Verify exact binding, artifact format and unchanged observed content/state.', constraint='Native PDF export defaults; PNG uses explicit pixels. At most 200 slides and 100 top-level shapes per slide. Verify exported format and unchanged bounded observations; no save or retargeting.', role='required', risk='write'),
 )
 
 PPT_FORMAT_VALIDATORS = {'absolutePptxPath': _pptx_path,

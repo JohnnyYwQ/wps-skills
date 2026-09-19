@@ -1,0 +1,1 @@
+{"oneOf":[{"type":"array","items":{"$ref":"#/$defs/INLINE_TEXT_BLOCK"},"minItems":1,"maxItems":1,"x-maxUtf16Text":262144},{"type":"array","items":{"oneOf":[{"$ref":"#/$defs/PARAGRAPH_BLOCK"},{"$ref":"#/$defs/HEADING_BLOCK"}]},"minItems":1,"maxItems":128,"x-maxUtf16Text":262144}]}

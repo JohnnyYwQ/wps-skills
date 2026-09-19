@@ -1,0 +1,75 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "fonts",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第一组 Alpha ",
+                "format": {
+                  "eastAsiaFontFamily": "宋体",
+                  "westernFontFamily": "Times New Roman",
+                  "fontSizePt": 12
+                }
+              },
+              {
+                "text": "第二组 Beta ",
+                "format": {
+                  "eastAsiaFontFamily": "黑体",
+                  "westernFontFamily": "Arial",
+                  "fontSizePt": 16
+                }
+              },
+              {
+                "text": "第三组 Gamma ",
+                "format": {
+                  "eastAsiaFontFamily": "楷体",
+                  "westernFontFamily": "Calibri",
+                  "fontSizePt": 14
+                }
+              },
+              {
+                "text": "恢复 Delta",
+                "format": {
+                  "eastAsiaFontFamily": "宋体",
+                  "westernFontFamily": "Times New Roman",
+                  "fontSizePt": 12
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-30.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

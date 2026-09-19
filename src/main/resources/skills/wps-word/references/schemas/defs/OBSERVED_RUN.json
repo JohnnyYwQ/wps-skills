@@ -1,0 +1,1 @@
+{"type":"object","properties":{"range":{"$ref":"#/$defs/CONTENT_RANGE"},"text":{"type":"string","minLength":0,"maxLength":32768,"format":"wordNormalizedText"},"format":{"$ref":"#/$defs/EFFECTIVE_TEXT_FORMAT"}},"required":["range","text","format"],"additionalProperties":false}

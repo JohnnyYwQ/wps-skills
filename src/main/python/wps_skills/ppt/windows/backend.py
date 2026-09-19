@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
-from wps_skills.core.action_session import DefiniteEstablishFailure, UnprovableEstablishFailure
+from wps_skills.core.action_runtime import DefiniteEstablishFailure, UnprovableEstablishFailure
 from wps_skills.windows.bridge_types import BackendActionFailure, WindowsDocument
 
 

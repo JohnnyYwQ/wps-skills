@@ -34,6 +34,7 @@ class ExcelActionException : System.Exception {
 }
 
 . (Join-Path $PSScriptRoot '../../windows/bridge_common.ps1')
+. (Join-Path $PSScriptRoot '../../windows/application_timing.ps1')
 . (Join-Path $PSScriptRoot '../../windows/window_presentation.ps1')
 . (Join-Path $PSScriptRoot 'excel_com.ps1')
 . (Join-Path $PSScriptRoot 'excel_actions.ps1')
@@ -43,7 +44,7 @@ class ExcelActionException : System.Exception {
 . (Join-Path $PSScriptRoot 'excel_window.ps1')
 
 function Invoke-DebugCreatedDocumentCleanup {
-    # This slice only opens existing user workbooks. Cleanup never closes them.
+    # Cleanup never saves or closes user workbooks.
 }
 
 function Invoke-PrepareExistingDocument {
@@ -96,11 +97,11 @@ function Assert-BoundWorkbook {
     }
     if ([string]::IsNullOrEmpty($script:AuthorizedPath)) {
         if (-not [string]::IsNullOrEmpty([string]$script:Document.Path) -or [string]$script:Document.Name -cne $script:UnsavedName) {
-            throw [ExcelActionException]::new('DOCUMENT_BINDING_UNAVAILABLE','The new document was saved outside this Session.')
+            throw [ExcelActionException]::new('DOCUMENT_BINDING_UNAVAILABLE','The new document was saved outside this Task.')
         }
         return
     }
-    # Follow only the locator committed by this Session’s explicit persistence Action.
+    # Follow only the locator committed by this Task’s explicit persistence Action.
     $actual = [IO.Path]::GetFullPath([string]$script:Document.FullName)
     if (-not [string]::Equals($actual, $script:PreparedCanonicalPath, [StringComparison]::OrdinalIgnoreCase) -or
         (Get-StableFileIdentity -Path $actual) -ne $script:BoundFileIdentity) {

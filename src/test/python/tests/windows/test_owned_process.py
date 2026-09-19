@@ -1,6 +1,8 @@
 import io
 import subprocess
 import unittest
+import threading
+import time
 
 from wps_skills.windows.owned_process import (
     ProcessOwnershipUnavailable,
@@ -107,6 +109,27 @@ class WindowsOwnedProcessLauncherTests(unittest.TestCase):
         self.assertEqual(42, cleanup[0].pid)
         self.assertEqual(("graceful",), cleanup[0].cleanup_steps)
         self.assertTrue(cleanup[0].released)
+
+    def test_blocked_pipe_close_cannot_prevent_owned_process_termination(self):
+        release = threading.Event()
+        process = FakeProcess(44, graceful=False)
+        class BlockedInput:
+            def close(self):
+                release.wait(2)
+        process.stdin = BlockedInput()
+        job = FakeJobApi()
+        launcher = WindowsOwnedProcessLauncher(job_api=job, popen_factory=PopenFactory(process),
+                                               cleanup_timeout_seconds=0.1, graceful_timeout_seconds=0.01)
+        launcher.start_bridge(["powershell.exe"])
+        start = time.monotonic()
+        try:
+            cleanup = launcher.close()
+            self.assertLess(time.monotonic() - start, 1)
+            self.assertTrue(cleanup[0].released)
+            self.assertEqual(1, process.terminate_calls)
+            self.assertIn(("close", "job-1"), job.calls)
+        finally:
+            release.set()
 
     def test_assignment_failure_kills_the_still_suspended_child(self):
         job = FakeJobApi(assign_error=OSError("cannot assign"))

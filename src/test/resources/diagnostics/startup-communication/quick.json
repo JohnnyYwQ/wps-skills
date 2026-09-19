@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "name": "baseline-startup-communication",
+  "claim": "The current launch and pipe transport can initialize, exchange exact messages, execute and verify a small WPS Task, then release owned resources.",
+  "cases": ["pipe", "wps"],
+  "profiles": {
+    "quick": {"maxRounds": 10, "budgetSeconds": 300},
+    "long": {"maxRounds": null, "budgetSeconds": 7200}
+  },
+  "limits": {"startupSeconds": 30, "requestSeconds": 5, "caseSeconds": 180},
+  "payloadCharacters": [32, 4096, 65536],
+  "assertions": {
+    "exactEcho": true,
+    "taskOutcome": "succeeded",
+    "cleanupOutcome": "succeeded",
+    "artifactCells": {"A1": "启动通信验证", "B1": 20260919},
+    "visualReview": "not_required"
+  }
+}

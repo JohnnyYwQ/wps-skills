@@ -1,0 +1,1 @@
+{"type":"object","properties":{"slides":{"type":"array","maxItems":200,"items":{"$ref":"#/$defs/SLIDE"}},"token":{"type":"string","maxLength":128,"minLength":1}},"required":["slides","token"],"additionalProperties":false}

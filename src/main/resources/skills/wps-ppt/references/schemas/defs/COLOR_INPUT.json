@@ -1,0 +1,1 @@
+{"type":"integer","minimum":0,"maximum":16777215,"description":"Encode RGB channels (0-255) as R + G*256 + B*65536 (0xBBGGRR). Example: #1F3864 = 6567967; red #FF0000 = 255. Do not use the ordinary 0xRRGGBB integer."}

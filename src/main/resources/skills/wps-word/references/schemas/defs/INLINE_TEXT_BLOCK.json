@@ -1,0 +1,1 @@
+{"type":"object","properties":{"kind":{"const":"text"},"runs":{"$ref":"#/$defs/TEXT_RUNS"}},"required":["kind","runs"],"additionalProperties":false}

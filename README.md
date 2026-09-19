@@ -1,193 +1,172 @@
-# WPS Automation Foundation
+<div align="center">
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+# WPS Skills
 
-This repository contains the shared WPS Action Session foundation and production Windows Word, Excel and PPT slices, including independently installable `wps-word`, `wps-excel` and `wps-ppt` Application Skills.
+**简体中文** · [English](README.en.md)
 
-## What exists
+**让 Agent 在本机真实 WPS 中完成办公任务**
 
-- An application-scoped `ActionSession` with immutable one-document binding, closed Controller Result handling, exact-document dispatch, and idempotent cleanup.
-- A canonical JSONL `SessionHost` with strict Action Request decoding, lifecycle records, per-Action/session timing journals, traced request rejection, and terminal ordering.
-- A complete, validated Word target Contract Set and compact Action Index for fourteen designed Actions.
-- A production Word Application Contract Set containing fourteen Actions: document create/open; structured write, inspect, find, and replace; table and image insertion; header/footer, page-layout, and break changes; in-place save; and PDF export. Every advertised required Action has a real handler. First save and Save As preserve the exact live document.
-- A Session-owned suspended-process launcher with Windows Job Object containment, one lazy native `System32` Windows PowerShell bridge, stable-file-identity acquisition, and a cross-process guard/Lease/quarantine coordinator.
-- Real structured Word writing, including separate Western and East Asian run fonts, plus bounded search/replacement, tables, embedded images, headers/footers, layout, page/section breaks, and PDF export, with revision-aware results and operation-specific read-back verification.
-- Hidden bridge launch at both process layers: Windows creates the child with `CREATE_NO_WINDOW`, and native PowerShell is also given `-WindowStyle Hidden`, so automation does not open a console window.
-- Word establishment makes WPS visible and activates only the exact created or opened document. A newly created WPS application uses normal, not maximized, outer-window state. On either create or attach, a genuinely tiny top-level frame is repaired to a centered 80% of its monitor work area; an already reasonable user window is left alone. Later Actions still dispatch through the retained binding rather than window focus.
-- A `scripts/call.py --session --app word` production entry point on Windows. Excel uses `--app excel`; PPT uses `--app ppt` with its own contracts and native Presentation backend.
-- Side-effect-free `--app word --index` and `--app word --resolve ACTION...` discovery, generated from the production Contract Set.
-- A reusable Python Session Client that preserves terminal Action errors, serializes calls, and separates document results from cleanup outcomes.
-- A Word Skill under `src/main/resources/skills/wps-word`, with task guidance, executable client examples, and standalone assembly.
-- Local conformance tests for the Session Core, protocol channels, and standalone Skill packaging.
+从自然语言需求，到可编辑的 Word 文档、Excel 表格和 PPT 演示文稿。
 
-The previous combined Skill, global Manifest and discovery CLI, multi-application Runtime, WPS controllers, Linux/OpenXML backends, and live harnesses have been removed. They are recoverable from Git history but are not compatibility interfaces.
+<p>
+  <code>Codex</code> &nbsp; <code>Claude Code</code> &nbsp; <code>Windows WPS</code> &nbsp; <code>Python 3.10+</code>
+</p>
 
-## PPT
+[功能概览](#功能概览) · [快速开始](#快速开始) · [使用示例](#使用示例) · [完整安装指南](INSTALL.md)
 
-The PPT slice supports **37 native Actions** for new and existing `.pptx` presentations.
-The 18 newly admitted common Actions add shape fill/border styles, paragraph and
-text-box formatting, shape naming/stacking/alignment/distribution, slide background
-and visibility settings, speaker notes, literal find/replace, embedded PNG/JPEG
-images and native table text read/write. Each edit checks its appropriate
-observation token and verifies native readback.
+</div>
 
-Structure operations support up to 200 slides; slide snapshots support 100
-top-level shapes and 10000 UTF-16 units per shape. Tables are bounded to 100 cells;
-images to 20 MiB and 40 million pixels. Creation, first save, Save As, PDF and single-slide PNG export are admitted. Charts, animations and shape duplication remain unavailable.
+## 功能概览
 
-```powershell
-python scripts/build/ppt.py --output build/skills/wps-ppt
-python build/skills/wps-ppt/scripts/ppt.py --app ppt --index
-python scripts/validate/ppt.py --output-dir build/ppt-acceptance
-python scripts/validate/ppt_common.py --output-dir build/ppt-common-acceptance
+一个插件，三个可独立使用的 Skill，共 **85 个操作（Action）**。支持创建、读取、编辑、排版和文件交付，也支持按应用单独安装。
+
+| 应用 | 你可以做什么 | 保存与导出 |
+| --- | --- | --- |
+| 📄 **[Word](src/main/resources/skills/wps-word/SKILL.md)** · 14 个操作 | 编写正文、查找替换、调整排版，插入表格与图片，设置页眉页脚和页面布局 | DOCX · PDF |
+| 📊 **[Excel](src/main/resources/skills/wps-excel/SKILL.md)** · 34 个操作 | 管理工作表、读写数据、计算公式，设置区域格式，调整行列、排序与筛选 | XLSX · PDF |
+| 📽️ **[PPT](src/main/resources/skills/wps-ppt/SKILL.md)** · 37 个操作 | 编排幻灯片、编辑文字与形状，插入图片与表格，调整布局和讲者备注 | PPTX · PDF · PNG |
+
+Agent 负责理解需求和安排操作，执行端通过 Windows WPS COM 操作真实文档，并返回执行结果。运行时使用 Python 标准库和 Windows PowerShell，**无第三方 Python 包依赖**。
+
+## 快速开始
+
+**准备环境：** Windows、Python 3.10+、Windows PowerShell 5.1，以及已安装并可正常打开的相应 WPS 应用。实际操作需要在已登录的交互桌面中执行，宿主需支持插件、文件写入和本机脚本调用。
+
+### 1. 构建与解压
+
+在仓库根目录运行：
+
+```sh
+python scripts/build/plugin.py
 ```
 
-Execution requires Windows WPS Presentation registered as `KWPP.Application`.
-Run `scripts/demo/ppt.ps1 -PythonPath <absolute-python.exe-path>` from an ordinary
-Windows desktop PowerShell for the complete hidden-console launcher. The
-[Chinese README](README.zh-CN.md) provides a complete copy-and-paste command.
-The demo copies a blank fixture, edits it through the production Session, verifies
-the bound document's own visible window and saves while leaving WPS open.
-
-See [the PPT Skill](src/main/resources/skills/wps-ppt/SKILL.md) and
-[native capability evidence](src/test/resources/wps_skills/ppt/type_library/EVIDENCE.md).
-
-## Excel
-
-The Excel slice supports 34 Actions for new and existing `.xlsx` workbooks: open/inspect/save,
-worksheet discovery/create/rename/copy/move/delete, bounded value and formula edits,
-clear/copy/find/replace, sorting/filtering, row/column insertion/deletion, formatting,
-merge/unmerge and row/column sizing. Common statistical, lookup, date and text formulas
-are supported. Region edits require `readRange` tokens; worksheet and structural edits
-require `getWorksheetInfo` tokens. Both observe at most 1000 cells; structural edits
-require the entire used range to fit that limit. Every mutation reads back its result.
-WPS file replacement during Save is protected by continuous locator/file claims.
-Workbook creation, first save, Save As and PDF export are admitted; charts and pivot tables remain unavailable.
-
-Run `python scripts/demo/excel.py` in a Windows desktop terminal to see WPS fill,
-calculate, format and save a demo workbook while leaving its window open.
-Run `python scripts/validate/excel_common.py --output-dir build/excel-common-acceptance`
-for common-action acceptance on a new disposable workbook.
-
-```bash
-python scripts/build/excel.py --output build/skills/wps-excel
-python build/skills/wps-excel/scripts/excel.py --app excel --index
-python scripts/call.py --app excel --resolve openWorkbook readRange writeRange save
-```
-
-See [the Excel Skill](src/main/resources/skills/wps-excel/SKILL.md) and
-[live capability evidence](src/test/resources/wps_skills/excel/type_library/EVIDENCE.md).
-Execution requires Windows WPS Spreadsheets registered as `KET.Application`.
-Validated on WPS 12.0.0.28505. Run the opt-in acceptance on Windows with a **new**
-output directory; it only edits its own generated workbooks and leaves them open:
-
-```powershell
-python scripts/validate/excel.py --output-dir build/excel-acceptance --wps-version 12.0.0.28505
-```
-
-## Verify the foundation
-
-Python 3.8 or newer is sufficient:
-
-```bash
-PYTHONPATH=src/main/python python -m unittest discover -s src/test/python -p 'test_*.py'
-```
-
-The suite exercises local fakes, real subprocess protocol channels, and relocated Skill distributions. No WPS installation or external account is required.
-
-## Build and use the Word Skill
-
-```bash
-python scripts/build/word.py --output "<output-dir>/wps-word"
-python "<output-dir>/wps-word/scripts/word.py" --app word --index
-python "<output-dir>/wps-word/scripts/word.py" --app word --resolve createDocument writeContent inspectDocument
-```
-
-Replace `<output-dir>` with your chosen output directory. The build creates a `wps-word/` directory containing `SKILL.md`, references, the thin `scripts/word.py` entry point, and a snapshot of the Python Runtime and PowerShell resources. Copy this complete directory into the target agent's Skill directory. The source tree remains the only maintained implementation; the build includes a SHA-256 file inventory and refuses to overwrite an existing destination. Use `--output <new-directory>/wps-word` for another build.
-
-Read [the Word Skill](src/main/resources/skills/wps-word/SKILL.md) for document intent, discovery, execution, verification, persistence, and failure handling. Its [Session guide](src/main/resources/skills/wps-word/references/session.md) uses packaged `--start`, `--call`, `--status`, and `--close` commands with JSON parameters. No Agent-authored task script is needed; separate commands reuse one Session and the caller decides each next Action after the prior response. Discovery works on macOS/Linux too, while document execution runs on the Windows WPS host.
-
-The source Skill's `scripts/word.py` also works directly from its source location. A deployed Skill uses its bundled Runtime and requires no repository checkout or third-party Python package.
-
-On the Windows WPS host, start a Word Session with:
-
-```bash
-python scripts/call.py --session --app word
-```
-
-The Host emits `session.ready`, accepts newline-delimited Action Requests, and reuses one exact live Word document and one bridge until `{"control":"close"}`. `saveAs` handles first save and a new output path while retaining all old and new locator/file claims until cleanup.
-
-Protocol v1 remains closed: timing is diagnostic rather than an extra Action Response field. The `traceLog` in each Action Response records that Action's `elapsedMs`; the Session `traceLog` ends with `sessionElapsedMs`, `actionExecutionElapsedMs`, `cleanupElapsedMs`, and `actionCount` so wall time and actual Action execution are not confused.
-
-Normal Session cleanup deliberately leaves the document open. A controlled debug run that creates disposable content may opt into test-only cleanup:
-
-```bash
-python scripts/call.py --session --app word --debug-close-created-document
-```
-
-That flag discards and closes only a document created by that Session. It never closes a document acquired through `openDocument`, is not a Word Action, and must not be used when the newly created document contains content that should be retained.
-
-## Word desktop demo
-
-Run `./scripts/demo/word.ps1 -PythonPath <absolute-python.exe-path>` in an ordinary Windows desktop PowerShell. It edits a unique blank DOCX fixture through the production Session, writes formatted text and a native table, reads back the result, explicitly saves, and leaves the window open. The native demo workflow is checked by `python scripts/validate/word.py --output-dir build/word-acceptance`.
-
-Repository commands are grouped under `scripts/build/`, `scripts/demo/`, and `scripts/validate/`. See the [script guide](scripts/README.md) for all entry points and their scope.
-
-## Project layout
-
-The repository uses Java-style source sets while retaining Python packages:
+将生成的 `build/plugins/wps-skills.zip` 解压到固定目录，例如 `C:/Tools/wps-skills`。解压后的结构如下，点号开头的目录也需保留：
 
 ```text
-src/
-  main/
-    python/wps_skills/
-      cli/          # argument parsing, discovery, and package building
-      client/       # caller-side Session Protocol and process lifetime
-      core/         # application-independent Action Session Core
-      host/         # JSONL Session Host
-      word/         # Word contracts and Adapter; windows/ owns backend and assembly
-      excel/        # Excel contracts and Adapter; windows/ owns backend and assembly
-      ppt/          # PPT contracts and Adapter; windows/ owns backend and assembly
-      windows/      # shared process ownership, coordination, transport, and desktop
-    resources/
-      wps_skills/word/windows/  # PowerShell/WPS bridge and Action resources
-      wps_skills/excel/windows/ # Excel bridge, Actions, and demo launcher
-      wps_skills/ppt/windows/   # PPT bridge, Actions, and demo launcher
-      skills/wps-ppt/          # PPT Skill source, references, and entry point
-      wps_skills/windows/      # shared bridge and native coordination
-      skills/wps-word/         # Skill source, references, and thin entry point
-      skills/wps-excel/        # Excel Skill source, references, and entry point
-  test/
-    python/tests/   # unit tests, live acceptance, and executable Python fixtures
-    resources/      # PowerShell test resources and type-library evidence
-scripts/            # thin repository entry points only
-build/              # generated packages and acceptance evidence (ignored)
+C:/Tools/wps-skills/
+├── .agents/           Codex 安装目录清单
+├── .claude-plugin/    Claude Code 安装目录清单
+├── plugins/
+│   └── wps-skills/    插件与三个完整 Skill
+└── README.md          安装说明
 ```
 
-Tests use a separate `tests` namespace because a second top-level Python package named `wps_skills` would shadow the production package during discovery.
+### 2. 安装到你的宿主
 
-See [the file-by-file guide (Chinese)](FILE_STRUCTURE.md) for directory rules, each maintained file's purpose, and the execution flow.
+在 Windows 终端中运行对应命令，路径替换为实际解压目录。
 
-## Skill and capability references
+<details open>
+<summary><strong>Codex</strong></summary>
 
-- [Word Skill](src/main/resources/skills/wps-word/SKILL.md): task workflow and capability discovery.
-- [Session guide](src/main/resources/skills/wps-word/references/session.md): Python client usage and a runnable example.
-- [Content guide](src/main/resources/skills/wps-word/references/content.md): ranges, revisions, text formatting, and units.
-- [Verification guide](src/main/resources/skills/wps-word/references/verification.md): verification, persistence, and failure handling.
-- [Word contracts](src/main/python/wps_skills/word/contracts.py): authoritative Action definitions and the derived production Contract Set.
-- [WPS Writer Type Library snapshot](src/test/resources/wps_skills/word/type_library/wps_writer_api.py): capability evidence only; never imported by the Runtime.
+```text
+codex plugin marketplace add "C:/Tools/wps-skills"
+codex plugin add wps-skills@wps-skills-local
+```
 
-## New documents and persistence
+</details>
 
-The production surface now contains 85 Actions: Word 14, Excel 34 and PPT 37.
-Use `createDocument`, `createWorkbook` or `createPresentation` for explicit creation,
-then `saveAs` with an absent absolute destination and `overwritePolicy: "failIfExists"`.
-Existing outputs are never overwritten by Save As. Later `save` uses the new path.
-Excel/PPT export PDF without saving the source; PPT also exports a slide as PNG.
-Save As/PDF verification is bounded to 20 Excel worksheets with at most 1000 used
-cells each, or 200 PPT slides with at most 100 top-level shapes each. These observed
-fields do not prove full fidelity for unsupported document features.
+<details open>
+<summary><strong>Claude Code</strong></summary>
 
-Run `python scripts/validate/persistence.py --output-dir build/persistence-acceptance`
-on the Windows desktop for the cross-application native acceptance. Skill packages
-are delivered as the complete directories under `build/skills/`.
+```text
+claude plugin marketplace add "C:/Tools/wps-skills"
+claude plugin install wps-skills@wps-skills-local --scope user
+```
+
+</details>
+
+### 3. 开始使用
+
+新建会话，选择 `wps-word`、`wps-excel` 或 `wps-ppt`，直接描述目标、内容和输出位置。Claude Code 也可通过以下命令选择能力：
+
+```text
+/wps-skills:wps-word
+/wps-skills:wps-excel
+/wps-skills:wps-ppt
+```
+
+升级、临时加载和独立 Skill 安装方式见 **[完整安装指南 →](INSTALL.md)**。
+
+## 使用示例
+
+**📄 Word · 项目启动通知**
+
+> 新建一份“星河知识库”项目启动通知，包含项目目标、参与部门和四周实施安排，排版整齐，保存为 `C:/Documents/项目通知.docx`。
+
+**📊 Excel · 项目预算表**
+
+> 新建项目预算表，列出人员、设备和服务三类费用，用公式计算合计，设置金额格式，保存为 `C:/Documents/项目预算.xlsx`。
+
+**📽️ PPT · 项目汇报**
+
+> 制作一份四页的项目汇报，包含项目背景、实施计划、当前进展和下一步安排，保存为 `C:/Documents/项目汇报.pptx`。
+
+输出路径使用本机实际绝对路径，父目录需已存在。**仅在明确请求时保存**；导出 PDF 或 PNG 不代表已保存源文档。
+
+## 如何完成任务
+
+**理解需求 → 按需查询操作定义 → 提交多步计划 → 操作 WPS 并验证 → 报告结果**
+
+| 设计 | 作用 |
+| --- | --- |
+| **按需提供定义** | 先通过 Skill 了解操作用途，再查询本次需要的参数和结果结构，减少无关内容进入上下文。 |
+| **多步任务编排** | 用结果引用衔接操作依赖，在一次提交内传递中间结果，复用文档绑定与通信进程。 |
+| **精确文档绑定** | 操作指向明确文档，并校验相关内容的版本或 token，降低误改窗口和使用过期定位的风险。 |
+| **回读验证与回执** | 按操作契约验证效果，记录每步结果；响应丢失后可查询，Task 结束后释放所属执行资源。 |
+
+一个 Task 处理一个应用中的一份文档；跨应用协作或需要先读取再决定内容时，由 Agent 分别提交。具体参数和能力边界见各 Skill 的说明及操作定义。
+
+## 进阶使用
+
+<details>
+<summary><strong>手动查询、提交 Task 与读取回执</strong></summary>
+
+以下以解压后的 Word Skill 为例，在 Windows 终端执行。先进入脚本目录，后续命令使用同一工作目录：
+
+```text
+cd "C:/Tools/wps-skills/plugins/wps-skills/skills/wps-word/scripts"
+```
+
+**查询定义**——获取所需参数和结果结构，不启动 WPS：
+
+```text
+python schema.py createDocument writeContent saveAs
+```
+
+**提交任务**——按照 Skill 说明准备 UTF-8 JSON 文件，每份新请求使用新路径：
+
+```text
+python word.py --app word --task-file "C:/Tasks/request-001.json"
+```
+
+**查询回执**——命令输出丢失或超时时，使用原请求路径：
+
+```text
+python word.py --app word --task-status-file "C:/Tasks/request-001.json"
+```
+
+即使输入文件已被消费，查询仍使用原路径。重复提交已受理路径不会重放操作。执行失败或结果不确定时，后续步骤停止，已发生的效果保留，不自动回滚或重试。
+
+Excel、PPT 使用各自 Skill 目录中的 `schema.py` 和 `excel.py`、`ppt.py`，并指定对应的 `--app`。请求格式与完整示例见各包的 `SKILL.md`。
+
+</details>
+
+<details>
+<summary><strong>换机前检查 Windows 环境</strong></summary>
+
+在 Windows 上，从仓库根目录运行 doctor：
+
+```sh
+python scripts/doctor.py --app word
+python scripts/doctor.py --app excel
+python scripts/doctor.py --app ppt
+```
+
+doctor 默认检查桌面会话、COM 注册、PowerShell 和中文通信等条件，不启动 WPS 或修改文档。环境检查通过不等于所有文档操作都可用，详细用法见 [环境检查说明](docs/testing/environment-doctor.md)。
+
+</details>
+
+<p align="center">
+  <a href="INSTALL.md">安装指南</a> ·
+  <a href="LICENSE">MIT License</a>
+</p>

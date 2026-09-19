@@ -8,7 +8,8 @@ import time
 import uuid
 from typing import Any, Mapping, Optional, Protocol, runtime_checkable
 
-from wps_skills.core.action_session import ControllerContext
+from wps_skills.core.action_runtime import ControllerContext
+from wps_skills.core import timing
 from wps_skills.windows.bridge_types import BackendActionFailure
 
 
@@ -158,7 +159,13 @@ class JsonLineBridgeTransport:
         return value
 
     def exchange(self, request, deadline_at):
-        encoded = self._encode(request)
+        with timing.fields(bridgeRequestId=request.get("requestId"), operation=request.get("operation")):
+            with timing.span("bridge.round_trip"):
+                return self._exchange(request, deadline_at)
+
+    def _exchange(self, request, deadline_at):
+        with timing.span("bridge.encode"):
+            encoded = self._encode(request)
         with self._exchange_lock:
             if self._closed:
                 raise BridgeTransportError(
@@ -173,16 +180,18 @@ class JsonLineBridgeTransport:
                     "WPS bridge process exited before dispatch"
                 )
             try:
-                written = self._process.stdin.write(encoded)
-                if written is not None and written != len(encoded):
-                    raise OSError("partial bridge request write")
-                self._process.stdin.flush()
+                with timing.span("bridge.write_flush"):
+                    written = self._process.stdin.write(encoded)
+                    if written is not None and written != len(encoded):
+                        raise OSError("partial bridge request write")
+                    self._process.stdin.flush()
             except Exception as exc:
                 raise BridgeTransportError(
                     "WPS bridge request could not be dispatched"
                 ) from exc
             try:
-                line = self._reader.read(self._timeout(deadline_at))
+                with timing.span("bridge.wait_response"):
+                    line = self._reader.read(self._timeout(deadline_at))
             except TimeoutError as exc:
                 raise BridgeTransportError(
                     "WPS bridge response deadline expired"
@@ -195,7 +204,8 @@ class JsonLineBridgeTransport:
                 raise BridgeTransportError(
                     "WPS bridge exited without a response"
                 )
-            return self._decode(line)
+            with timing.span("bridge.decode"):
+                return self._decode(line)
 
     def close(self):
         with self._close_lock:

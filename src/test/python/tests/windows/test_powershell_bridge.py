@@ -2,7 +2,7 @@ import io
 import json
 import unittest
 
-from wps_skills.core.action_session import ControllerContext
+from wps_skills.core.action_runtime import ControllerContext
 from wps_skills.windows.powershell_bridge import (
     JsonLineBridgeTransport,
     PowerShellBridge,

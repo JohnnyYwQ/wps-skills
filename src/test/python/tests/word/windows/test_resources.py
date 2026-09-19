@@ -1,8 +1,8 @@
 import re
 import unittest
 
-from wps_skills.word.windows.session import BRIDGE_SCRIPT
-from wps_skills.word.handlers import _PRIVATE_OPERATIONS
+from wps_skills.word.windows.task_factory import BRIDGE_SCRIPT
+from wps_skills.word.actions.registry import WORD_ACTIONS
 
 
 class WordPowerShellResourceTests(unittest.TestCase):
@@ -21,7 +21,7 @@ class WordPowerShellResourceTests(unittest.TestCase):
         ))
 
         self.assertTrue(
-            set(_PRIVATE_OPERATIONS.values()).issubset(dispatch_operations)
+            {entry.operation for entry in WORD_ACTIONS.values() if entry.operation is not None}.issubset(dispatch_operations)
         )
 
     def test_bridge_requires_and_loads_the_separate_action_resource(self):

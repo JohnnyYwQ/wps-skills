@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "name": "design-value-pipe-long",
+  "claim": "Two hours of repeated production transport creation, Unicode round-trip and owned cleanup under the recorded concurrent test load; not a WPS COM soak.",
+  "cases": [
+    "pipe"
+  ],
+  "profiles": {
+    "quick": {
+      "maxRounds": 10,
+      "budgetSeconds": 300
+    },
+    "long": {
+      "maxRounds": null,
+      "budgetSeconds": 7200
+    }
+  },
+  "limits": {
+    "startupSeconds": 30,
+    "requestSeconds": 5,
+    "caseSeconds": 180
+  },
+  "payloadCharacters": [
+    32,
+    4096
+  ],
+  "assertions": {
+    "exactEcho": true,
+    "taskOutcome": "succeeded",
+    "cleanupOutcome": "succeeded",
+    "artifactCells": {
+      "A1": "启动通信验证",
+      "B1": 20260919
+    },
+    "visualReview": "not_required"
+  }
+}

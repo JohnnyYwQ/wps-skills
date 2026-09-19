@@ -1,4 +1,4 @@
-"""Session-owned Windows process launcher backed by one Job Object."""
+"""Execution-owned Windows process launcher backed by one Job Object."""
 
 from collections import deque
 import ctypes
@@ -8,11 +8,11 @@ import subprocess
 import threading
 import time
 
-from wps_skills.core.action_session import ProcessCleanup
+from wps_skills.core.action_runtime import ProcessCleanup
 
 
 class ProcessOwnershipUnavailable(RuntimeError):
-    """A child could not be placed under the Session Job Object."""
+    """A child could not be placed under the owned Job Object."""
 
 
 class _IoCounters(ctypes.Structure):
@@ -245,10 +245,16 @@ class WindowsOwnedProcessLauncher:
                     steps[process.pid].append("already_exited")
                     continue
                 steps[process.pid].append("graceful")
-                try:
-                    process.stdin.close()
-                except Exception:
-                    pass
+                # A blocked writer may own the pipe's Python lock. Closing it
+                # must not prevent termination or closing the ownership handle.
+                def close_input(stream=process.stdin):
+                    try:
+                        stream.close()
+                    except Exception:
+                        pass
+                closer = threading.Thread(target=close_input, daemon=True)
+                closer.start()
+                closer.join(timeout=min(0.05, max(0, deadline - self._clock())))
                 running.append(process)
             graceful_deadline = min(
                 deadline,
@@ -294,6 +300,6 @@ class WindowsOwnedProcessLauncher:
             )
             if not job_closed and not processes:
                 raise ProcessOwnershipUnavailable(
-                    "the Session Job Object could not be closed"
+                    "the owned Job Object could not be closed"
                 )
             return self._cleanup

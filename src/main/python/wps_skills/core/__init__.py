@@ -1,1 +1,1 @@
-"""Application-independent Action Session Core."""
+"""Application-independent Action contracts and execution resources."""

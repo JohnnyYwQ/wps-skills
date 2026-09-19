@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "name": "excel-com-environment-acceptance",
+  "claim": "Identify the actual COM registration and connection branch, then verify create/open binding and real document operations on this Windows environment.",
+  "cases": ["wps", "wps-open"],
+  "profiles": {
+    "quick": {"maxRounds": 1, "budgetSeconds": 300},
+    "long": {"maxRounds": null, "budgetSeconds": 7200}
+  },
+  "limits": {"startupSeconds": 30, "requestSeconds": 5, "caseSeconds": 180},
+  "payloadCharacters": [32, 4096, 65536],
+  "assertions": {
+    "exactEcho": true,
+    "taskOutcome": "succeeded",
+    "cleanupOutcome": "succeeded",
+    "artifactCells": {"A1": "COM环境验证", "B1": 20260919},
+    "visualReview": "not_required"
+  }
+}

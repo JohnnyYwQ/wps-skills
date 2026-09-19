@@ -1,0 +1,433 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "cover",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "heading",
+            "level": 1,
+            "runs": [
+              {
+                "text": "交付报告",
+                "format": {
+                  "fontSizePt": 20,
+                  "bold": true,
+                  "color": "#1F4E79"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "center"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "状态：待交付"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "progress",
+      "address": {
+        "app": "word",
+        "action": "insertTable"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "data": [
+          [
+            "任务",
+            "责任人",
+            "状态"
+          ],
+          [
+            "开发",
+            "李四",
+            "完成"
+          ],
+          [
+            "测试",
+            "王五",
+            "完成"
+          ]
+        ],
+        "headerRow": true
+      }
+    },
+    {
+      "id": "section2",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "sectionNextPage"
+      }
+    },
+    {
+      "id": "figures",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "图示"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "image1",
+      "address": {
+        "app": "word",
+        "action": "insertImage"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "source": {
+          "kind": "file",
+          "path": "C:/wps-word-advanced/fixtures/sample.png"
+        },
+        "placement": {
+          "kind": "inline"
+        },
+        "size": {
+          "kind": "width",
+          "width": {
+            "value": 144,
+            "unit": "pt"
+          }
+        },
+        "alternativeText": {
+          "kind": "description",
+          "text": "示意图一"
+        }
+      }
+    },
+    {
+      "id": "caption",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "对照图"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "image2",
+      "address": {
+        "app": "word",
+        "action": "insertImage"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "source": {
+          "kind": "file",
+          "path": "C:/wps-word-advanced/fixtures/sample.png"
+        },
+        "placement": {
+          "kind": "inline"
+        },
+        "size": {
+          "kind": "height",
+          "height": {
+            "value": 54,
+            "unit": "pt"
+          }
+        },
+        "alternativeText": {
+          "kind": "description",
+          "text": "示意图二"
+        }
+      }
+    },
+    {
+      "id": "section3",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "sectionNextPage"
+      }
+    },
+    {
+      "id": "notes",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "交付说明"
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "请按计划验收。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "find_pending",
+      "address": {
+        "app": "word",
+        "action": "findContent"
+      },
+      "params": {
+        "query": {
+          "scope": {
+            "kind": "document"
+          },
+          "text": "待交付",
+          "caseSensitive": true,
+          "wholeWord": false
+        },
+        "limit": 20
+      }
+    },
+    {
+      "id": "mark_delivered",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "query",
+          "query": {
+            "scope": {
+              "kind": "document"
+            },
+            "text": "待交付",
+            "caseSensitive": true,
+            "wholeWord": false
+          },
+          "expectedMatchCount": 1
+        },
+        "replacement": {
+          "kind": "text",
+          "runs": [
+            {
+              "text": "已交付"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "for_layout",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "wide",
+      "address": {
+        "app": "word",
+        "action": "setPageLayout"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            1
+          ],
+          "revision": {
+            "$ref": {
+              "step": "for_layout",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "layout": {
+          "orientation": "landscape",
+          "margins": {
+            "top": {
+              "value": 36,
+              "unit": "pt"
+            },
+            "right": {
+              "value": 36,
+              "unit": "pt"
+            },
+            "bottom": {
+              "value": 36,
+              "unit": "pt"
+            },
+            "left": {
+              "value": 36,
+              "unit": "pt"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "for_headers",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "headers",
+      "address": {
+        "app": "word",
+        "action": "setHeaderFooter"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            0,
+            1,
+            2
+          ],
+          "revision": {
+            "$ref": {
+              "step": "for_headers",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "updates": [
+          {
+            "area": "header",
+            "variant": "primary",
+            "operation": {
+              "kind": "replace",
+              "text": "交付报告"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "primary",
+            "operation": {
+              "kind": "replace",
+              "text": "内部资料"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-26.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    },
+    {
+      "address": {
+        "app": "word",
+        "action": "exportPdf"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-26.pdf",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

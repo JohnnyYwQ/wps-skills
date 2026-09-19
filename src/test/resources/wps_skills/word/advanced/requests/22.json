@@ -1,0 +1,184 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "seed",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "开头"
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "旧",
+                "format": {
+                  "italic": true
+                }
+              },
+              {
+                "text": "说明",
+                "format": {
+                  "color": "#1F4E79"
+                }
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "删除我"
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "结尾"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "before",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "replace_para",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "range",
+          "range": {
+            "$ref": {
+              "step": "before",
+              "path": [
+                "data",
+                "paragraphs",
+                1,
+                "range"
+              ]
+            }
+          }
+        },
+        "replacement": {
+          "kind": "blocks",
+          "blocks": [
+            {
+              "kind": "paragraph",
+              "runs": [
+                {
+                  "text": "新说明",
+                  "format": {
+                    "bold": true
+                  }
+                }
+              ],
+              "format": {
+                "alignment": "center",
+                "lineSpacing": {
+                  "kind": "double"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "updated",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "delete_para",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "range",
+          "range": {
+            "$ref": {
+              "step": "updated",
+              "path": [
+                "data",
+                "paragraphs",
+                2,
+                "range"
+              ]
+            }
+          }
+        },
+        "replacement": {
+          "kind": "delete"
+        }
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-22.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

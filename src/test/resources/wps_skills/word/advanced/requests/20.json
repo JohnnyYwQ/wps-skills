@@ -1,0 +1,655 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "text1_1",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第1节第1页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "page1_2",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "page"
+      }
+    },
+    {
+      "id": "text1_2",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第1节第2页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "page1_3",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "page"
+      }
+    },
+    {
+      "id": "text1_3",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第1节第3页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "section2",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "sectionNextPage"
+      }
+    },
+    {
+      "id": "text2_1",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第2节第1页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "page2_2",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "page"
+      }
+    },
+    {
+      "id": "text2_2",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第2节第2页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "page2_3",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "page"
+      }
+    },
+    {
+      "id": "text2_3",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第2节第3页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "section3",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "sectionNextPage"
+      }
+    },
+    {
+      "id": "text3_1",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第3节第1页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "page3_2",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "page"
+      }
+    },
+    {
+      "id": "text3_2",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第3节第2页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "page3_3",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "page"
+      }
+    },
+    {
+      "id": "text3_3",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第3节第3页"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "base",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "base_stories",
+      "address": {
+        "app": "word",
+        "action": "setHeaderFooter"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            0
+          ],
+          "revision": {
+            "$ref": {
+              "step": "base",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "updates": [
+          {
+            "area": "header",
+            "variant": "primary",
+            "operation": {
+              "kind": "replace",
+              "text": "header-primary"
+            }
+          },
+          {
+            "area": "header",
+            "variant": "firstPage",
+            "operation": {
+              "kind": "replace",
+              "text": "header-firstPage"
+            }
+          },
+          {
+            "area": "header",
+            "variant": "evenPages",
+            "operation": {
+              "kind": "replace",
+              "text": "header-evenPages"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "primary",
+            "operation": {
+              "kind": "replace",
+              "text": "footer-primary"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "firstPage",
+            "operation": {
+              "kind": "replace",
+              "text": "footer-firstPage"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "evenPages",
+            "operation": {
+              "kind": "replace",
+              "text": "footer-evenPages"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "r1",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "inherit2",
+      "address": {
+        "app": "word",
+        "action": "setHeaderFooter"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            1
+          ],
+          "revision": {
+            "$ref": {
+              "step": "r1",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "updates": [
+          {
+            "area": "header",
+            "variant": "primary",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "header",
+            "variant": "firstPage",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "header",
+            "variant": "evenPages",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "primary",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "firstPage",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "evenPages",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "r2",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "inherit3",
+      "address": {
+        "app": "word",
+        "action": "setHeaderFooter"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            2
+          ],
+          "revision": {
+            "$ref": {
+              "step": "r2",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "updates": [
+          {
+            "area": "header",
+            "variant": "primary",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "header",
+            "variant": "firstPage",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "header",
+            "variant": "evenPages",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "primary",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "firstPage",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "evenPages",
+            "operation": {
+              "kind": "linkToPrevious"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "r3",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "override3",
+      "address": {
+        "app": "word",
+        "action": "setHeaderFooter"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            2
+          ],
+          "revision": {
+            "$ref": {
+              "step": "r3",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "updates": [
+          {
+            "area": "header",
+            "variant": "primary",
+            "operation": {
+              "kind": "replace",
+              "text": "第三节独立页眉"
+            }
+          },
+          {
+            "area": "footer",
+            "variant": "evenPages",
+            "operation": {
+              "kind": "clear"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-20.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    },
+    {
+      "address": {
+        "app": "word",
+        "action": "exportPdf"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-20.pdf",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

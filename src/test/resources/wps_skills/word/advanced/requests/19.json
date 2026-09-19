@@ -1,0 +1,240 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第一节：概览"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "b1",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "sectionNextPage"
+      }
+    },
+    {
+      "id": "s2",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第二节：宽表区"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "b2",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "sectionNextPage"
+      }
+    },
+    {
+      "id": "s3",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第三节：说明"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "before",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "layout2",
+      "address": {
+        "app": "word",
+        "action": "setPageLayout"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            1
+          ],
+          "revision": {
+            "$ref": {
+              "step": "before",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "layout": {
+          "orientation": "landscape",
+          "margins": {
+            "top": {
+              "value": 36,
+              "unit": "pt"
+            },
+            "right": {
+              "value": 36,
+              "unit": "pt"
+            },
+            "bottom": {
+              "value": 36,
+              "unit": "pt"
+            },
+            "left": {
+              "value": 36,
+              "unit": "pt"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "middle",
+      "address": {
+        "app": "word",
+        "action": "inspectDocument"
+      },
+      "params": {
+        "scope": {
+          "kind": "document"
+        },
+        "limits": {
+          "maxTextCharacters": 16000,
+          "maxParagraphs": 256,
+          "maxRuns": 1024
+        }
+      }
+    },
+    {
+      "id": "layout3",
+      "address": {
+        "app": "word",
+        "action": "setPageLayout"
+      },
+      "params": {
+        "sections": {
+          "kind": "indexes",
+          "indexes": [
+            2
+          ],
+          "revision": {
+            "$ref": {
+              "step": "middle",
+              "path": [
+                "data",
+                "revision"
+              ]
+            }
+          }
+        },
+        "layout": {
+          "orientation": "portrait",
+          "margins": {
+            "top": {
+              "value": 54,
+              "unit": "pt"
+            },
+            "right": {
+              "value": 54,
+              "unit": "pt"
+            },
+            "bottom": {
+              "value": 54,
+              "unit": "pt"
+            },
+            "left": {
+              "value": 54,
+              "unit": "pt"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-19.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

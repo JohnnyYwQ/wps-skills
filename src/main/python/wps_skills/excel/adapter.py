@@ -1,6 +1,6 @@
-"""Excel Application Adapter; one Session binds one exact new or existing Workbook."""
+"""Excel Application Adapter; one Task binds one exact new or existing Workbook."""
 
-from wps_skills.core.action_session import (
+from wps_skills.core.action_runtime import (
     AcquiredDocument, ControllerCommand, PreparedDocumentAcquisition,
 )
 from wps_skills.excel.handlers import EXCEL_HANDLERS

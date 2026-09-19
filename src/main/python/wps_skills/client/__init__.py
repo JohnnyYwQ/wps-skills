@@ -1,1 +1,1 @@
-"""Caller-side Session Protocol support."""
+"""Task submission and durable receipt support."""

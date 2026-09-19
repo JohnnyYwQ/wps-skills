@@ -51,7 +51,7 @@ try {
 finally {
     if ($started -and -not $process.HasExited) {
         # Stop only this launcher-owned client if the caller interrupts the demo.
-        # Its Session Host observes channel loss and performs normal cleanup.
+        # Its Task-owned Job Object reclaims bridges; unproved WPS work stays quarantined.
         $process.Kill()
         [void]$process.WaitForExit(5000)
     }

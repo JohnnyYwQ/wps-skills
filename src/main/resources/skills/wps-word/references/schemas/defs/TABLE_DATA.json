@@ -1,0 +1,1 @@
+{"type":"array","items":{"type":"array","items":{"type":"string","minLength":0,"maxLength":32768,"format":"wordStoryText","x-maxUtf16Length":32768},"minItems":1,"maxItems":50},"minItems":1,"maxItems":100,"x-rectangular":true,"x-maxCells":2000,"x-maxUtf16Length":1048576}

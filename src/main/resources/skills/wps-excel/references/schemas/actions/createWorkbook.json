@@ -1,0 +1,1 @@
+{"parameters":{"type":"object","properties":{},"required":[],"additionalProperties":false},"result":{"type":"object","properties":{"documentState":{"$ref":"#/$defs/STATE"}},"required":["documentState"],"additionalProperties":false},"examples":[{"params":{}}]}

@@ -1,8 +1,10 @@
-"""Lazy construction of the one Session-owned Windows WPS bridge."""
+"""Lazy construction of the one Task-owned Windows WPS bridge."""
 
 import os
 from pathlib import Path
 import threading
+
+from wps_skills.core import timing
 
 from wps_skills.windows.powershell_bridge import (
     JsonLineBridgeTransport,
@@ -78,7 +80,8 @@ class LazyWindowsBridge:
                     ]
                     if self._debug_close_created_document:
                         command.append("-DebugCloseCreatedDocument")
-                    process = self._launcher.start_bridge(command)
+                    with timing.span("bridge.process_start"):
+                        process = self._launcher.start_bridge(command)
                     self._bridge = self._bridge_factory(
                         transport=self._transport_factory(process=process)
                     )

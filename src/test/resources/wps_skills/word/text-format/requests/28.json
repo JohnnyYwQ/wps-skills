@@ -1,0 +1,93 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "mixed",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "普通 ",
+                "format": {
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              },
+              {
+                "text": "重点 ",
+                "format": {
+                  "fontSizePt": 18,
+                  "bold": true,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              },
+              {
+                "text": "注释 ",
+                "format": {
+                  "fontSizePt": 10,
+                  "bold": false,
+                  "italic": true,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              },
+              {
+                "text": "链接样式 ",
+                "format": {
+                  "fontSizePt": 14,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "single",
+                  "color": "#1F4E79"
+                }
+              },
+              {
+                "text": "恢复普通",
+                "format": {
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-28.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

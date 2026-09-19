@@ -1,0 +1,1 @@
+{"parameters":{"type":"object","properties":{},"required":[],"additionalProperties":false},"result":{"$ref":"#/$defs/SLIDES"},"examples":[{"params":{}}]}

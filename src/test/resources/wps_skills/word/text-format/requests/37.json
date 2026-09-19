@@ -1,0 +1,209 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "seed",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "项目",
+                "format": {
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12
+                }
+              },
+              {
+                "text": "Alpha",
+                "format": {
+                  "westernFontFamily": "Arial",
+                  "fontSizePt": 16,
+                  "bold": true
+                }
+              },
+              {
+                "text": "待确认",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "项目Alpha",
+                "format": {
+                  "fontSizePt": 14,
+                  "italic": true
+                }
+              },
+              {
+                "text": "待确认",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "独立项待确认",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "find_full",
+      "address": {
+        "app": "word",
+        "action": "findContent"
+      },
+      "params": {
+        "query": {
+          "scope": {
+            "kind": "document"
+          },
+          "text": "项目Alpha待确认",
+          "caseSensitive": true,
+          "wholeWord": false
+        },
+        "limit": 20
+      }
+    },
+    {
+      "id": "replace_two",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "query",
+          "query": {
+            "scope": {
+              "kind": "document"
+            },
+            "text": "项目Alpha待确认",
+            "caseSensitive": true,
+            "wholeWord": false
+          },
+          "expectedMatchCount": 2
+        },
+        "replacement": {
+          "kind": "text",
+          "runs": [
+            {
+              "text": "项目Alpha已确认",
+              "format": {
+                "fontSizePt": 18,
+                "bold": true,
+                "color": "#1F4E79"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "find_remaining",
+      "address": {
+        "app": "word",
+        "action": "findContent"
+      },
+      "params": {
+        "query": {
+          "scope": {
+            "kind": "document"
+          },
+          "text": "待确认",
+          "caseSensitive": true,
+          "wholeWord": false
+        },
+        "limit": 20
+      }
+    },
+    {
+      "id": "replace_one",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "query",
+          "query": {
+            "scope": {
+              "kind": "document"
+            },
+            "text": "待确认",
+            "caseSensitive": true,
+            "wholeWord": false
+          },
+          "expectedMatchCount": 1
+        },
+        "replacement": {
+          "kind": "text",
+          "runs": [
+            {
+              "text": "已确认",
+              "format": {
+                "fontSizePt": 12,
+                "bold": false,
+                "color": "#000000"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-37.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

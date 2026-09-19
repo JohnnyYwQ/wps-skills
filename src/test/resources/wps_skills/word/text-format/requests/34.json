@@ -1,0 +1,92 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "indents",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "firstLineIndentPt": 24,
+              "leftIndentPt": 0,
+              "rightIndentPt": 0,
+              "spaceBeforePt": 0,
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "firstLineIndentPt": -24,
+              "leftIndentPt": 24,
+              "rightIndentPt": 0,
+              "spaceBeforePt": 6,
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 缩进示例 English long paragraph。 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "firstLineIndentPt": 24,
+              "leftIndentPt": 36,
+              "rightIndentPt": 36,
+              "spaceBeforePt": 12,
+              "spaceAfterPt": 12
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-34.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

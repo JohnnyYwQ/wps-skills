@@ -1,6 +1,6 @@
-"""Ppt Application Adapter; one Session binds one exact new or existing Presentation."""
+"""Ppt Application Adapter; one Task binds one exact new or existing Presentation."""
 
-from wps_skills.core.action_session import (
+from wps_skills.core.action_runtime import (
     AcquiredDocument, ControllerCommand, PreparedDocumentAcquisition,
 )
 from wps_skills.ppt.handlers import PPT_HANDLERS

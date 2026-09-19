@@ -3,7 +3,7 @@
 import re
 import unicodedata
 
-from wps_skills.core.action_session import ActionContract, ApplicationContractSet
+from wps_skills.core.action_runtime import ActionContract, ApplicationContractSet
 
 MAX_CELLS = 1000
 
@@ -120,8 +120,8 @@ CELL['properties'].update({'merged': {'type': 'boolean'}, 'rowHidden': {'type': 
     'columnHidden': {'type': 'boolean'}, 'rowHeight': {'type': 'number', 'minimum': 0},
     'columnWidth': {'type': 'number', 'minimum': 0}})
 PATCH = obj(dict(STYLE, numberFormat=string(128, minLength=1), bold={'type': 'boolean'}), required=(), minProperties=1)
-ERRORS = ('PERSISTENCE_LOCATOR_REQUIRED', 'OUTPUT_ALREADY_EXISTS', 'OUTPUT_MATCHES_BOUND_DOCUMENT', 'OUTPUT_PARENT_NOT_FOUND', 'OUTPUT_PATH_INVALID', 'OUTPUT_IN_USE', 'OUTPUT_ACCESS_DENIED', 'DOCUMENT_CHANGED_DURING_ACTION', 'INVALID_PARAMS', 'UNKNOWN_ACTION', 'SESSION_APP_MISMATCH', 'SESSION_DOCUMENT_NOT_BOUND',
-          'SESSION_DOCUMENT_ALREADY_BOUND', 'DOCUMENT_NOT_FOUND', 'DOCUMENT_ACCESS_DENIED',
+ERRORS = ('PERSISTENCE_LOCATOR_REQUIRED', 'OUTPUT_ALREADY_EXISTS', 'OUTPUT_MATCHES_BOUND_DOCUMENT', 'OUTPUT_PARENT_NOT_FOUND', 'OUTPUT_PATH_INVALID', 'OUTPUT_IN_USE', 'OUTPUT_ACCESS_DENIED', 'DOCUMENT_CHANGED_DURING_ACTION', 'INVALID_PARAMS', 'UNKNOWN_ACTION', 'TASK_APP_MISMATCH', 'TASK_DOCUMENT_NOT_BOUND',
+          'TASK_DOCUMENT_ALREADY_BOUND', 'DOCUMENT_NOT_FOUND', 'DOCUMENT_ACCESS_DENIED',
           'DOCUMENT_OPEN_FAILED', 'DOCUMENT_BINDING_UNAVAILABLE', 'DOCUMENT_LEASE_CONFLICT',
           'DOCUMENT_QUARANTINED', 'DOCUMENT_CLOSED', 'DOCUMENT_READ_ONLY', 'WORKSHEET_NOT_FOUND',
           'RANGE_UNSUPPORTED', 'STALE_RANGE', 'RANGE_READ_FAILED', 'RANGE_WRITE_FAILED',
@@ -255,11 +255,16 @@ def _result_error(action, params, result):
 
 
 def contract(name, purpose, category, params, result, example, *, risk='read', role='required'):
+    if "expectedToken" in params.get("properties", {}):
+        source = "getWorksheetInfo" if category in {"worksheets", "structure"} else "readRange of the same sheet and address"
+        params["properties"]["expectedToken"] = dict(TOKEN, description="Use data.token from the latest " + source + "; valid only in this Task and while its observed state is unchanged.")
+    if name == "setFormulas":
+        params["properties"]["formulas"]["items"]["items"]["description"] = "Invariant formula with same-sheet A1 references; supported functions: " + ", ".join(sorted(_FORMULA_FUNCTIONS)) + ". No external workbook or cross-sheet references."
     return ActionContract(
         name=name, purpose=purpose, category=category, binding_role=role, risk=risk,
         parameters=params, result=result, stable_errors=ERRORS,
-        prerequisites=('Explicit existing-file or new-document intent; UNBOUND Session.' if role == 'establish'
-                       else 'One exact live Workbook is bound to this Excel Session.',),
+        prerequisites=('Explicit existing-file or new-document intent; UNBOUND Task.' if role == 'establish'
+                       else 'One exact live Workbook is bound to this Excel Task.',),
         constraints=('One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.',
                      'Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.',
                      'No active-window targeting, external workbook references, or implicit save.',
@@ -299,7 +304,7 @@ _TARGET_CONTRACTS = (
     contract('calculateRange', 'Recalculate the specified bound-workbook region and inspect results.', 'formulas',
              obj(dict(REGION, expectedToken=TOKEN)), SNAPSHOT, _MUTATION_REGION, risk='write'),
     contract('formatRange', 'Set number, font, color, wrapping and alignment formats, verifying each cell.', 'formatting',
-             obj(dict(REGION, expectedToken=TOKEN, format=PATCH)), SNAPSHOT,
+             obj(dict(REGION, address=dict(ADDRESS, description='One A1 rectangle, at most 1000 cells. May include merged cells only when every intersecting merged area is fully contained. Protected sheets and array formulas are unsupported.'), expectedToken=TOKEN, format=PATCH)), SNAPSHOT,
              dict(_MUTATION_REGION, format={'bold': True}), risk='write'),
     contract('save', 'Save the existing .xlsx locator and verify persistence without retargeting.', 'persistence',
              obj({}), obj({'artifact': ARTIFACT, 'documentState': obj({'persistenceState': {'const': 'saved'}, 'readOnly': {'const': False}})}),
@@ -370,8 +375,7 @@ EXCEL_FORMAT_VALIDATORS.update({
 })
 EXCEL_TARGET_CONTRACT_SET = ApplicationContractSet(application='excel', contracts=_TARGET_CONTRACTS,
                                                    format_validators=EXCEL_FORMAT_VALIDATORS)
-# Admitted after Windows WPS 12.0.0.28505 live acceptance on 2026-09-05.
-# Evidence: src/test/resources/wps_skills/excel/type_library/EVIDENCE.md.
+# Task migration acceptance is recorded in the current migration report.
 _EXCEL_PRODUCTION_ACTIONS = frozenset({
     'saveAs', 'createWorkbook', 'exportPdf',
     'openWorkbook', 'getWorkbookInfo', 'listWorksheets', 'readRange',

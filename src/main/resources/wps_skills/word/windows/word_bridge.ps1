@@ -1,7 +1,5 @@
 [CmdletBinding()]
-param(
-    [switch]$DebugCloseCreatedDocument
-)
+param()
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -10,9 +8,6 @@ $script:Application = $null
 $script:Documents = $null
 $script:Document = $null
 $script:DocumentId = $null
-$script:DocumentCreatedBySession = $false
-$script:ApplicationCreatedBySession = $false
-$script:DebugCloseCreatedDocument = [bool]$DebugCloseCreatedDocument
 $script:AuthorizedPath = $null
 $script:Revision = $null
 $script:Fingerprint = $null
@@ -55,6 +50,8 @@ class DocumentQuarantinedException : System.Exception {
 . (Join-Path $PSScriptRoot '../../windows/bridge_common.ps1')
 . (Join-Path $PSScriptRoot '../../windows/window_presentation.ps1')
 . (Join-Path $PSScriptRoot '../../windows/output_persistence.ps1')
+. (Join-Path $PSScriptRoot 'word_story_xml.ps1')
+. (Join-Path $PSScriptRoot 'word_font_names.ps1')
 
 function Connect-WpsApplication {
     $created = $false
@@ -65,7 +62,6 @@ function Connect-WpsApplication {
         $script:Application = New-Object -ComObject 'KWPS.Application'
         $created = $true
     }
-    $script:ApplicationCreatedBySession = $created
     $script:Application.Visible = $true
     $script:Documents = $script:Application.Documents
     return $created
@@ -90,40 +86,6 @@ function Show-BoundDocument {
     }
     finally {
         Release-ComReference -Value $window
-    }
-}
-
-function Invoke-DebugCreatedDocumentCleanup {
-    if (
-        -not $script:DebugCloseCreatedDocument -or
-        -not $script:DocumentCreatedBySession -or
-        $null -eq $script:Document
-    ) {
-        return
-    }
-
-    Set-CoordinationInFlight -InFlight $true
-    try {
-        if (Test-BoundDocumentLive) {
-            # 0 is wdDoNotSaveChanges. This switch exists only for an explicit
-            # debug Session and can target only that Session's created document.
-            $script:Document.Close(0)
-        }
-        $script:DocumentCreatedBySession = $false
-        if ($script:ApplicationCreatedBySession) {
-            try {
-                if ([int]$script:Documents.Count -eq 0) {
-                    $script:Application.Quit(0)
-                }
-            }
-            catch {
-                # Closing the owned test document is the required cleanup;
-                # quitting an otherwise empty application is best effort.
-            }
-        }
-    }
-    finally {
-        Set-CoordinationInFlight -InFlight $false
     }
 }
 
@@ -286,7 +248,7 @@ function Test-BoundDocumentLive {
     catch {
         return $false
     }
-    # Application is retained by the Session; release it only at bridge exit.
+    # Application is retained by the Task; release it only at bridge exit.
 }
 
 function New-RangeValue {
@@ -537,6 +499,40 @@ function Get-LineSpacingSnapshot {
     }
 }
 
+function Get-LineSpacingMultiple {
+    param([Parameter(Mandatory = $true)]$Spacing)
+
+    switch ([string]$Spacing.kind) {
+        'single' { return 1.0 }
+        'oneAndHalf' { return 1.5 }
+        'double' { return 2.0 }
+        'multiple' { return [double]$Spacing.value }
+        default { return $null }
+    }
+}
+
+function Test-LineSpacingEquivalent {
+    param(
+        [Parameter(Mandatory = $true)]$Expected,
+        [Parameter(Mandatory = $true)]$Observed
+    )
+
+    # WPS may canonicalize multiple=1/1.5/2 to a named rule (and vice versa).
+    # Compare line multiples by effect; fixed/minimum point spacing is distinct.
+    $expectedMultiple = Get-LineSpacingMultiple -Spacing $Expected
+    $observedMultiple = Get-LineSpacingMultiple -Spacing $Observed
+    if ($null -ne $expectedMultiple -and $null -ne $observedMultiple) {
+        return [Math]::Abs($expectedMultiple - $observedMultiple) -le 0.01
+    }
+    if (
+        @('exact', 'atLeast') -contains [string]$Expected.kind -and
+        [string]$Expected.kind -eq [string]$Observed.kind
+    ) {
+        return [Math]::Abs([double]$Expected.points - [double]$Observed.points) -le 0.05
+    }
+    return $false
+}
+
 function Get-ParagraphFormatSnapshot {
     param([Parameter(Mandatory = $true)]$Range)
 
@@ -571,11 +567,11 @@ function Get-StorySnapshot {
         [Parameter(Mandatory = $true)][string]$Area,
         [Parameter(Mandatory = $true)][string]$Variant,
         [Parameter(Mandatory = $true)][int]$Index,
-        [Parameter(Mandatory = $true)][int]$SectionIndex
+        [Parameter(Mandatory = $true)][int]$SectionIndex,
+        [Parameter(Mandatory = $true)][hashtable]$StoryTextMap
     )
 
     $story = $null
-    $range = $null
     try {
         $story = $Collection.Item($Index)
         $exists = [bool]$story.Exists
@@ -587,8 +583,7 @@ function Get-StorySnapshot {
         }
         $text = ''
         if ($exists) {
-            $range = $story.Range
-            $text = Normalize-StoryText -Text ([string]$range.Text)
+            $text = [string]$StoryTextMap["$SectionIndex/$Area/$Variant"]
         }
         if ($text.Length -gt 32768) {
             throw 'Header or footer text exceeds the supported limit.'
@@ -602,7 +597,6 @@ function Get-StorySnapshot {
         }
     }
     finally {
-        Release-ComReference -Value $range
         Release-ComReference -Value $story
     }
 }
@@ -612,6 +606,10 @@ function Get-SectionSnapshots {
     if ($count -lt 1 -or $count -gt 64) {
         throw 'Section count exceeds the supported limit.'
     }
+    # Snapshot live memory once; never obtain HeaderFooter.Range while reading.
+    $storyTextMap = Get-WordXmlStoryTextMap `
+        -WordOpenXml ([string]$script:Document.WordOpenXML) `
+        -ExpectedSectionCount $count
     $snapshots = @()
     for ($sectionIndex = 0; $sectionIndex -lt $count; $sectionIndex++) {
         $section = $null
@@ -624,12 +622,12 @@ function Get-SectionSnapshots {
             $headers = $section.Headers
             $footers = $section.Footers
             $stories = @(
-                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'primary' -Index 1 -SectionIndex $sectionIndex
-                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'firstPage' -Index 2 -SectionIndex $sectionIndex
-                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'evenPages' -Index 3 -SectionIndex $sectionIndex
-                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'primary' -Index 1 -SectionIndex $sectionIndex
-                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'firstPage' -Index 2 -SectionIndex $sectionIndex
-                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'evenPages' -Index 3 -SectionIndex $sectionIndex
+                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'primary' -Index 1 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'firstPage' -Index 2 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $headers -Area 'header' -Variant 'evenPages' -Index 3 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'primary' -Index 1 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'firstPage' -Index 2 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
+                Get-StorySnapshot -Collection $footers -Area 'footer' -Variant 'evenPages' -Index 3 -SectionIndex $sectionIndex -StoryTextMap $storyTextMap
             )
             $snapshots += [ordered]@{
                 index = $sectionIndex
@@ -806,39 +804,20 @@ function Assert-TextFormatPatch {
 
     $observed = Get-TextFormatSnapshot -Range $Range
     $names = @(Get-ObjectPropertyNames -Value $Patch)
-    if ($names -contains 'fontFamily' -and [string]$observed.fontFamily -ne [string]$Patch.fontFamily) {
-        throw [ContentVerificationException]::new('The inserted font family did not read back exactly.')
-    }
-    if (
-        $names -contains 'westernFontFamily' -and
-        [string]$observed.westernFontFamily -ne
-            [string]$Patch.westernFontFamily
-    ) {
-        throw [ContentVerificationException]::new(
-            'The inserted Western font family did not read back exactly.'
-        )
-    }
-    if (
-        $names -contains 'eastAsiaFontFamily' -and
-        [string]$observed.eastAsiaFontFamily -ne
-            [string]$Patch.eastAsiaFontFamily
-    ) {
-        throw [ContentVerificationException]::new(
-            'The inserted East Asian font family did not read back exactly.'
-        )
+    foreach ($property in @('fontFamily', 'westernFontFamily', 'eastAsiaFontFamily')) {
+        if ($names -contains $property) {
+            Assert-WordFontName -Property $property `
+                -Requested ([string]$Patch.$property) `
+                -Observed ([string]$observed.$property)
+        }
     }
     if ($names -contains 'westernFontFamily') {
         $font = $null
         try {
             $font = $Range.Font
-            if (
-                [string]$font.NameOther -ne
-                    [string]$Patch.westernFontFamily
-            ) {
-                throw [ContentVerificationException]::new(
-                    'The inserted Western fallback font did not read back exactly.'
-                )
-            }
+            Assert-WordFontName -Property 'westernFontFamily.NameOther' `
+                -Requested ([string]$Patch.westernFontFamily) `
+                -Observed ([string]$font.NameOther)
         }
         finally {
             Release-ComReference -Value $font
@@ -878,21 +857,8 @@ function Assert-ParagraphFormatPatch {
         }
     }
     if ($names -contains 'lineSpacing') {
-        $expected = $Patch.lineSpacing
-        if ([string]$observed.lineSpacing.kind -ne [string]$expected.kind) {
-            throw [ContentVerificationException]::new('The inserted line-spacing kind did not read back exactly.')
-        }
-        if (
-            @('exact', 'atLeast') -contains [string]$expected.kind -and
-            [Math]::Abs([double]$observed.lineSpacing.points - [double]$expected.points) -gt 0.05
-        ) {
-            throw [ContentVerificationException]::new('The inserted line spacing did not read back exactly.')
-        }
-        if (
-            [string]$expected.kind -eq 'multiple' -and
-            [Math]::Abs([double]$observed.lineSpacing.value - [double]$expected.value) -gt 0.01
-        ) {
-            throw [ContentVerificationException]::new('The inserted line-spacing multiple did not read back exactly.')
+        if (-not (Test-LineSpacingEquivalent -Expected $Patch.lineSpacing -Observed $observed.lineSpacing)) {
+            throw [ContentVerificationException]::new('The inserted line spacing did not read back equivalently.')
         }
     }
 }
@@ -910,10 +876,11 @@ function Invoke-WriteContent {
     $position = Resolve-BodyAnchor -Anchor $operationArguments.anchor
     $blocks = @($operationArguments.blocks)
     $paragraphBlocks = [string]$blocks[0].kind -ne 'text'
+    $atDocumentEnd = $position -eq (Get-DocumentEnd)
 
     $builder = [Text.StringBuilder]::new()
     if ($paragraphBlocks -and -not (Test-ParagraphBoundary -Position $position)) {
-        if ([string]$operationArguments.anchor.kind -eq 'documentEnd') {
+        if ($atDocumentEnd) {
             # Content.End-1 precedes Word's final paragraph mark.  Separate a
             # requested paragraph sequence from a non-empty last paragraph.
             [void]$builder.Append("`r")
@@ -947,6 +914,14 @@ function Invoke-WriteContent {
             level = if ([string]$block.kind -eq 'heading') { [int]$block.level } else { 0 }
             format = $block.format
         }
+    }
+    if ($paragraphBlocks -and $atDocumentEnd -and $builder.Length -gt 1) {
+        # Reuse the document's mandatory final paragraph mark instead of
+        # inserting another one before it. Interior block separators remain.
+        # Keep a lone CR: an explicitly requested blank insertion must still
+        # add a paragraph, rather than becoming a zero-length write.
+        $builder.Length--
+        $blockPlans[-1].end--
     }
     $insertedText = $builder.ToString()
     if ($insertedText.Length -lt 1) {
@@ -1170,7 +1145,6 @@ function Invoke-AcquireExistingDocument {
     if ((Get-StableFileIdentity -Path $actualPath) -ne $script:PreparedIdentity) {
         throw 'WPS returned a different document than the requested file.'
     }
-    $script:DocumentCreatedBySession = $false
     Show-BoundDocument -UseNormalWindowState $applicationCreated
     $script:DocumentId = 'document-' + [guid]::NewGuid().ToString('N')
     $script:AuthorizedPath = $path
@@ -1202,7 +1176,6 @@ function Invoke-AcquireNewDocument {
     }
     $applicationCreated = Connect-WpsApplication
     $script:Document = $script:Documents.Add()
-    $script:DocumentCreatedBySession = $true
     $script:UnsavedName = [string]$script:Document.Name
     Show-BoundDocument -UseNormalWindowState $applicationCreated
     $script:DocumentId = 'document-' + [guid]::NewGuid().ToString('N')
@@ -1371,10 +1344,10 @@ if (-not (Test-Path -LiteralPath $wordActionsPath -PathType Leaf)) {
 
 function Assert-WordPersistenceBinding {
     if ([string]::IsNullOrEmpty($script:AuthorizedPath)) {
-        if (-not [string]::IsNullOrEmpty([string]$script:Document.Path) -or [string]$script:Document.Name -cne $script:UnsavedName) { throw 'The new document was saved outside this Session.' }
+        if (-not [string]::IsNullOrEmpty([string]$script:Document.Path) -or [string]$script:Document.Name -cne $script:UnsavedName) { throw 'The new document was saved outside this Task.' }
     } else {
         $actual=[IO.Path]::GetFullPath([string]$script:Document.FullName)
-        if ((Get-NormalizedFileLocator $actual) -cne $script:PreparedLocator -or (Get-StableFileIdentity $actual) -cne $script:BoundFileIdentity) { throw 'The document backing identity changed outside this Session.' }
+        if ((Get-NormalizedFileLocator $actual) -cne $script:PreparedLocator -or (Get-StableFileIdentity $actual) -cne $script:BoundFileIdentity) { throw 'The document backing identity changed outside this Task.' }
     }
 }
 
@@ -1748,4 +1721,5 @@ function Invoke-BridgeOperation {
     }
 }
 
+. (Join-Path $PSScriptRoot 'word_timing.ps1')
 . (Join-Path $PSScriptRoot '../../windows/bridge_loop.ps1')

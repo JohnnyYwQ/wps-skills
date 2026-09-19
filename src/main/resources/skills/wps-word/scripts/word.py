@@ -16,7 +16,7 @@ for source in SOURCES:
 else:
     raise RuntimeError("Word Skill runtime is missing; use the complete assembled wps-word directory")
 
-from wps_skills.word.skill import ActionFailed, SessionClientError, main, open_session  # noqa: E402,F401
+from wps_skills.word.skill import main  # noqa: E402,F401
 
 
 if __name__ == "__main__":

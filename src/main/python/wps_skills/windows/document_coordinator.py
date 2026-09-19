@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from wps_skills.core.action_session import (
+from wps_skills.core.action_runtime import (
     DefiniteEstablishFailure,
     DocumentResourceCleanup,
     UnprovableEstablishFailure,

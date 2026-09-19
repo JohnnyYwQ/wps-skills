@@ -14,7 +14,7 @@ class WordDemoTests(unittest.TestCase):
             output = Path(root) / 'demo'
             factory = Mock()
             with self.assertRaisesRegex(RuntimeError, 'desktop'):
-                run_demo(output, desktop_check=Mock(side_effect=RuntimeError('desktop unavailable')), session_factory=factory)
+                run_demo(output, desktop_check=Mock(side_effect=RuntimeError('desktop unavailable')), task_entry=factory)
             self.assertFalse(output.exists())
             factory.assert_not_called()
 

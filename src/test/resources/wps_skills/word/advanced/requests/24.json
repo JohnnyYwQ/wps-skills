@@ -1,0 +1,213 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "caption1",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "图一：宽度模式"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "image1",
+      "address": {
+        "app": "word",
+        "action": "insertImage"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "source": {
+          "kind": "file",
+          "path": "C:/wps-word-advanced/fixtures/sample.png"
+        },
+        "placement": {
+          "kind": "inline"
+        },
+        "size": {
+          "kind": "width",
+          "width": {
+            "value": 2,
+            "unit": "in"
+          }
+        },
+        "alternativeText": {
+          "kind": "description",
+          "text": "图一 TEST"
+        }
+      }
+    },
+    {
+      "id": "page",
+      "address": {
+        "app": "word",
+        "action": "insertBreak"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "type": "page"
+      }
+    },
+    {
+      "id": "caption2",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "图二：适应方框"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "image2",
+      "address": {
+        "app": "word",
+        "action": "insertImage"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "source": {
+          "kind": "file",
+          "path": "C:/wps-word-advanced/fixtures/sample.png"
+        },
+        "placement": {
+          "kind": "inline"
+        },
+        "size": {
+          "kind": "box",
+          "width": {
+            "value": 100,
+            "unit": "pt"
+          },
+          "height": {
+            "value": 100,
+            "unit": "pt"
+          },
+          "fit": "contain"
+        },
+        "alternativeText": {
+          "kind": "description",
+          "text": "图二 TEST"
+        }
+      }
+    },
+    {
+      "id": "caption3",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "图三：拉伸"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "image3",
+      "address": {
+        "app": "word",
+        "action": "insertImage"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "source": {
+          "kind": "file",
+          "path": "C:/wps-word-advanced/fixtures/sample.png"
+        },
+        "placement": {
+          "kind": "inline"
+        },
+        "size": {
+          "kind": "box",
+          "width": {
+            "value": 90,
+            "unit": "pt"
+          },
+          "height": {
+            "value": 90,
+            "unit": "pt"
+          },
+          "fit": "stretch"
+        },
+        "alternativeText": {
+          "kind": "description",
+          "text": "图三 TEST"
+        }
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-24.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    },
+    {
+      "address": {
+        "app": "word",
+        "action": "exportPdf"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-24.pdf",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

@@ -51,7 +51,17 @@ function New-OutputReservation {
         if ($ReserveFile) {
             # CreateNew atomically claims an absent destination. Native SaveAs may
             # replace this task-owned empty file; it never receives a user file.
-            $stream=[IO.File]::Open($full,[IO.FileMode]::CreateNew,[IO.FileAccess]::ReadWrite,[IO.FileShare]::Read)
+            try {
+                $stream=[IO.File]::Open($full,[IO.FileMode]::CreateNew,[IO.FileAccess]::ReadWrite,[IO.FileShare]::Read)
+            }
+            catch [IO.IOException] {
+                # A competing creator can win after the last Test-Path. This is
+                # still a definite pre-write collision, never a partial SaveAs.
+                if (($_.Exception.HResult -band 65535) -in @(80,183)) {
+                    throw [PersistenceActionException]::new('OUTPUT_ALREADY_EXISTS','The output appeared during atomic reservation.')
+                }
+                throw
+            }
             $stream.Dispose()
             $identity=Get-StableFileIdentity $full
             Add-CoordinationFence -Identity $identity

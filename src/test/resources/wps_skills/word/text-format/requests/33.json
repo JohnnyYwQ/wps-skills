@@ -1,0 +1,125 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "size_spacing",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              },
+              {
+                "text": "大字 BIG ",
+                "format": {
+                  "fontSizePt": 24
+                }
+              },
+              {
+                "text": "后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "exact",
+                "points": 18
+              }
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              },
+              {
+                "text": "大字 BIG ",
+                "format": {
+                  "fontSizePt": 24
+                }
+              },
+              {
+                "text": "后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "atLeast",
+                "points": 18
+              }
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 普通文字 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              },
+              {
+                "text": "大字 BIG ",
+                "format": {
+                  "fontSizePt": 24
+                }
+              },
+              {
+                "text": "后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 后续普通文字 ",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "multiple",
+                "value": 1.5
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-33.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

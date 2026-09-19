@@ -1,0 +1,1 @@
+{"type":"object","properties":{"name":{"type":"string","maxLength":31,"minLength":1},"index":{"type":"integer","minimum":1},"visible":{"type":"boolean"},"usedAddress":{"type":"string","maxLength":32,"minLength":1},"token":{"type":"string","maxLength":128,"minLength":1}},"required":["name","index","visible","usedAddress","token"],"additionalProperties":false}

@@ -1,0 +1,143 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "spacing",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。 single 行距示例 English words。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "single"
+              },
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。 oneAndHalf 行距示例 English words。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "oneAndHalf"
+              },
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。 double 行距示例 English words。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "double"
+              },
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。 exact 行距示例 English words。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "exact",
+                "points": 18
+              },
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。 atLeast 行距示例 English words。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "atLeast",
+                "points": 18
+              },
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。 multiple 行距示例 English words。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "multiple",
+                "value": 1.25
+              },
+              "spaceAfterPt": 6
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-32.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

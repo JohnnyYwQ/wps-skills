@@ -1,0 +1,1 @@
+{"parameters":{"type":"object","properties":{"slideId":{"type":"integer","minimum":1,"maximum":2147483647},"shapeId":{"type":"integer","minimum":1,"maximum":2147483647}},"required":["slideId","shapeId"],"additionalProperties":false},"result":{"$ref":"#/$defs/SHAPE_STYLE"},"examples":[{"params":{"slideId":256,"shapeId":2}}]}

@@ -1,0 +1,158 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "outline",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "heading",
+            "level": 1,
+            "runs": [
+              {
+                "text": "文字报告",
+                "format": {
+                  "fontSizePt": 24,
+                  "bold": true,
+                  "color": "#1F4E79"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "center"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "报告正文 English 123。",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          },
+          {
+            "kind": "heading",
+            "level": 2,
+            "runs": [
+              {
+                "text": "第一章",
+                "format": {
+                  "fontSizePt": 18,
+                  "bold": true,
+                  "color": "#1F4E79"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "章正文。",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          },
+          {
+            "kind": "heading",
+            "level": 3,
+            "runs": [
+              {
+                "text": "第一节",
+                "format": {
+                  "fontSizePt": 14,
+                  "bold": true,
+                  "color": "#1F4E79"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "节正文。",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-27.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

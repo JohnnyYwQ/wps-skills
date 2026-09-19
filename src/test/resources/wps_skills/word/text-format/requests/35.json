@@ -1,0 +1,164 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "title",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "heading",
+            "level": 1,
+            "runs": [
+              {
+                "text": "连续追加测试",
+                "format": {
+                  "fontSizePt": 24,
+                  "bold": true,
+                  "color": "#1F4E79"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "center"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "body",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "第一段正文 English。",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "emphasis",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "强调内容 Important",
+                "format": {
+                  "fontSizePt": 16,
+                  "bold": true,
+                  "italic": true,
+                  "underline": "single",
+                  "color": "#C00000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "right",
+              "lineSpacing": {
+                "kind": "double"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "reset",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "恢复正文 Normal text。",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-35.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

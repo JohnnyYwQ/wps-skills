@@ -499,17 +499,15 @@ function Invoke-ReplaceContent {
             [int]$target.end - [int]$target.start
         )
     }
-    $changed = Complete-ContentMutation `
+    [void](Complete-ContentMutation `
         -BeforeFingerprint $beforeFingerprint `
         -VerificationCode 'CONTENT_VERIFICATION_FAILED' `
         -VerificationMessage 'The replacement effect could not be verified.' `
-        -MustChange ($targets.Count -gt 0 -and [string]$operationArguments.replacement.kind -eq 'delete')
-    $changedCount = if ($changed) { $targets.Count } else { 0 }
+        -MustChange ($targets.Count -gt 0 -and [string]$operationArguments.replacement.kind -eq 'delete'))
     return [ordered]@{
         revisionBefore = $revisionBefore
         revisionAfter = $script:Revision
         matchedCount = $targets.Count
-        changedCount = $changedCount
         ranges = @(
             foreach ($range in $finalRanges) {
                 New-RangeValue -Start $range.start -End $range.end
@@ -551,6 +549,13 @@ function Invoke-InsertTable {
     $data = @($operationArguments.data)
     $rowCount = $data.Count
     $columnCount = @($data[0]).Count
+    $expectedTableStart = $position
+    if ([string]$operationArguments.anchor.kind -eq 'documentEnd' -and
+        -not (Test-ParagraphBoundary -Position $position)) {
+        # WPS inserts a separator before a table appended to a non-empty last
+        # paragraph. The table itself begins after that required paragraph mark.
+        $expectedTableStart++
+    }
     $anchorRange = $null
     $table = $null
     try {
@@ -627,7 +632,7 @@ function Invoke-InsertTable {
         Release-ComReference -Value $table
         Release-ComReference -Value $anchorRange
     }
-    if ($tableStart -ne $position -or $tableEnd -le $tableStart) {
+    if ($tableStart -ne $expectedTableStart -or $tableEnd -le $tableStart) {
         Throw-WordOperationFailure `
             -Code 'TABLE_VERIFICATION_FAILED' `
             -Message 'The inserted table range did not match its Body Anchor.' `
@@ -806,14 +811,14 @@ function Invoke-SetPageLayout {
         }
     }
     $observed = @()
-    $changedCount = 0
+    $hasObservedChange = $false
     foreach ($plan in $plans) {
         $snapshot = Get-SectionLayoutSnapshot -Index $plan.index
         if (
             ($snapshot | ConvertTo-Json -Compress -Depth 8) -ne
             ($plan.before | ConvertTo-Json -Compress -Depth 8)
         ) {
-            $changedCount++
+            $hasObservedChange = $true
         }
         if (
             $layoutNames -contains 'orientation' -and
@@ -850,10 +855,9 @@ function Invoke-SetPageLayout {
         -BeforeFingerprint $beforeFingerprint `
         -VerificationCode 'PAGE_LAYOUT_VERIFICATION_FAILED' `
         -VerificationMessage 'The page-layout effect could not be verified.' `
-        -MustChange ($changedCount -gt 0))
+        -MustChange $hasObservedChange)
     return [ordered]@{
         selectedSectionCount = $indexes.Count
-        changedCount = $changedCount
         revisionBefore = $revisionBefore
         revisionAfter = $script:Revision
         sections = $observed
@@ -973,7 +977,7 @@ function Invoke-SetHeaderFooter {
     }
     $allSnapshots = @(Get-SectionSnapshots)
     $stories = @()
-    $changedCount = 0
+    $hasObservedChange = $false
     foreach ($index in $indexes) {
         $sectionSnapshot = @(
             $allSnapshots | Where-Object { $_.index -eq $index }
@@ -982,7 +986,7 @@ function Invoke-SetHeaderFooter {
             ($sectionSnapshot.headerFooter | ConvertTo-Json -Compress -Depth 10) -ne
             ($beforeSections[$index] | ConvertTo-Json -Compress -Depth 10)
         ) {
-            $changedCount++
+            $hasObservedChange = $true
         }
         foreach ($update in $updates) {
             $story = @(
@@ -1053,10 +1057,9 @@ function Invoke-SetHeaderFooter {
         -BeforeFingerprint $beforeFingerprint `
         -VerificationCode 'HEADER_FOOTER_VERIFICATION_FAILED' `
         -VerificationMessage 'The header/footer effect could not be verified.' `
-        -MustChange ($changedCount -gt 0))
+        -MustChange $hasObservedChange)
     return [ordered]@{
         selectedSectionCount = $indexes.Count
-        changedCount = $changedCount
         revisionBefore = $revisionBefore
         revisionAfter = $script:Revision
         stories = $stories
@@ -1746,7 +1749,7 @@ function Invoke-ExportPdf {
             -Code 'OUTPUT_PARENT_NOT_FOUND' `
             -Message 'The PDF output parent directory does not exist.'
     }
-    $replacedExisting = Test-Path -LiteralPath $fullPath -PathType Leaf
+    $replacedExisting = Test-Path -LiteralPath $fullPath
     if (
         $replacedExisting -and
         [string]$operationArguments.overwritePolicy -eq 'failIfExists'
@@ -1788,7 +1791,24 @@ function Invoke-ExportPdf {
                 -Code 'DOCUMENT_CHANGED_DURING_ACTION' `
                 -Message 'The document changed while it was being exported.'
         }
-        Move-Item -LiteralPath $temporary -Destination $fullPath -Force
+        if ([string]$operationArguments.overwritePolicy -eq 'failIfExists') {
+            try {
+                # Atomic no-replace publication: a name appearing after the
+                # initial check must not be silently overwritten by Move-Item.
+                [IO.File]::Move($temporary, $fullPath)
+            }
+            catch [IO.IOException] {
+                if ([IO.File]::Exists($temporary) -and (Test-Path -LiteralPath $fullPath)) {
+                    Throw-WordOperationFailure `
+                        -Code 'OUTPUT_ALREADY_EXISTS' `
+                        -Message 'The PDF output appeared before publication.'
+                }
+                throw
+            }
+        }
+        else {
+            Move-Item -LiteralPath $temporary -Destination $fullPath -Force
+        }
         if (-not (Test-PdfArtifact -Path $fullPath)) {
             Throw-WordOperationFailure `
                 -Code 'OUTPUT_VERIFICATION_FAILED' `

@@ -1,4 +1,4 @@
-"""Visible Word demonstration using one production Action Session."""
+"""Visible Word demonstration using one production Task."""
 
 import argparse
 from datetime import datetime
@@ -10,7 +10,8 @@ import uuid
 import zipfile
 
 from wps_skills.windows.desktop import require_desktop
-from wps_skills.word.skill import open_session
+from wps_skills.word.skill import main as task_main
+import io
 
 
 INSPECTION = {
@@ -22,7 +23,7 @@ TABLE = [['能力', '验证方式'], ['文字与排版', '内容和格式读回'
 
 
 def create_demo_document(path):
-    """Prepare an empty fixture; first-save is not a production Word Action."""
+    """Prepare an empty fixture; used only for isolated acceptance input."""
     files = {
         '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
         '_rels/.rels': '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
@@ -33,61 +34,53 @@ def create_demo_document(path):
             archive.writestr(name, xml.encode('utf-8'))
 
 
-def run_demo(output, *, delay=1.5, desktop_check=require_desktop, session_factory=open_session):
+def run_demo(output, *, delay=1.5, desktop_check=require_desktop, task_entry=task_main):
     desktop = desktop_check()
     if not math.isfinite(delay) or not 0 <= delay <= 10:
         raise ValueError('delay must be between 0 and 10 seconds')
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     document = output / ('wps-word-' + uuid.uuid4().hex + '.docx')
-    report = {'status': 'running', 'document': str(document), 'desktopSessionId': desktop, 'steps': []}
-    client = None
-
-    def stage(message):
-        print(message, flush=True)
-        if delay:
-            time.sleep(delay)
-
-    def call(action, params):
-        response = client.call({'app': 'word', 'action': action}, params)
-        report['steps'].append(response)
-        return response['data']
-
-    try:
-        create_demo_document(document)
-        with session_factory() as client:
-            stage('1/4 打开独立的 Word 演示文档。')
-            call('openDocument', {'path': str(document)})
-            stage('2/4 写入标题、正文，并设置字号、颜色与段落间距。')
-            call('writeContent', {'anchor': {'kind': 'documentEnd'}, 'blocks': [
+    def action(name, params, identifier=None):
+        result = {'address': {'app': 'word', 'action': name}, 'params': params}
+        if identifier:
+            result['id'] = identifier
+        return result
+    request = {
+        'app': 'word', 'document': action('createDocument', {}),
+        'steps': [
+            action('writeContent', {'anchor': {'kind': 'documentEnd'}, 'blocks': [
                 {'kind': 'paragraph', 'runs': [{'text': TITLE, 'format': {'fontSizePt': 24, 'bold': True, 'color': '#245A81'}}], 'format': {'spaceAfterPt': 16}},
-                {'kind': 'paragraph', 'runs': [{'text': '同一个精确文档会话：读取、编辑、验证、保存。', 'format': {'fontSizePt': 14, 'bold': False, 'color': '#404040'}}], 'format': {'spaceAfterPt': 12}},
-            ]})
-            stage('3/4 插入原生表格，核对完整文字和表格结构。')
-            call('insertTable', {'anchor': {'kind': 'documentEnd'}, 'data': TABLE, 'headerRow': True})
-            observed = call('inspectDocument', INSPECTION)
-            if TITLE not in observed['text'] or observed['structure']['tableCount'] != 1:
-                raise RuntimeError('演示内容未通过读回验证。')
-            for row in TABLE:
-                if any(text not in observed['text'] for text in row):
-                    raise RuntimeError('演示表格文字未通过读回验证。')
-            stage('4/4 显式保存，再次核对文档内容和保存状态。')
-            report['saved'] = call('save', {})
-            final = call('inspectDocument', INSPECTION)
-            if final['text'] != observed['text'] or final['documentState']['persistenceState'] != 'saved':
-                raise RuntimeError('保存后的文档未通过验证。')
-        report['sessionOutcome'] = client.session_outcome
-        if client.session_outcome['outcome'] != 'succeeded':
-            raise RuntimeError('文档已保存，但会话清理未成功。')
-        report['status'] = 'passed'
+                {'kind': 'paragraph', 'runs': [{'text': '同一个精确文档：读取、编辑、验证、保存。', 'format': {'fontSizePt': 14, 'bold': False, 'color': '#404040'}}], 'format': {'spaceAfterPt': 12}},
+            ]}, 'write'),
+            action('insertTable', {'anchor': {'kind': 'documentEnd'}, 'data': TABLE, 'headerRow': True}, 'table'),
+            action('inspectDocument', INSPECTION, 'inspect'),
+        ],
+        'completion': [action('saveAs', {'outputPath': str(document), 'overwritePolicy': 'failIfExists'})],
+    }
+    source = output / 'task.json'
+    source.write_text(json.dumps(request, ensure_ascii=False), encoding='utf-8')
+    report = {'status': 'running', 'document': str(document), 'desktopSessionId': desktop}
+    try:
+        print('执行 Word Task：创建、写入、插入表格、读取、保存。', flush=True)
+        stream = io.StringIO()
+        code = task_entry(['--app', 'word', '--task-file', str(source)], output_stream=stream)
+        response = json.loads(stream.getvalue())
+        report['task'] = response
+        if code != 0:
+            raise RuntimeError('Word Task did not complete: ' + json.dumps(response, ensure_ascii=False))
+        observed = response['steps'][-1]['response']['data']
+        if TITLE not in observed['text'] or observed['structure']['tableCount'] != 1:
+            raise RuntimeError('演示内容未通过读回验证。')
+        if any(text not in observed['text'] for row in TABLE for text in row):
+            raise RuntimeError('演示表格文字未通过读回验证。')
+        report.update(status='passed', saved=response['completion']['save']['response']['data'])
         print('演示完成，文档已保存，WPS 窗口保持打开：' + str(document), flush=True)
         return report
     except BaseException as exc:
         report.update(status='failed', error=str(exc))
         raise
     finally:
-        if client is not None:
-            report['sessionOutcome'] = client.session_outcome
         (output / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
 
 

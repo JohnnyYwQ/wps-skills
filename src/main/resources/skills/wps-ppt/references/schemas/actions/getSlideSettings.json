@@ -1,0 +1,1 @@
+{"parameters":{"type":"object","properties":{"slideId":{"type":"integer","minimum":1,"maximum":2147483647}},"required":["slideId"],"additionalProperties":false},"result":{"$ref":"#/$defs/SETTINGS"},"examples":[{"params":{"slideId":256}}]}

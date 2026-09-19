@@ -1,9 +1,9 @@
+from wps_skills.word.task.executor import WordTask
 import unittest
 
-from wps_skills.core.action_session import (
+from wps_skills.core.action_runtime import (
     ActionAddress,
     ActionRequest,
-    ActionSession,
     ControllerContext,
     DocumentResourceCleanup,
     TraceContext,
@@ -13,15 +13,12 @@ from wps_skills.word.windows.backend import (
     WindowsWordBackend,
     WindowsWordBridge,
 )
-from wps_skills.word.adapter import (
-    WordAdapter,
-    WordBackend,
-    WordBackendOperation,
-    WordDefiniteEstablishFailure,
-    WordUnprovableEstablishFailure,
-)
+from wps_skills.word.actions.adapter import WordAdapter
+from wps_skills.word.backend.protocol import WordBackend
+from wps_skills.word.backend.operation import WordBackendOperation
+from wps_skills.word.backend.exceptions import WordDefiniteEstablishFailure, WordUnprovableEstablishFailure
 from wps_skills.word.contracts import WORD_TARGET_CONTRACT_SET
-from wps_skills.word.handlers import WORD_HANDLERS
+from wps_skills.word.actions.registry import WORD_HANDLERS
 
 
 def context():
@@ -322,7 +319,7 @@ class WindowsWordBackendTests(unittest.TestCase):
             create_document(backend)
         self.assertEqual(2, len(bridge.calls))
 
-    def test_action_session_runs_open_write_inspect_and_save_on_one_document(self):
+    def test_task_runs_open_write_inspect_and_save_on_one_document(self):
         bridge = RecordingBridge({
             "acquire_existing_document": {
                 "documentId": "document-1",
@@ -368,29 +365,24 @@ class WindowsWordBackendTests(unittest.TestCase):
         })
         backend = WindowsWordBackend(bridge=bridge)
         coordinator = RecordingCoordinator()
-        session = ActionSession(
-            application="word",
+        task = WordTask(
             contracts=WORD_TARGET_CONTRACT_SET,
             adapter=WordAdapter(
                 backend=backend,
                 handlers=WORD_HANDLERS,
             ),
             coordinator=coordinator,
-            session_id="session-1",
-            request_id_factory=iter((
-                "request-1",
-                "request-2",
-                "request-3",
-                "request-4",
-            )).__next__,
-            clock=lambda: 0,
+            task_id="task-1",
         )
 
-        opened = session.execute(
+        def execute(request, trace):
+            return task.execute({"app": request.address.app, "action": request.address.action}, request.params)
+
+        opened = execute(
             request("openDocument", {"path": "C:/docs/report.docx"}),
             trace(1),
         )
-        written = session.execute(
+        written = execute(
             request("writeContent", {
                 "anchor": {"kind": "documentEnd"},
                 "blocks": ({
@@ -400,7 +392,7 @@ class WindowsWordBackendTests(unittest.TestCase):
             }),
             trace(2),
         )
-        inspected = session.execute(
+        inspected = execute(
             request("inspectDocument", {
                 "scope": {"kind": "document"},
                 "limits": {
@@ -411,14 +403,14 @@ class WindowsWordBackendTests(unittest.TestCase):
             }),
             trace(3),
         )
-        saved = session.execute(request("save", {}), trace(4))
-        cleanup = session.close()
+        saved = execute(request("save", {}), trace(4))
+        cleanup = task.close()
 
-        self.assertEqual("succeeded", opened.response.outcome)
-        self.assertEqual("succeeded", written.response.outcome)
-        self.assertEqual("succeeded", inspected.response.outcome)
-        self.assertEqual("succeeded", saved.response.outcome)
-        self.assertEqual("succeeded", cleanup.outcome)
+        self.assertEqual("succeeded", opened["outcome"])
+        self.assertEqual("succeeded", written["outcome"])
+        self.assertEqual("succeeded", inspected["outcome"])
+        self.assertEqual("succeeded", saved["outcome"])
+        self.assertEqual("succeeded", cleanup["outcome"])
         self.assertEqual(
             [
                 "prepare_existing_document",
@@ -436,6 +428,23 @@ class WindowsWordBackendTests(unittest.TestCase):
         self.assertEqual("document-1", document.bridge_document_id)
         self.assertIs(document, coordinator.calls[2][2])
 
+
+
+class WordPersistenceBackendTests(unittest.TestCase):
+    def test_word_save_as_keeps_exact_reference_and_updates_private_save_locator(self):
+        bridge=RecordingBridge({'acquire_new_document':{'documentId':'new-id','revision':'r1','persistenceState':'unsaved','readOnly':False},
+                                'save_as_artifact':{'artifact':{'path':'C:/new.docx'}},'save_existing_artifact':{}})
+        backend=WindowsWordBackend(bridge=bridge)
+        document=backend.create_document(backend.prepare_create_document(None),None).document
+        backend.invoke(document,WordBackendOperation('save_as_artifact',{'outputPath':'C:/new.docx'}),None)
+        backend.invoke(document,WordBackendOperation('save_existing_artifact',{}),None)
+        self.assertEqual('C:/new.docx',bridge.calls[-1][1]['authorizedPath'])
+        self.assertIsNone(document.authorized_path)
+        bridge.replies['save_as_artifact']=BackendActionFailure(outcome='failed',code='OUTPUT_ALREADY_EXISTS',message='exists',binding_disposition='unchanged')
+        with self.assertRaises(BackendActionFailure):backend.invoke(document,WordBackendOperation('save_as_artifact',{'outputPath':'C:/exists.docx'}),None)
+        backend.invoke(document,WordBackendOperation('save_existing_artifact',{}),None)
+        self.assertEqual('C:/new.docx',bridge.calls[-1][1]['authorizedPath'])
+        self.assertEqual(2,sum(c[0]=='save_as_artifact' for c in bridge.calls))
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,102 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "alignments",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "spaceBeforePt": 0,
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "alignment": "center",
+              "spaceBeforePt": 6,
+              "spaceAfterPt": 12
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "alignment": "right",
+              "spaceBeforePt": 12,
+              "spaceAfterPt": 6
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。 对齐示例 English words 用于观察段落布局。",
+                "format": {
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "alignment": "justify",
+              "spaceBeforePt": 0,
+              "spaceAfterPt": 0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-31.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

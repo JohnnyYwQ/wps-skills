@@ -1,175 +1,85 @@
-# Windows WPS Session Setup
+# 安装 WPS Skills 插件
 
-The repository contains a production Windows Word Session Host and Adapter for a thirteen-Action surface, plus a 31-Action Windows Excel slice, a 33-Action PPT slice and three standalone Application Skills. Document execution runs directly on the Windows machine that has WPS; there is no separate Windows Host service to install.
+一个插件包含 `wps-word`、`wps-excel`、`wps-ppt` 三个 Skill，支持 Codex 和 Claude Code。安装包自带完整 Python 运行时源码、操作定义和 PowerShell 脚本，不需要项目仓库或第三方 Python 包。
 
-## Requirements
+## 环境要求
 
-- Python 3.8 or newer.
-- Windows with WPS Writer registered as `KWPS.Application`.
-- Native Windows PowerShell under `%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe`. The Runtime does not fall back to the slower WOW64 host.
-- No third-party Python package or external service.
+在实际操作 WPS 的 Windows 机器上安装和使用：Python 3.10+、Windows PowerShell 5.1、已安装相应 WPS 应用，并处于已登录的交互桌面。`python` 应指向 Windows Python；WSL/Linux Python 无法直接使用这套 Windows COM 执行端。
 
-The local unit suite itself does not start WPS, COM, or PowerShell.
+宿主需要支持插件安装、文件写入和本机脚本执行。Claude Code 在 Windows 上还需按其安装说明配置终端环境。插件不会代为安装 WPS、Python，也不会修改宿主的执行权限。
 
-## Assemble and install the Skill
+## 解压安装包
 
-From the repository root:
+将 ZIP 解压到一个固定目录，例如 `C:/Tools/wps-skills`。这里应直接包含 `plugins/`、`.agents/`、`.claude-plugin/` 和本说明。复制时保留点号开头的目录。
 
-```bash
-python scripts/build/word.py --output build/skills/wps-word
-```
+以下命令均在 Windows 终端运行，路径替换为实际解压目录。仅需安装到使用的宿主；安装后保留解压目录，供插件更新和重新安装使用。
 
-The destination must not already exist. The complete output has this layout:
+## Codex
 
 ```text
-wps-word/
-  SKILL.md
-  agents/openai.yaml
-  references/
-  scripts/word.py
-  runtime/
-    files.sha256.json
-    src/main/python/wps_skills/
-    src/main/resources/wps_skills/word/windows/
+codex plugin marketplace add "C:/Tools/wps-skills"
+codex plugin add wps-skills@wps-skills-local
 ```
 
-Copy the complete `wps-word` directory to the Skill location supported by the target agent. Do not install only `SKILL.md` or only the source resources directory: the deployed entry point needs the bundled Runtime. To use this Skill on another execution host, place the complete directory on that host too and use that host's paths. No machine names, SSH credentials, or scheduled tasks are embedded.
+这会登记安装包内的本地插件目录，并安装 `wps-skills`。新建对话后选择 `wps-word`、`wps-excel` 或 `wps-ppt`，描述需求即可。
 
-Verify installation without starting WPS:
+## Claude Code
 
-```powershell
-python "C:\path\to\wps-word\scripts\word.py" --app word --index
-python "C:\path\to\wps-word\scripts\word.py" --app word --resolve openDocument inspectDocument writeContent save
+```text
+claude plugin marketplace add "C:/Tools/wps-skills"
+claude plugin install wps-skills@wps-skills-local --scope user
 ```
 
-Successful resolution exits 0; a `partial` or `failed` batch exits 2 while still reporting every requested Action. An unavailable application exits 4 without publishing another application's contracts.
+重新启动 Claude Code 后，可以直接描述办公需求，或使用 `/wps-skills:wps-word`、`/wps-skills:wps-excel`、`/wps-skills:wps-ppt` 选择相应能力。
 
-Follow `SKILL.md` and `references/session.md` to use the packaged `--start`, `--call`, `--status`, and `--close` commands. The Agent supplies JSON parameters; no task script or persistent terminal stdin is required. If visible WPS output is needed, execute in the logged-in user's desktop session. SSH execution by itself does not establish desktop visibility; remote desktop launch is environment-specific and is not part of the Skill installer.
+临时加载同一插件目录也可以使用：
 
-## Local verification
-
-From the repository root, run:
-
-```bash
-PYTHONPATH=src/main/python python -m unittest discover -s src/test/python -p 'test_*.py'
+```text
+claude --plugin-dir "C:/Tools/wps-skills/plugins/wps-skills"
 ```
 
-In Windows PowerShell, set the same source root with:
+插件目录和安装目录不同：`--plugin-dir` 指向内层 `plugins/wps-skills`，marketplace 命令指向外层解压目录。
 
-```powershell
-$env:PYTHONPATH = "src/main/python"
-python -m unittest discover -s src/test/python -p "test_*.py"
+## 使用与更新
+
+先确认安装包中的查询脚本可启动，这一步不操作 WPS：
+
+```text
+python "C:/Tools/wps-skills/plugins/wps-skills/skills/wps-word/scripts/schema.py" createDocument writeContent saveAs
 ```
 
-## Windows production Session
+例如：“新建一份项目启动通知，保存为 C:/Documents/项目通知.docx。”输出路径应为实际绝对路径，父目录需存在。未要求保存时，文档留在 WPS 中，不自动保存。
 
-Run this command inside the repository on the Windows WPS machine:
+如果此前已独立安装同名 Skill，迁移后只保留一种加载来源，避免宿主同时发现不同版本。升级时使用完整的新安装包，不将旧文件和新文件混合。固定安装目录更新后，Codex 重新运行 `codex plugin add wps-skills@wps-skills-local`；Claude Code 运行 `claude plugin update wps-skills@wps-skills-local`，随后新建会话。版本号由发布包统一管理。
 
-```bash
-python scripts/call.py --session --app word
+更多操作说明见 [项目介绍](README.md)。安装方式参考 [Codex 官方文档](https://developers.openai.com/plugins/build/plugins) 和 [Claude Code 官方文档](https://code.claude.com/docs/en/plugin-marketplaces)。
+
+## 从源码构建
+
+在仓库根目录运行：
+
+```sh
+python scripts/build/plugin.py
 ```
 
-It emits `session.ready` on stdout, then accepts strict JSONL Action Requests. A normal existing-file flow is `openDocument`, any supported required Actions, final `inspectDocument`, explicit `save` when Persistence Intent requires it, then `{"control":"close"}`. The production Set also supports `findContent`, `replaceContent`, `insertTable`, `insertImage`, `setHeaderFooter`, `setPageLayout`, `insertBreak`, and `exportPdf`; only `saveAs` remains deferred. The Runtime keeps one exact document and one owned, console-hidden PowerShell bridge for the full Session. Excel uses `--app excel` with the same Session Protocol. PPT uses `--app ppt` with its independent Presentation contracts.
+输出目录为 `build/plugins/wps-skills/`，同级生成 `wps-skills.zip` 和 `wps-skills.zip.sha256`。安装包包含双宿主目录清单、插件清单、三个完整 Skill、中文说明及逐文件 SHA-256 清单。
 
-## Excel installation and acceptance
+已有输出不会被覆盖；再次构建时使用新的目录，例如：
 
-Excel additionally requires WPS Spreadsheets registered as `KET.Application`.
-Build and copy the complete independent Skill directory:
-
-```bash
-python scripts/build/excel.py --output build/skills/wps-excel
-python build/skills/wps-excel/scripts/excel.py --app excel --index
-python scripts/call.py --session --app excel
+```sh
+python scripts/build/plugin.py --output build/plugins/wps-skills-next
 ```
 
-The 31 admitted Actions cover existing `.xlsx` workbooks, worksheet management,
-region reads/writes/copy/clear/find/replace, formulas, sorting/filtering, row/column
-structure edits and sizing, font/color/alignment formats, merge/unmerge and in-place
-save. Region operations are bounded to 1000 cells; worksheet structure operations
-also require a used range within that limit. See the Excel Skill references for
-individual constraints. Workbook creation, Save As, charts, pivot tables and PDF
-export are not available. Session cleanup leaves the workbook open.
+外层输出目录名可以改变，内层插件名称始终为 `wps-skills`。源码中的 `src/main/resources/plugins/wps-skills/` 是构建模板，不能直接安装。
 
-For a visible desktop demonstration without an extra console, invoke
-`scripts/demo/excel.ps1 -PythonPath <absolute-python.exe-path>` from an existing
-non-administrator Windows desktop PowerShell, or use the complete inline launcher command in
-README.zh-CN.md when the shell does not permit `.ps1` execution. The launcher uses
-`ProcessStartInfo.CreateNoWindow` and forwards UTF-8 progress and errors to the
-existing terminal. User-only WPS COM registration can be unavailable to elevated
-processes; the launcher now detects this before creating a demo workbook. Use a
-normal PowerShell window for such installations. `python scripts/demo/excel.py`
-remains available. It creates its own workbook, displays WPS, edits and saves it, and
-checks that its window remains visible. SSH session 0 is rejected by this demo.
+## 仅安装独立 Skill
 
-The source type-library snapshot is under
-`src/test/resources/wps_skills/excel/type_library/` and is not shipped or imported
-by the Runtime. On a Windows WPS machine, opt into live acceptance explicitly:
+不使用插件系统时，也可以按应用分别构建：
 
-```powershell
-python scripts/validate/excel.py --output-dir build/excel-acceptance --wps-version 12.0.0.28505
-python scripts/validate/excel_common.py --output-dir build/excel-common-acceptance
-```
+| Skill | WPS COM 注册 | 构建命令 |
+| --- | --- | --- |
+| wps-word | KWPS.Application | `python scripts/build/word.py --output build/skills/wps-word` |
+| wps-excel | KET.Application | `python scripts/build/excel.py --output build/skills/wps-excel` |
+| wps-ppt | KWPP.Application | `python scripts/build/ppt.py --output build/skills/wps-ppt` |
 
-The output directory must not exist. The test creates its own workbooks and a
-report, checks persisted OOXML independently, verifies file/locator coordination,
-and leaves the workbook open. It never edits a caller-supplied workbook. The
-coordinator crash probe does not start WPS and leaves a quarantine marker for its
-own disposable scratch path; do not use that path for another task.
-
-## PPT installation and acceptance
-
-WPS Presentation must be registered as `KWPP.Application` for the process user.
-Use a non-administrator desktop PowerShell when registration is per user.
-No pywin32 dependency is required.
-
-```powershell
-python scripts/build/ppt.py --output build/skills/wps-ppt
-python build/skills/wps-ppt/scripts/ppt.py --app ppt --index
-python scripts/call.py --session --app ppt
-python scripts/validate/ppt.py --output-dir build/ppt-acceptance
-python scripts/validate/ppt_common.py --output-dir build/ppt-common-acceptance
-```
-
-Copy the entire assembled `wps-ppt` directory to the agent's Skill location and
-the Windows execution host. Discovery and package verification work without WPS;
-execution requires Windows. The generated type library remains in test resources
-and is excluded from distribution.
-
-For the visible demo run `./scripts/demo/ppt.ps1 -PythonPath <absolute-python.exe-path>`
-in a normal Windows desktop terminal, or paste the complete command from
-README.zh-CN.md. The launcher uses the shared hidden process chain, and the demo
-checks the exact document window rather than a title match. It edits a unique
-copy of the bundled blank template, saves and keeps the window open.
-
-PPT supports only existing ordinary `.pptx` files, in-place save and the documented
-33 Actions. New presentation creation, first save, Save As and export are not
-available. Read the Skill references for shape limits, observation token scopes,
-whole-slide deletion, separate Latin/East Asian font properties, shape style tokens,
-notes, embedded images and bounded native table text. Common acceptance verifies
-persisted notes/table XML and embedded picture bytes independently.
-
-## Admitting more capability
-
-An additional Word, Excel or PPT Action is admitted only after it owns all of the following:
-
-1. A complete Application Contract Set and generated Action Index.
-2. An exact-document Application Adapter and controller at the shared seam.
-3. Binding, persistence, handler, and real-WPS verification evidence.
-4. Its own independently discoverable Application Skill.
-
-Do not add a placeholder Skill, empty production Contract Set, fake production Adapter, global Action Manifest, or compatibility wrapper around the removed execution model.
-
-## Repository command groups
-
-Use `scripts/build/{word,excel,ppt}.py` to assemble standalone Skills,
-`scripts/demo/{word,excel,ppt}.ps1` for visible desktop demonstrations, and
-`scripts/validate/` for native acceptance. `scripts/call.py` remains the Session
-Host and discovery entry. These repository paths are separate from each installed
-Skill's `scripts/{word,excel,ppt}.py` client entry.
-
-Word now has a visible demo: `./scripts/demo/word.ps1 -PythonPath <absolute-python.exe-path>`.
-It prepares a unique blank DOCX fixture, performs all displayed edits through the
-production Session, verifies the text/table, saves, and leaves the window open.
-`python scripts/validate/word.py --output-dir build/word-acceptance` additionally
-checks persisted DOCX content and the exact visible document window. This is a demo
-workflow check, not a claim of full Word Action coverage. See [the script guide](scripts/README.md).
+将整个 Skill 文件夹复制到宿主支持的 Skill 目录，保留 `scripts/`、`references/` 和 `runtime/`。每份独立包不依赖另两个 Skill。

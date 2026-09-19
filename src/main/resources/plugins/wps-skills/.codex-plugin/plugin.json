@@ -1,0 +1,36 @@
+{
+  "name": "wps-skills",
+  "version": "0.1.0",
+  "description": "让 Agent 操作本机 Windows WPS，创建、编辑和交付 Word、Excel、PPT 文件。",
+  "author": {
+    "name": "Johnny"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "WPS Skills",
+    "shortDescription": "让 Agent 在本机 WPS 中处理文档、表格和演示文稿",
+    "longDescription": "包含 Word、Excel、PPT 三个独立 Skill，支持按需查询操作定义、提交多步骤任务、回读验证和持久回执。实际文档操作需要 Windows、Python 和已安装的 WPS。",
+    "developerName": "Johnny",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "创建并排版一份项目启动通知，保存为 Word 文档。",
+      "整理项目预算表，计算费用合计并保存为 Excel 文件。",
+      "制作一份四页的项目汇报并保存为 PPT 文件。"
+    ]
+  },
+  "homepage": "https://github.com/JohnnyYwQ/wps-skills",
+  "repository": "https://github.com/JohnnyYwQ/wps-skills",
+  "license": "MIT",
+  "keywords": [
+    "wps",
+    "office",
+    "word",
+    "excel",
+    "ppt",
+    "automation"
+  ]
+}

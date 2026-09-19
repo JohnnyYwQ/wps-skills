@@ -1,62 +1,131 @@
 ---
 name: wps-word
-description: 在 Windows WPS Writer 中创建、读取和编辑 Word 文档，设置文字与页面格式，插入表格和图片，保存已有文档并导出 PDF。用户要求通过 WPS 操作 Word 文档时使用。
+description: 创建、读取、编辑和排版 Word（.docx）文档，支持文字与页面格式调整、表格和图片插入、文档保存及 PDF 导出。
 ---
 
 # WPS Word
 
-使用本 Skill 的 Python 入口和正式 Action Contracts 完成用户的 Word 任务。执行环境需要 Windows、Python 3.8+、已注册 `KWPS.Application` 的 WPS Writer；无需第三方 Python 包。能力查询也可在 macOS/Linux 上运行。
+根据用户目标和 Action 用途选择操作、安排顺序，再查询所选 schema 填写 JSON，提交后读取 Task Response，用自然语言报告结果。
 
-所有下列路径都相对于本 `SKILL.md` 所在的目录。先确定这个绝对目录，不要假设当前工作目录是仓库。入口为 `scripts/word.py`；安装时必须保留完整 Skill 目录及随包的 `runtime/`。
+下文 `<skill-dir>` 为本 Skill 目录，命令通过 Bash 调用 Python。
 
-## 1. 确定文档与保存意图
+## 1. 根据用途选择 Actions 并安排顺序
 
-- 用户给出已有 `.docx` 文件时，使用 Windows 主机上的绝对路径执行 `openDocument`；不能把打开失败解释为新建，也不能使用当前活动窗口或焦点猜测目标。
-- 用户要求新建时使用 `createDocument`。每个 Action Session 只绑定一个文档；后续操作始终复用这个 Session。
-- 修改已有文件默认需要显式 `save`，除非用户要求保留未保存状态。只读任务不保存。
-- 如果目标已有未保存修改，且本次任务需要保存，在第一次修改前说明保存会包含这些已有修改，并取得确认；已有明确授权可直接沿用。
-- 新建文档首次保存或保存到新路径使用 `saveAs`；目标必须是尚不存在的 `.docx`，显式传 `overwritePolicy: "failIfExists"`。新建且没有输出路径的文档可保留打开、未保存；PDF 导出不会替代 DOCX 保存。
+从上下文确定新建意图或已有 `.docx` 的绝对路径，目标有歧义时才询问。用户未指定的常规字体、标题层级和排版自主决定。
 
-首次保存或另存为前读 [references/persistence.md](references/persistence.md)。`saveAs` 只写入尚不存在的 `.docx`，之后 `save` 保存当前路径。导出不会替代源文件保存；用户未提供新建文件的输出路径时，可按意图保留未保存状态并如实报告。
+先根据下表选择完成用户目标所需的 Actions，确定步骤顺序及结果依赖。一个 Task 处理一个文档，分为获取文档、内容操作和交付三部分：
 
-## 2. 发现并解析能力
+| 放置位置 | Action | 用途 |
+| --- | --- | --- |
+| document | `createDocument` | 新建空白文档。 |
+| document | `openDocument` | 打开指定的已有文档。 |
+| steps | `writeContent` | 插入文字、段落或标题，并设置文字与段落格式。 |
+| steps | `inspectDocument` | 读取正文、格式、结构、页面布局和文档状态。 |
+| steps | `findContent` | 按文字查找匹配内容，取得范围。 |
+| steps | `replaceContent` | 按文本匹配或指定范围替换、删除内容；结构化段落替换支持段落格式。 |
+| steps | `insertTable` | 插入矩形文字表格。 |
+| steps | `insertImage` | 插入 PNG/JPEG，设置尺寸、放置方式和替代文本。 |
+| steps | `setHeaderFooter` | 设置所选节的页眉和页脚。 |
+| steps | `setPageLayout` | 设置所选节的方向和页边距。 |
+| steps | `insertBreak` | 插入分页符或分节符。 |
+| completion | `save` | 保存到已有文档的原路径。 |
+| completion | `saveAs` | 首次保存或另存 DOCX。 |
+| completion | `exportPdf` | 导出整篇 PDF。 |
 
-先读取由正式 Application Contract Set 生成的 Action Index：
+用户未要求保存或导出时，使用 `completion: []`。新文档首次保存用 `saveAs`；PDF 导出不代表保存 DOCX。
 
-```powershell
-python "<skill-dir>/scripts/word.py" --app word --index
+读取用于理解内容或取得后续步骤所需的范围；执行结果以 Task Response 为准，不额外安排验证性回读。
+
+若必须先理解原文才能决定修改内容，先提交只读 Task，再根据结果编排修改 Task。新 Task 明确指定同一文件并重新取得范围。未保存的新文档没有跨 Task 接续入口，尽量一次编排完成。
+
+## 2. 查询所选 Actions 的 schema
+
+将已选出的 Action 名称传给查询脚本，批量取得填写参数和结果引用所需的定义：
+
+```text
+python "<skill-dir>/scripts/schema.py" createDocument writeContent saveAs
 ```
 
-根据任务选择 Actions，然后一次解析所需的完整契约。例如新建、写入和检查：
+输出 `actions` 中的 `parameters` 用于填写参数，`result` 描述 Action Response 的 `data`，`examples` 提供参数示例。顶层 `$defs` 是本次所需的公共定义；schema 中的 `{"$ref":"#/$defs/名称"}` 指向其中的定义。
 
-```powershell
-python "<skill-dir>/scripts/word.py" --app word --resolve createDocument writeContent inspectDocument
+输出被截断时，用同一脚本分批查询补齐，再填写相应参数。
+
+## 3. 按 schema 填写请求
+
+将已安排的步骤填入请求。顶层为 `app: "word"`、`document`、`steps`、`completion`；仅在用户授权保存已有未保存修改时增加 `includeExistingChanges: true`。
+
+| 部分 | 结构 |
+| --- | --- |
+| `document` | 一个 `createDocument` 或 `openDocument`；仅含 `address`、`params`。 |
+| `steps` | 0–125 个有序步骤；每步仅含 `id`、`address`、`params`。 |
+| `completion` | 0–2 个交付操作；每项仅含 `address`、`params`。`save`/`saveAs` 合计最多一个，`exportPdf` 最多一个；先保存后导出。 |
+
+`address` 为 `{"app":"word","action":"操作名称"}`，`params` 按查询结果填写，无参数也写 `{}`。不填 `version`、`taskId` 或 `checks`。步骤 id 使用 1–80 个 ASCII 字母、数字、下划线或连字符，以字母或数字开头；同一 Task 内唯一，避开 `task_document`、`task_save`、`task_pdf`。
+
+### 内容与结果引用
+
+- 字符格式放在 run 的 `format`，段落格式放在 paragraph/heading 的 `format`；标题使用 `heading` 和 `level`。
+- 参数可引用本 Task 前序步骤的结果。**路径从 `data` 开始**，例如引用 inspect 步骤的第一段范围：
+
+```json
+{"$ref":{"step":"inspect","path":["data","paragraphs",0,"range"]}}
 ```
 
-这两个命令不会启动 Session、PowerShell 或 WPS。解析结果包含参数与结果 schema、约束、错误、验证要求和参数示例。只有 `status: complete` 才可按当前计划执行；`partial`/`failed` 时先调整计划。查询不授予执行权限，也不会执行多个 Actions。
+- 上述 Task 引用取前序结果值，与 schema 的字符串 `$ref` 不同；它不执行计算、循环或内容判断。匹配数量和数组索引必须有依据。
+- 范围使用读取或查找结果，不从正文字符串手算坐标。范围只在生成它的 Task 和有效 revision 内使用；内容修改后需要新范围时重新定位。
+- 读取结果截断时不当作全文。`remainingRange` 也受相同的 Task/revision 约束，不能直接带到下一 Task。
 
-参数以查询到的契约为准，不从 COM 文档、旧接口或记忆猜测。当前正式能力包括文档创建/打开、内容写入/读取/查找/替换、表格/图片、页眉页脚/页面布局/分隔符、原位保存和 PDF 导出。
+保存/导出参数按 schema 填写：输出使用绝对路径；允许重名换名选 `renameIfExists`，必须保留指定名称且不能覆盖选 `failIfExists`，覆盖 PDF 的 `replaceExisting` 仅在用户明确授权时使用。
 
-## 3. 在一个会话中执行
+下面是新建文字且不保存的完整请求：
 
-执行前读 [references/session.md](references/session.md)。直接调用包内 `scripts/word.py` 的 `--start`、`--call`、`--status`、`--close`；Agent 只提供 Action 和 JSON 参数，无需编写任务脚本。一个任务复用返回的 `handle`，每次读取完整响应后才使用 `nextStep` 决定下一步。
+```json
+{
+  "app": "word",
+  "document": {"address": {"app": "word", "action": "createDocument"}, "params": {}},
+  "steps": [
+    {
+      "id": "write",
+      "address": {"app": "word", "action": "writeContent"},
+      "params": {
+        "anchor": {"kind": "documentEnd"},
+        "blocks": [{"kind": "paragraph", "runs": [{"text": "项目周报"}]}]
+      }
+    }
+  ],
+  "completion": []
+}
+```
 
-每次调用的 `response` 保留完整 Action 结果；`failed` 或 `unknown` 不授权继续后续修改。命令超时先用 `--status` 查询或取回同一步回执，不换步骤号重放，不预提交动作列表。
+## 4. 提交并读取结果
 
-需要文字、范围或格式操作时，读 [references/content.md](references/content.md)。已有文件的编辑先检查相关内容；替换优先使用有明确匹配数量约束的查找/替换，而不是猜测字符位置。
+用宿主文件写入工具，将完整 JSON 写入独立 UTF-8 文件。每份请求使用新路径，已提交路径不修改、不复用。
 
-## 4. 验证、保存与结束
+```text
+python "<skill-dir>/scripts/word.py" --app word --task-file "<本次工作目录>/request.json"
+```
 
-读 [references/verification.md](references/verification.md)，按用户要求检查内容、格式和结构。必要时分页读取 `inspectDocument` 的剩余范围，不能把截断结果当成全文。
+读取 Task Response：
 
-需要保存时，内容验证通过后显式 `save`，检查保存响应的 artifact 与状态。导出 PDF 时检查导出响应。结束 Session 只释放自动化资源，不隐式保存，也不关闭用户文档。
+| 字段 | 用途 |
+| --- | --- |
+| `outcome`、`state` | 总体执行结果和状态。 |
+| `document`、`steps[]`、`completion.save`、`completion.pdf` | 各操作的 `state` 和 `response`；交付项为 `null` 表示未请求。 |
+| `stop`、失败操作的 `response.error` | 停止位置和错误原因。 |
+| 保存/导出操作的 `response.data.artifact.path` | 实际交付路径。 |
 
-最终向用户说明：完成了什么、验证了什么、文档是否已保存、实际输出路径以及是否仍保持打开。Task Outcome 与 Session Outcome 分开判断：清理成功不代表编辑成功，清理失败也不会抹去已经验证的文件结果。
+**提交后不自动重试。** 根据 Task Response 报告已完成、未完成的内容和原因；请求被拒绝、执行失败或结果不确定时停止。只有用户明确要求继续或调整，才开始新的请求。为理解原文而安排的只读 Task 成功后继续修改，不属于失败重试。
 
-## 失败后的边界
+例如，Task Response 中保存或导出操作报告目标父目录不存在时，据此报告已完成、未完成的内容和原因并停止，不擅自创建目录、更换目标路径或重新提交 Task。
 
-`unknown` 或响应丢失意味着操作可能已部分发生，不能自动重试写入、创建替代文档或切换路径。先进行可用的只读验证。Session 已终止时，只能在仍能明确定位同一文档且能安全重新绑定的情况下建立新 Session；无法定位的未保存文档需要用户协助，不能重建来掩盖原任务状态。
+没有完整响应或命令超时时，用原输入路径查询回执；即使输入文件已不存在，也使用原路径：
 
-不要绕过 Document Lease/Quarantine 或直接写 COM 来绕过失败。`--debug-close-created-document` 只用于明确可丢弃的受控测试，不用于用户文档任务。
+```text
+python "<skill-dir>/scripts/word.py" --app word --task-status-file "<本次工作目录>/request.json"
+```
 
-运行日志位置和自定义方法见 [references/logging.md](references/logging.md)。
+仍未取得完整 Task Response 时，报告无法确认并停止。
+
+## 5. 自然语言交付
+
+简要说明完成了哪些、哪些未完成，以及实际产物路径和保存状态。`not_executed` 是未执行，`unknown` 是无法确认；失败不表示已回滚。以回执为依据，不复述 JSON 或内部实现过程。

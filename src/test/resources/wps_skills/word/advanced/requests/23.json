@@ -1,0 +1,147 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "title",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "月度汇总"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "progress",
+      "address": {
+        "app": "word",
+        "action": "insertTable"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "data": [
+          [
+            "任务",
+            "责任人",
+            "状态"
+          ],
+          [
+            "设计",
+            "张三",
+            "完成"
+          ],
+          [
+            "开发",
+            "李四",
+            ""
+          ]
+        ],
+        "headerRow": true
+      }
+    },
+    {
+      "id": "between",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "阶段说明"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "cost",
+      "address": {
+        "app": "word",
+        "action": "insertTable"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "data": [
+          [
+            "类别",
+            "金额"
+          ],
+          [
+            "开发",
+            "1200"
+          ],
+          [
+            "测试",
+            "800"
+          ]
+        ],
+        "headerRow": true
+      }
+    },
+    {
+      "id": "tail",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "汇总结束"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-23.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

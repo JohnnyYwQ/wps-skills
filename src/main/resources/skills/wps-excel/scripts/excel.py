@@ -16,7 +16,7 @@ for source in SOURCES:
 else:
     raise RuntimeError("Excel Skill runtime is missing; use the complete assembled wps-excel directory")
 
-from wps_skills.excel.skill import ActionFailed, SessionClientError, main, open_session  # noqa: E402,F401
+from wps_skills.excel.skill import main  # noqa: E402,F401
 
 
 if __name__ == "__main__":

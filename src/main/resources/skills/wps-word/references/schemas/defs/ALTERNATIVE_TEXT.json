@@ -1,0 +1,1 @@
+{"oneOf":[{"type":"object","properties":{"kind":{"const":"decorative"}},"required":["kind"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"description"},"text":{"type":"string","minLength":1,"maxLength":2048,"format":"wordStoryText","x-maxUtf16Length":2048}},"required":["kind","text"],"additionalProperties":false}]}

@@ -1,4 +1,4 @@
 interface:
   display_name: "WPS Excel"
-  short_description: "在 Windows WPS 中新建或编辑 Excel，验证、保存、另存为和导出 PDF"
-  default_prompt: "使用 $wps-excel 完成这个工作簿任务，验证内容并说明保存与导出结果。"
+  short_description: "在 Windows WPS 中创建编辑Excel文档，按任务回执报告保存与导出结果"
+  default_prompt: "使用 $wps-excel 完成这个Excel任务，并说明完成情况和实际文件路径。"

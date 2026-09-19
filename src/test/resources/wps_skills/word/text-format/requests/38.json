@@ -1,0 +1,264 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "opening",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "heading",
+            "level": 1,
+            "runs": [
+              {
+                "text": "文字排版综合报告",
+                "format": {
+                  "fontSizePt": 24,
+                  "bold": true,
+                  "color": "#1F4E79"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "center"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "状态：草稿",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          },
+          {
+            "kind": "heading",
+            "level": 2,
+            "runs": [
+              {
+                "text": "一、正文",
+                "format": {
+                  "fontSizePt": 18,
+                  "bold": true,
+                  "color": "#1F4E79"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 中文正文 English 123。 ",
+                "format": {
+                  "eastAsiaFontFamily": "宋体",
+                  "westernFontFamily": "Times New Roman",
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "alignment": "justify",
+              "firstLineIndentPt": 24,
+              "lineSpacing": {
+                "kind": "oneAndHalf"
+              },
+              "spaceAfterPt": 6
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "details",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "heading",
+            "level": 3,
+            "runs": [
+              {
+                "text": "1.1 重点事项",
+                "format": {
+                  "fontSizePt": 14,
+                  "bold": true,
+                  "color": "#1F4E79"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "注意：",
+                "format": {
+                  "bold": true,
+                  "color": "#C00000",
+                  "fontSizePt": 14
+                }
+              },
+              {
+                "text": "请确认字体与行距。",
+                "format": {
+                  "bold": false,
+                  "color": "#000000",
+                  "fontSizePt": 12
+                }
+              }
+            ],
+            "format": {
+              "lineSpacing": {
+                "kind": "atLeast",
+                "points": 18
+              },
+              "spaceBeforePt": 6,
+              "spaceAfterPt": 12
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "find_draft",
+      "address": {
+        "app": "word",
+        "action": "findContent"
+      },
+      "params": {
+        "query": {
+          "scope": {
+            "kind": "document"
+          },
+          "text": "草稿",
+          "caseSensitive": true,
+          "wholeWord": false
+        },
+        "limit": 20
+      }
+    },
+    {
+      "id": "finalize",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "query",
+          "query": {
+            "scope": {
+              "kind": "document"
+            },
+            "text": "草稿",
+            "caseSensitive": true,
+            "wholeWord": false
+          },
+          "expectedMatchCount": 1
+        },
+        "replacement": {
+          "kind": "text",
+          "runs": [
+            {
+              "text": "定稿",
+              "format": {
+                "fontSizePt": 12,
+                "bold": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ending",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "报告结束 End of report。",
+                "format": {
+                  "westernFontFamily": "Times New Roman",
+                  "eastAsiaFontFamily": "宋体",
+                  "fontSizePt": 12,
+                  "bold": false,
+                  "italic": false,
+                  "underline": "none",
+                  "color": "#000000"
+                }
+              }
+            ],
+            "format": {
+              "alignment": "left",
+              "lineSpacing": {
+                "kind": "single"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-text/outputs/text-38.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

@@ -404,7 +404,7 @@ function Invoke-AcquireCoordinationGuard {
         }
         if (-not $acquired) {
             throw [DocumentLeaseConflictException]::new(
-                'Another Action Session owns the document Lease.'
+                'Another Task owns the document Lease.'
             )
         }
         if (Test-Path -LiteralPath $statePath) {
@@ -477,7 +477,9 @@ function Invoke-ReleaseDocumentResources {
     ) {
         throw 'The acquisition guard reference does not match.'
     }
-    Invoke-DebugCreatedDocumentCleanup
+    if (Get-Command Invoke-DebugCreatedDocumentCleanup -ErrorAction SilentlyContinue) {
+        Invoke-DebugCreatedDocumentCleanup
+    }
     Release-CoordinationResources -Clean $true
     return [ordered]@{ state = 'released' }
 }

@@ -1,22 +1,19 @@
-"""Windows Word Backend over one Session-owned local automation bridge."""
+"""Windows Word Backend over one Task-owned local automation bridge."""
 
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Protocol, runtime_checkable
 
-from wps_skills.core.action_session import ControllerContext
+from wps_skills.core.action_runtime import ControllerContext
 from wps_skills.windows.bridge_types import BackendActionFailure, WindowsDocument
-from wps_skills.word.adapter import (
-    WordBackendAcquisition,
-    WordBackendOperation,
-    WordBackendPreparation,
-    WordDefiniteEstablishFailure,
-    WordUnprovableEstablishFailure,
-)
+from wps_skills.word.backend.acquisition import WordBackendAcquisition
+from wps_skills.word.backend.operation import WordBackendOperation
+from wps_skills.word.backend.preparation import WordBackendPreparation
+from wps_skills.word.backend.exceptions import WordDefiniteEstablishFailure, WordUnprovableEstablishFailure
 
 
 @runtime_checkable
 class WindowsWordBridge(Protocol):
-    """Private synchronous seam to the Session-owned PowerShell bridge."""
+    """Private synchronous seam to the Task-owned PowerShell bridge."""
 
     def execute(
         self,

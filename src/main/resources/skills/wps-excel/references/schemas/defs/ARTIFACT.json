@@ -1,0 +1,1 @@
+{"type":"object","properties":{"path":{"type":"string","maxLength":32768,"format":"absoluteXlsxPath"},"format":{"const":"xlsx"},"sizeBytes":{"type":"integer","minimum":1}},"required":["path","format","sizeBytes"],"additionalProperties":false}

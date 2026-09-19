@@ -1,0 +1,6579 @@
+{
+  "openWorkbook": {
+    "address": {
+      "app": "excel",
+      "action": "openWorkbook"
+    },
+    "purpose": "Open or reuse one exact existing .xlsx workbook.",
+    "category": "workbook",
+    "bindingRole": "establish",
+    "risk": "read",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 32768,
+          "format": "absoluteXlsxPath"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "maxLength": 32768,
+              "format": "absoluteXlsxPath"
+            },
+            "format": {
+              "const": "xlsx"
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path",
+            "format",
+            "sizeBytes"
+          ],
+          "additionalProperties": false
+        },
+        "documentState": {
+          "type": "object",
+          "properties": {
+            "persistenceState": {
+              "type": "string",
+              "maxLength": 4096,
+              "enum": [
+                "unsaved",
+                "saved",
+                "modified"
+              ]
+            },
+            "readOnly": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "persistenceState",
+            "readOnly"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "artifact",
+        "documentState"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "Explicit existing-file or new-document intent; UNBOUND Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "path": "C:\\work\\book.xlsx"
+        }
+      }
+    ]
+  },
+  "getWorkbookInfo": {
+    "address": {
+      "app": "excel",
+      "action": "getWorkbookInfo"
+    },
+    "purpose": "Inspect bound workbook identity, saved state and date system.",
+    "category": "workbook",
+    "bindingRole": "required",
+    "risk": "read",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 32768,
+          "minLength": 1
+        },
+        "documentState": {
+          "type": "object",
+          "properties": {
+            "persistenceState": {
+              "type": "string",
+              "maxLength": 4096,
+              "enum": [
+                "unsaved",
+                "saved",
+                "modified"
+              ]
+            },
+            "readOnly": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "persistenceState",
+            "readOnly"
+          ],
+          "additionalProperties": false
+        },
+        "date1904": {
+          "type": "boolean"
+        },
+        "worksheetCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "window": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "hwnd": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "processId": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "hwnd",
+                "processId"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "documentState",
+        "date1904",
+        "worksheetCount",
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {}
+      }
+    ]
+  },
+  "listWorksheets": {
+    "address": {
+      "app": "excel",
+      "action": "listWorksheets"
+    },
+    "purpose": "Read a bounded page of worksheet names and indices.",
+    "category": "worksheets",
+    "bindingRole": "required",
+    "risk": "read",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "offset",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "worksheets": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 31,
+                "minLength": 1
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "name",
+              "index"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nextOffset": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "worksheets",
+        "total",
+        "nextOffset"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "offset": 0,
+          "limit": 100
+        }
+      }
+    ]
+  },
+  "readRange": {
+    "address": {
+      "app": "excel",
+      "action": "readRange"
+    },
+    "purpose": "Read values, formulas, displayed text and format with a region token.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "read",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "sheet",
+        "address"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B1"
+        }
+      }
+    ]
+  },
+  "writeRange": {
+    "address": {
+      "app": "excel",
+      "action": "writeRange"
+    },
+    "purpose": "Write an exact matrix of literal values and verify the result.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "format": "excelLiteral"
+                }
+              ]
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "values"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B1",
+          "expectedToken": "read-token",
+          "values": [
+            [
+              "Item",
+              42
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "setFormulas": {
+    "address": {
+      "app": "excel",
+      "action": "setFormulas"
+    },
+    "purpose": "Write an exact matrix of invariant A1 formulas and read them back.",
+    "category": "formulas",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "formulas": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 8192,
+              "minLength": 2,
+              "format": "excelFormula",
+              "description": "Invariant formula with same-sheet A1 references; supported functions: ABS, AND, AVERAGE, CONCATENATE, COUNT, COUNTA, COUNTBLANK, COUNTIF, COUNTIFS, DATE, DAY, FIND, HLOOKUP, IF, IFERROR, INDEX, LEFT, LEN, LOWER, MATCH, MAX, MID, MIN, MONTH, NOT, OR, RIGHT, ROUND, ROUNDDOWN, ROUNDUP, SEARCH, SUBSTITUTE, SUM, SUMIF, SUMIFS, TEXT, TRIM, UPPER, VALUE, VLOOKUP, YEAR. No external workbook or cross-sheet references."
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "formulas"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B1",
+          "expectedToken": "read-token",
+          "formulas": [
+            [
+              "=1+1",
+              "=A1*2"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "calculateRange": {
+    "address": {
+      "app": "excel",
+      "action": "calculateRange"
+    },
+    "purpose": "Recalculate the specified bound-workbook region and inspect results.",
+    "category": "formulas",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B1",
+          "expectedToken": "read-token"
+        }
+      }
+    ]
+  },
+  "formatRange": {
+    "address": {
+      "app": "excel",
+      "action": "formatRange"
+    },
+    "purpose": "Set number, font, color, wrapping and alignment formats, verifying each cell.",
+    "category": "formatting",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1,
+          "description": "One A1 rectangle, at most 1000 cells. May include merged cells only when every intersecting merged area is fully contained. Protected sheets and array formulas are unsupported."
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "format": {
+          "type": "object",
+          "properties": {
+            "italic": {
+              "type": "boolean"
+            },
+            "fontSize": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 409
+            },
+            "fontColor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16777215
+            },
+            "fillColor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16777215
+            },
+            "wrapText": {
+              "type": "boolean"
+            },
+            "horizontalAlignment": {
+              "type": "string",
+              "maxLength": 4096,
+              "enum": [
+                "general",
+                "left",
+                "center",
+                "right"
+              ]
+            },
+            "verticalAlignment": {
+              "type": "string",
+              "maxLength": 4096,
+              "enum": [
+                "top",
+                "center",
+                "bottom"
+              ]
+            },
+            "numberFormat": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "bold": {
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "format"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B1",
+          "expectedToken": "read-token",
+          "format": {
+            "bold": true
+          }
+        }
+      }
+    ]
+  },
+  "save": {
+    "address": {
+      "app": "excel",
+      "action": "save"
+    },
+    "purpose": "Save the existing .xlsx locator and verify persistence without retargeting.",
+    "category": "persistence",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "maxLength": 32768,
+              "format": "absoluteXlsxPath"
+            },
+            "format": {
+              "const": "xlsx"
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path",
+            "format",
+            "sizeBytes"
+          ],
+          "additionalProperties": false
+        },
+        "documentState": {
+          "type": "object",
+          "properties": {
+            "persistenceState": {
+              "const": "saved"
+            },
+            "readOnly": {
+              "const": false
+            }
+          },
+          "required": [
+            "persistenceState",
+            "readOnly"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "artifact",
+        "documentState"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {}
+      }
+    ]
+  },
+  "getWorksheetInfo": {
+    "address": {
+      "app": "excel",
+      "action": "getWorksheetInfo"
+    },
+    "purpose": "Inspect worksheet structure and bounded used content with an edit token.",
+    "category": "worksheets",
+    "bindingRole": "required",
+    "risk": "read",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "sheet"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1"
+        }
+      }
+    ]
+  },
+  "addWorksheet": {
+    "address": {
+      "app": "excel",
+      "action": "addWorksheet"
+    },
+    "purpose": "Add a named worksheet after the specified worksheet.",
+    "category": "worksheets",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token",
+          "name": "New"
+        }
+      }
+    ]
+  },
+  "renameWorksheet": {
+    "address": {
+      "app": "excel",
+      "action": "renameWorksheet"
+    },
+    "purpose": "Rename the exact worksheet and verify its new name.",
+    "category": "worksheets",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token",
+          "name": "Renamed"
+        }
+      }
+    ]
+  },
+  "copyWorksheet": {
+    "address": {
+      "app": "excel",
+      "action": "copyWorksheet"
+    },
+    "purpose": "Copy the exact worksheet within this workbook under a new name.",
+    "category": "worksheets",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token",
+          "name": "Copy"
+        }
+      }
+    ]
+  },
+  "moveWorksheet": {
+    "address": {
+      "app": "excel",
+      "action": "moveWorksheet"
+    },
+    "purpose": "Move the worksheet to a one-based position in this workbook.",
+    "category": "worksheets",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken",
+        "index"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token",
+          "index": 1
+        }
+      }
+    ]
+  },
+  "deleteWorksheet": {
+    "address": {
+      "app": "excel",
+      "action": "deleteWorksheet"
+    },
+    "purpose": "Delete the observed worksheet; refuse the last visible worksheet.",
+    "category": "worksheets",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token"
+        }
+      }
+    ]
+  },
+  "insertRows": {
+    "address": {
+      "app": "excel",
+      "action": "insertRows"
+    },
+    "purpose": "Insert whole rows in a bounded worksheet and verify the shifted cells.",
+    "category": "structure",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken",
+        "start",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token",
+          "start": 2,
+          "count": 1
+        }
+      }
+    ]
+  },
+  "deleteRows": {
+    "address": {
+      "app": "excel",
+      "action": "deleteRows"
+    },
+    "purpose": "Delete whole rows in a bounded worksheet and verify remaining cells.",
+    "category": "structure",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken",
+        "start",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token",
+          "start": 2,
+          "count": 1
+        }
+      }
+    ]
+  },
+  "insertColumns": {
+    "address": {
+      "app": "excel",
+      "action": "insertColumns"
+    },
+    "purpose": "Insert whole columns in a bounded worksheet.",
+    "category": "structure",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken",
+        "start",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token",
+          "start": 2,
+          "count": 1
+        }
+      }
+    ]
+  },
+  "deleteColumns": {
+    "address": {
+      "app": "excel",
+      "action": "deleteColumns"
+    },
+    "purpose": "Delete whole columns in a bounded worksheet.",
+    "category": "structure",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest getWorksheetInfo; valid only in this Task and while its observed state is unchanged."
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "sheet",
+        "expectedToken",
+        "start",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "usedAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "index",
+        "visible",
+        "usedAddress",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "expectedToken": "worksheet-token",
+          "start": 2,
+          "count": 1
+        }
+      }
+    ]
+  },
+  "clearRange": {
+    "address": {
+      "app": "excel",
+      "action": "clearRange"
+    },
+    "purpose": "Clear contents, formatting, or both in the observed region.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "mode": {
+          "type": "string",
+          "maxLength": 4096,
+          "enum": [
+            "contents",
+            "formats",
+            "all"
+          ]
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token",
+          "mode": "contents"
+        }
+      }
+    ]
+  },
+  "mergeRange": {
+    "address": {
+      "app": "excel",
+      "action": "mergeRange"
+    },
+    "purpose": "Merge a rectangle only when all cells except its top-left are empty.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token"
+        }
+      }
+    ]
+  },
+  "unmergeRange": {
+    "address": {
+      "app": "excel",
+      "action": "unmergeRange"
+    },
+    "purpose": "Unmerge only merged areas wholly contained in the rectangle.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token"
+        }
+      }
+    ]
+  },
+  "sortRange": {
+    "address": {
+      "app": "excel",
+      "action": "sortRange"
+    },
+    "purpose": "Sort constant-value rows by one relative column, with explicit header handling.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "order": {
+          "type": "string",
+          "maxLength": 4096,
+          "enum": [
+            "ascending",
+            "descending"
+          ]
+        },
+        "header": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "column",
+        "order",
+        "header"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token",
+          "column": 1,
+          "order": "ascending",
+          "header": true
+        }
+      }
+    ]
+  },
+  "filterRange": {
+    "address": {
+      "app": "excel",
+      "action": "filterRange"
+    },
+    "purpose": "Apply one literal equals filter, preserving the header row.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 255,
+          "format": "excelLiteral"
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "column",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token",
+          "column": 1,
+          "value": "Item"
+        }
+      }
+    ]
+  },
+  "clearFilter": {
+    "address": {
+      "app": "excel",
+      "action": "clearFilter"
+    },
+    "purpose": "Remove the worksheet filter only if its range matches the observed rectangle.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token"
+        }
+      }
+    ]
+  },
+  "setRowHeight": {
+    "address": {
+      "app": "excel",
+      "action": "setRowHeight"
+    },
+    "purpose": "Set row height in points for rows intersecting this region.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 409
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token",
+          "height": 24
+        }
+      }
+    ]
+  },
+  "setColumnWidth": {
+    "address": {
+      "app": "excel",
+      "action": "setColumnWidth"
+    },
+    "purpose": "Set column width in character units for columns intersecting this region.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 255
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "width"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token",
+          "width": 18
+        }
+      }
+    ]
+  },
+  "autoFitColumns": {
+    "address": {
+      "app": "excel",
+      "action": "autoFitColumns"
+    },
+    "purpose": "Auto-fit columns to the cells in the specified region.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token"
+        }
+      }
+    ]
+  },
+  "replaceInRange": {
+    "address": {
+      "app": "excel",
+      "action": "replaceInRange"
+    },
+    "purpose": "Replace literal text in string constants; never edit formulas.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1,
+          "format": "excelLiteral"
+        },
+        "replacement": {
+          "type": "string",
+          "maxLength": 4096,
+          "format": "excelLiteral"
+        },
+        "matchCase": {
+          "type": "boolean"
+        },
+        "wholeCell": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "text",
+        "replacement",
+        "matchCase",
+        "wholeCell"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B3",
+          "expectedToken": "read-token",
+          "text": "old",
+          "replacement": "new",
+          "matchCase": true,
+          "wholeCell": false
+        }
+      }
+    ]
+  },
+  "copyRange": {
+    "address": {
+      "app": "excel",
+      "action": "copyRange"
+    },
+    "purpose": "Copy literal values to an equally sized nonoverlapping region, validating both tokens.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "expectedToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1,
+          "description": "Use data.token from the latest readRange of the same sheet and address; valid only in this Task and while its observed state is unchanged."
+        },
+        "targetSheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "targetAddress": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "targetToken": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "expectedToken",
+        "targetSheet",
+        "targetAddress",
+        "targetToken"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 32767
+                    }
+                  ]
+                },
+                "formula": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 8192,
+                      "minLength": 1
+                    }
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 32768
+                },
+                "errorCode": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "numberFormat": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "fontSize": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 409
+                },
+                "fontColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "fillColor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777215
+                },
+                "wrapText": {
+                  "type": "boolean"
+                },
+                "horizontalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "general",
+                    "left",
+                    "center",
+                    "right",
+                    "other"
+                  ]
+                },
+                "verticalAlignment": {
+                  "type": "string",
+                  "maxLength": 4096,
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom",
+                    "other"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                },
+                "rowHidden": {
+                  "type": "boolean"
+                },
+                "columnHidden": {
+                  "type": "boolean"
+                },
+                "rowHeight": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "columnWidth": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "formula",
+                "text",
+                "errorCode",
+                "numberFormat",
+                "bold"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "x-rectangular": true,
+          "x-maxCells": 1000,
+          "x-maxUtf16Length": 262144
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B1",
+          "expectedToken": "read-token",
+          "targetSheet": "Sheet1",
+          "targetAddress": "A3:B3",
+          "targetToken": "target-token"
+        }
+      }
+    ]
+  },
+  "findInRange": {
+    "address": {
+      "app": "excel",
+      "action": "findInRange"
+    },
+    "purpose": "Find literal text in values or formulas within a bounded region.",
+    "category": "ranges",
+    "bindingRole": "required",
+    "risk": "read",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "matchCase": {
+          "type": "boolean"
+        },
+        "wholeCell": {
+          "type": "boolean"
+        },
+        "lookIn": {
+          "type": "string",
+          "maxLength": 4096,
+          "enum": [
+            "values",
+            "formulas"
+          ]
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "text",
+        "matchCase",
+        "wholeCell",
+        "lookIn"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "sheet": {
+          "type": "string",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "token": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "matches": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string",
+                "maxLength": 32,
+                "minLength": 1
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 32768
+              }
+            },
+            "required": [
+              "address",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "sheet",
+        "address",
+        "token",
+        "matches"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {
+          "sheet": "Sheet1",
+          "address": "A1:B1",
+          "text": "Item",
+          "matchCase": false,
+          "wholeCell": false,
+          "lookIn": "values"
+        }
+      }
+    ]
+  },
+  "createWorkbook": {
+    "address": {
+      "app": "excel",
+      "action": "createWorkbook"
+    },
+    "purpose": "Create one blank unsaved document; no file path.",
+    "category": "persistence",
+    "bindingRole": "establish",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "documentState": {
+          "type": "object",
+          "properties": {
+            "persistenceState": {
+              "type": "string",
+              "maxLength": 4096,
+              "enum": [
+                "unsaved",
+                "saved",
+                "modified"
+              ]
+            },
+            "readOnly": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "persistenceState",
+            "readOnly"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "documentState"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "Explicit existing-file or new-document intent; UNBOUND Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version."
+    ],
+    "examples": [
+      {
+        "params": {}
+      }
+    ]
+  },
+  "saveAs": {
+    "address": {
+      "app": "excel",
+      "action": "saveAs"
+    },
+    "purpose": "First-save or save the same live document to an absent destination.",
+    "category": "persistence",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "outputPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "format": "absoluteXlsxPath"
+        },
+        "overwritePolicy": {
+          "const": "failIfExists"
+        }
+      },
+      "required": [
+        "outputPath",
+        "overwritePolicy"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "maxLength": 32768,
+              "format": "absoluteXlsxPath"
+            },
+            "format": {
+              "const": "xlsx"
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path",
+            "format",
+            "sizeBytes"
+          ],
+          "additionalProperties": false
+        },
+        "documentState": {
+          "type": "object",
+          "properties": {
+            "persistenceState": {
+              "type": "string",
+              "maxLength": 4096,
+              "enum": [
+                "unsaved",
+                "saved",
+                "modified"
+              ]
+            },
+            "readOnly": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "persistenceState",
+            "readOnly"
+          ],
+          "additionalProperties": false
+        },
+        "replacedExisting": {
+          "const": false
+        }
+      },
+      "required": [
+        "artifact",
+        "documentState",
+        "replacedExisting"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version.",
+      "Save As and PDF export verify at most 20 worksheets, each UsedRange at most 1000 cells; only absent destinations with failIfExists. PDF follows current native print settings."
+    ],
+    "examples": [
+      {
+        "params": {
+          "outputPath": "C:/work/new.xlsx",
+          "overwritePolicy": "failIfExists"
+        }
+      }
+    ]
+  },
+  "exportPdf": {
+    "address": {
+      "app": "excel",
+      "action": "exportPdf"
+    },
+    "purpose": "Export to an absent destination without saving the document.",
+    "category": "persistence",
+    "bindingRole": "required",
+    "risk": "write",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "outputPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "format": "absolutePdfPath"
+        },
+        "overwritePolicy": {
+          "const": "failIfExists"
+        }
+      },
+      "required": [
+        "outputPath",
+        "overwritePolicy"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "maxLength": 4096,
+              "format": "absolutePdfPath"
+            },
+            "format": {
+              "const": "pdf"
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path",
+            "format",
+            "sizeBytes"
+          ],
+          "additionalProperties": false
+        },
+        "documentStateBefore": {
+          "type": "object",
+          "properties": {
+            "persistenceState": {
+              "type": "string",
+              "maxLength": 4096,
+              "enum": [
+                "unsaved",
+                "saved",
+                "modified"
+              ]
+            },
+            "readOnly": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "persistenceState",
+            "readOnly"
+          ],
+          "additionalProperties": false
+        },
+        "documentStateAfter": {
+          "type": "object",
+          "properties": {
+            "persistenceState": {
+              "type": "string",
+              "maxLength": 4096,
+              "enum": [
+                "unsaved",
+                "saved",
+                "modified"
+              ]
+            },
+            "readOnly": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "persistenceState",
+            "readOnly"
+          ],
+          "additionalProperties": false
+        },
+        "replacedExisting": {
+          "const": false
+        }
+      },
+      "required": [
+        "artifact",
+        "documentStateBefore",
+        "documentStateAfter",
+        "replacedExisting"
+      ],
+      "additionalProperties": false
+    },
+    "errors": [
+      "PERSISTENCE_LOCATOR_REQUIRED",
+      "OUTPUT_ALREADY_EXISTS",
+      "OUTPUT_MATCHES_BOUND_DOCUMENT",
+      "OUTPUT_PARENT_NOT_FOUND",
+      "OUTPUT_PATH_INVALID",
+      "OUTPUT_IN_USE",
+      "OUTPUT_ACCESS_DENIED",
+      "DOCUMENT_CHANGED_DURING_ACTION",
+      "INVALID_PARAMS",
+      "UNKNOWN_ACTION",
+      "TASK_APP_MISMATCH",
+      "TASK_DOCUMENT_NOT_BOUND",
+      "TASK_DOCUMENT_ALREADY_BOUND",
+      "DOCUMENT_NOT_FOUND",
+      "DOCUMENT_ACCESS_DENIED",
+      "DOCUMENT_OPEN_FAILED",
+      "DOCUMENT_BINDING_UNAVAILABLE",
+      "DOCUMENT_LEASE_CONFLICT",
+      "DOCUMENT_QUARANTINED",
+      "DOCUMENT_CLOSED",
+      "DOCUMENT_READ_ONLY",
+      "WORKSHEET_NOT_FOUND",
+      "RANGE_UNSUPPORTED",
+      "STALE_RANGE",
+      "RANGE_READ_FAILED",
+      "RANGE_WRITE_FAILED",
+      "RANGE_VERIFICATION_FAILED",
+      "OUTPUT_WRITE_FAILED",
+      "OUTPUT_VERIFICATION_FAILED",
+      "EXCEL_CAPABILITY_UNAVAILABLE",
+      "RESPONSE_LOST"
+    ],
+    "verification": "Read back the exact region and compare values, formulas and requested format; inspect errors. Save must prove continuous binding and the saved artifact.",
+    "prerequisites": [
+      "One exact live Workbook is bound to this Excel Task."
+    ],
+    "constraints": [
+      "One worksheet-local contiguous A1 rectangle, at most 1000 cells per Action.",
+      "Region writes use readRange tokens; worksheet and structure writes use getWorksheetInfo tokens. No automatic replay.",
+      "No active-window targeting, external workbook references, or implicit save.",
+      "Values are JSON scalars; dates are serial numbers interpreted with date1904 and numberFormat.",
+      "Formula dialect and calculation compatibility require validation on the installed WPS version.",
+      "Save As and PDF export verify at most 20 worksheets, each UsedRange at most 1000 cells; only absent destinations with failIfExists. PDF follows current native print settings."
+    ],
+    "examples": [
+      {
+        "params": {
+          "outputPath": "C:/work/output.pdf",
+          "overwritePolicy": "failIfExists"
+        }
+      }
+    ]
+  }
+}

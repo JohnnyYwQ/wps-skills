@@ -1,0 +1,1 @@
+{"type":"object","properties":{"slideId":{"type":"integer","minimum":1,"maximum":2147483647},"text":{"type":"string","maxLength":10000,"format":"pptText"},"token":{"type":"string","maxLength":128,"minLength":1}},"required":["slideId","text","token"],"additionalProperties":false}

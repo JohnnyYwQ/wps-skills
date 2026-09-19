@@ -1,0 +1,1 @@
+{"parameters":{"type":"object","properties":{"sheet":{"type":"string","maxLength":31,"minLength":1},"address":{"type":"string","maxLength":32,"minLength":1}},"required":["sheet","address"],"additionalProperties":false},"result":{"$ref":"#/$defs/SNAPSHOT"},"examples":[{"params":{"sheet":"Sheet1","address":"A1:B1"}}]}

@@ -1,0 +1,178 @@
+{
+  "app": "word",
+  "document": {
+    "address": {
+      "app": "word",
+      "action": "createDocument"
+    },
+    "params": {}
+  },
+  "steps": [
+    {
+      "id": "seed",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "documentEnd"
+        },
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "订单A：待处理"
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "订单B：待处理"
+              }
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "runs": [
+              {
+                "text": "结束标记"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "find_old",
+      "address": {
+        "app": "word",
+        "action": "findContent"
+      },
+      "params": {
+        "query": {
+          "scope": {
+            "kind": "document"
+          },
+          "text": "待处理",
+          "caseSensitive": true,
+          "wholeWord": false
+        },
+        "limit": 20
+      }
+    },
+    {
+      "id": "replace_all",
+      "address": {
+        "app": "word",
+        "action": "replaceContent"
+      },
+      "params": {
+        "target": {
+          "kind": "query",
+          "query": {
+            "scope": {
+              "kind": "document"
+            },
+            "text": "待处理",
+            "caseSensitive": true,
+            "wholeWord": false
+          },
+          "expectedMatchCount": 2
+        },
+        "replacement": {
+          "kind": "text",
+          "runs": [
+            {
+              "text": "已完成并复核"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "find_new",
+      "address": {
+        "app": "word",
+        "action": "findContent"
+      },
+      "params": {
+        "query": {
+          "scope": {
+            "kind": "document"
+          },
+          "text": "已完成并复核",
+          "caseSensitive": true,
+          "wholeWord": false
+        },
+        "limit": 20
+      }
+    },
+    {
+      "id": "find_anchor",
+      "address": {
+        "app": "word",
+        "action": "findContent"
+      },
+      "params": {
+        "query": {
+          "scope": {
+            "kind": "document"
+          },
+          "text": "结束标记",
+          "caseSensitive": true,
+          "wholeWord": false
+        },
+        "limit": 20
+      }
+    },
+    {
+      "id": "insert",
+      "address": {
+        "app": "word",
+        "action": "writeContent"
+      },
+      "params": {
+        "anchor": {
+          "kind": "before",
+          "range": {
+            "$ref": {
+              "step": "find_anchor",
+              "path": [
+                "data",
+                "matches",
+                0,
+                "range"
+              ]
+            }
+          }
+        },
+        "blocks": [
+          {
+            "kind": "text",
+            "runs": [
+              {
+                "text": "复核说明："
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "completion": [
+    {
+      "address": {
+        "app": "word",
+        "action": "saveAs"
+      },
+      "params": {
+        "outputPath": "C:/wps-word-advanced/outputs/advanced-output-21.docx",
+        "overwritePolicy": "failIfExists"
+      }
+    }
+  ]
+}

@@ -1,9 +1,15 @@
+$timingWriter = Get-Command Write-WordBridgeTiming -ErrorAction SilentlyContinue
+if (-not $timingWriter) { $timingWriter = Get-Command Write-ApplicationBridgeTiming -ErrorAction SilentlyContinue }
+$timingEnabled = [bool]$timingWriter
 try {
     while ($null -ne ($line = [Console]::In.ReadLine())) {
         if ([string]::IsNullOrWhiteSpace($line)) {
             continue
         }
         $requestId = 'unparsed'
+        $request = $null
+        $nativePhase = 'native.decode_validate'
+        if ($timingEnabled) { $nativeTimer = [Diagnostics.Stopwatch]::StartNew() }
         try {
             $request = $line | ConvertFrom-Json -ErrorAction Stop
             if (-not (Test-ExactFields -Value $request -Expected @('requestId', 'traceId', 'operation', 'arguments'))) {
@@ -22,6 +28,12 @@ try {
             if ($request.arguments -isnot [pscustomobject]) {
                 throw 'Bridge arguments must be an object.'
             }
+            if ($timingEnabled) {
+                $nativeTimer.Stop()
+                & $timingWriter -RequestId $requestId -TraceId $request.traceId -Operation $request.operation -Phase $nativePhase -DurationMs $nativeTimer.Elapsed.TotalMilliseconds
+                $nativePhase = 'native.operation'
+                $nativeTimer.Restart()
+            }
             $response = Invoke-BridgeOperation `
                 -RequestId $requestId `
                 -Operation ([string]$request.operation) `
@@ -35,7 +47,18 @@ try {
                 -Message $_.Exception.Message `
                 -BindingDisposition unchanged
         }
-        Write-BridgeRecord -Record $response
+        if ($timingEnabled) {
+            $nativeTimer.Stop()
+            & $timingWriter -RequestId $requestId -TraceId $request.traceId -Operation $request.operation -Phase $nativePhase -DurationMs $nativeTimer.Elapsed.TotalMilliseconds -Outcome $response.outcome
+            $nativeTimer.Restart()
+        }
+        try { Write-BridgeRecord -Record $response }
+        finally {
+            if ($timingEnabled) {
+                $nativeTimer.Stop()
+                & $timingWriter -RequestId $requestId -TraceId $request.traceId -Operation $request.operation -Phase 'native.response_write' -DurationMs $nativeTimer.Elapsed.TotalMilliseconds
+            }
+        }
     }
 }
 finally {

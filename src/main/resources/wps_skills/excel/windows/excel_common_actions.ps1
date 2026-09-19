@@ -146,7 +146,9 @@ function Invoke-ExcelSheetAction {
                 finally { Release-ExcelReference $used }
                 $address = if ($isRows) { 'A'+$start+':A'+($start+$count-1) } else { (Get-ExcelColumnName $start)+'1:'+(Get-ExcelColumnName ($start+$count-1))+'1' }
                 $range=$sheet.Range($address)
-                $axis=if ($isRows) { $range.EntireRow } else { $range.EntireColumn }
+                # Keep the COM Range itself: emitting it from an if expression
+                # enumerates multiple rows/columns into a PowerShell Object[].
+                if ($isRows) { $axis=$range.EntireRow } else { $axis=$range.EntireColumn }
                 $script:ActionMayHaveEffect=$true
                 if ($insert) { $axis.Insert() | Out-Null } else { $axis.Delete() | Out-Null }
             }

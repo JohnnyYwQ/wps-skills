@@ -3,7 +3,7 @@
 from types import MappingProxyType
 from typing import Mapping
 
-from wps_skills.core.action_session import ActionError, ControllerResult
+from wps_skills.core.action_runtime import ActionError, ControllerResult
 from wps_skills.windows.bridge_types import BackendActionFailure
 
 PRIVATE_OPERATIONS = MappingProxyType({name: name for name in (
