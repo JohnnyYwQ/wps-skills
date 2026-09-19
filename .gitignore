@@ -7,15 +7,8 @@
 # ============================================
 # 独立设计实验仅在本地保留，不提交
 /experiments/
-/docs/*
-!/docs/README.md
-!/docs/build-layout.md
-!/docs/reports/
-!/docs/testing/
-!/docs/notes/
-/docs/notes/*
-!/docs/notes/PROJECTION_DECISION.md
-!/docs/notes/decision.md
+# 文档、设计笔记与测试报告仅在本地保留
+/docs/
 WPS接口API/
 planplan.md
 CONTEXT.md

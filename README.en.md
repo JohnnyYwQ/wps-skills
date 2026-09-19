@@ -162,7 +162,7 @@ python scripts/doctor.py --app excel
 python scripts/doctor.py --app ppt
 ```
 
-By default, doctor checks prerequisites such as the desktop session, COM registration, PowerShell, and Chinese text transport, without starting WPS or modifying documents. Passing these checks does not guarantee that every document operation is available. See the [environment check guide (中文)](docs/testing/environment-doctor.md) for details.
+By default, doctor checks prerequisites such as the desktop session, COM registration, PowerShell, and Chinese text transport, without starting WPS or modifying documents. Passing these checks does not guarantee that every document operation is available. Run `python scripts/doctor.py --help` for more options.
 
 </details>
 

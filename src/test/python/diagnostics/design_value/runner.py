@@ -599,7 +599,7 @@ def main(kit):
     root=args.root.resolve();root.mkdir(parents=True,exist_ok=False);(root/'outputs').mkdir()
     manifest=read(kit/'manifest.json')
     for name,digest in manifest['files'].items():require(sha(kit/name)==digest,'Changed test package',path=name)
-    write(root/'plan.json',{'groups':args.groups,'apps':args.apps,'trials':args.trials,'kitManifestSha256':sha(kit/'manifest.json'),'document':'PLAN.md'})
+    write(root/'plan.json',{'groups':args.groups,'apps':args.apps,'trials':args.trials,'kitManifestSha256':sha(kit/'manifest.json'),'document':'PLAN.md' if (kit/'PLAN.md').is_file() else None})
     write(root/'environment.json',{'python':sys.version,'executable':sys.executable,'sessionId':session.value,'pid':os.getpid()})
     experiment=Experiments(kit,root)
     report={'state':'running','startedUtc':datetime.now(timezone.utc).isoformat(),'experiments':[]}

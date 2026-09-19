@@ -162,7 +162,7 @@ python scripts/doctor.py --app excel
 python scripts/doctor.py --app ppt
 ```
 
-doctor 默认检查桌面会话、COM 注册、PowerShell 和中文通信等条件，不启动 WPS 或修改文档。环境检查通过不等于所有文档操作都可用，详细用法见 [环境检查说明](docs/testing/environment-doctor.md)。
+doctor 默认检查桌面会话、COM 注册、PowerShell 和中文通信等条件，不启动 WPS 或修改文档。环境检查通过不等于所有文档操作都可用，更多选项运行 `python scripts/doctor.py --help` 查看。
 
 </details>
 

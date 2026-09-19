@@ -51,12 +51,12 @@ python scripts/validate/word.py --output-dir build/word-acceptance-new
 | `scripts/acceptance/summarize_complex.py --root <三应用结果父目录> --output <汇总目录>` | 从现有回执和 trace 生成 JSON、CSV 与源文件哈希，不执行 WPS。 |
 | `scripts/validate/applications.py --root <新目录>` | Excel/PPT 的原生 Task 基础流程检查；目录中需预先放入 `skills/wps-word`、`skills/wps-excel`、`skills/wps-ppt`。 |
 
-独立包的三个脚本在 Windows 已登录桌面依次运行。固定请求、响应断言和运行边界见 [全 Action 脚本用法](../docs/testing/action-execution-plan.md) 与 [复杂业务脚本用法](../docs/testing/complex-task-execution-plan.md)。
+独立包的三个脚本在 Windows 已登录桌面依次运行，使用 `--help` 查看参数。固定请求和响应断言定义在 `src/test/python/tests/applications/` 中的 `action_suite.py` 与 `complex_business_suite.py`。`docs/` 中的计划与报告仅在本地保留；构建时若存在对应说明，会一并放入测试包。
 
 ## 分段调试
 
-- `scripts/debug/startup_communication.py pack/start/status/collect/stop/report`：准备独立包、远程启动、查询状态及取回证据，见 [启动通信工具说明](../docs/testing/startup-communication/README.md)。
-- `scripts/debug/design_value.py pack/start/status/resources/collect/report`：设计验证工具，见 [终端用法](../docs/testing/design-experiment-usage.md)。当前远程启动入口依赖 SSH 别名 `win` 和既有 Windows Python 路径；换机器需调整配置或使用包内 Windows 手工入口。
+- `scripts/debug/startup_communication.py pack/start/status/collect/stop/report`：准备独立包、远程启动、查询状态及取回证据，使用 `--help` 查看命令参数。
+- `scripts/debug/design_value.py pack/start/status/resources/collect/report`：设计验证工具，使用 `--help` 查看命令参数。当前远程启动入口依赖 SSH 别名 `win` 和既有 Windows Python 路径；换机器需调整配置或使用包内 Windows 手工入口。
 
 这些工具使用 `src/test/` 中的实现和资源，不依赖本地 `experiments/`，也不进入插件安装包。
 

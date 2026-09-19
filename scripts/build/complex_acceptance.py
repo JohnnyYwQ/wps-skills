@@ -19,7 +19,8 @@ def main():
         shutil.copy2(ROOT/'src/test/python/tests/applications'/name,dest/'lib/tests/applications'/name)
     for app in ('word','excel','ppt'):
         (dest/('run_'+app+'.py')).write_text("from pathlib import Path\nimport sys\nROOT=Path(__file__).resolve().parent\nsys.path.insert(0,str(ROOT/'lib'))\nfrom tests.applications.complex_business_acceptance import main\nif __name__=='__main__': raise SystemExit(main(ROOT, fixed_app="+repr(app)+"))\n",encoding='utf-8')
-    shutil.copy2(ROOT/'docs/testing/complex-task-execution-plan.md',dest/'README.md')
+    guide=ROOT/'docs/testing/complex-task-execution-plan.md'
+    if guide.is_file():shutil.copy2(guide,dest/'README.md')
     snapshot={}
     for folder in ('src/main','src/test/python/tests/applications','src/test/resources/acceptance','scripts/build'):
         for f in (ROOT/folder).rglob('*'):

@@ -84,7 +84,9 @@ def build(destination):
     for source in resources.glob('*.ps1'):
         (destination / 'resources' / source.name).write_text(source.read_text(encoding='utf-8-sig'), encoding='utf-8-sig')
     shutil.copy2(REPO / 'src/test/resources/acceptance/environment.ps1', destination / 'resources/environment.ps1')
-    shutil.copy2(REPO / 'docs/testing/host-independent-experiments.md', destination / 'PLAN.md')
+    plan = REPO / 'docs/testing/host-independent-experiments.md'
+    if plan.is_file():
+        shutil.copy2(plan, destination / 'PLAN.md')
     (destination / 'README.md').write_text('''# WPS 设计实验独立包
 
 这是测试包，不是供 Agent 安装的正式 Skill。需要已通过环境检查的 Windows 交互桌面、Python 与 WPS。
@@ -98,9 +100,9 @@ python run.py --root C:/wps-tests/runs/new-run-01 --groups references preflight 
 
 结果目录必须尚不存在。用 `--apps word`、`--apps excel`、`--apps ppt` 可分别运行。故障会停止所在批次；下次换新目录，不重放原 Task。
 
-只关闭已保存并验证的成功测试文档；未保存/失败现场与 Quarantine 保留，不退出 WPS。`PLAN.md` 是事先声明的判断标准。`instrumentation.json` 记录测试补丁；`manifest.json` 记录逐文件 SHA-256。输出中包含原始请求、配置、响应、独立文档观察、回执和阶段日志。
+只关闭已保存并验证的成功测试文档；未保存/失败现场与 Quarantine 保留，不退出 WPS。构建时若有本地实验计划，会附带 `PLAN.md` 记录事先声明的判断标准。`instrumentation.json` 记录测试补丁；`manifest.json` 记录逐文件 SHA-256。输出中包含原始请求、配置、响应、独立文档观察、回执和阶段日志。
 
-Mac 调度与多轮汇总使用仓库中的 `scripts/debug/design_value.py`，详见仓库 `docs/testing/design-experiment-usage.md`。
+Mac 调度与多轮汇总使用仓库中的 `scripts/debug/design_value.py`，运行该脚本并添加 `--help` 查看命令参数。
 ''',encoding='utf-8')
     (destination / 'run.py').write_text('''from pathlib import Path
 import sys
